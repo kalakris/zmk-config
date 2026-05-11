@@ -51,8 +51,12 @@ layers' bindings are `&trans`, falling through).
 ## Files touched
 
 - `config/west.yml` — points `zmk` project at `darknao/zmk:rgb-layer-24.12`.
-- `config/go60.conf` — adds `CONFIG_EXPERIMENTAL_RGB_LAYER=y` and sets
-  `CONFIG_ZMK_RGB_UNDERGLOW_EFF_START=4` (was `3` = SWIRL).
+- `config/go60.conf` — adds `CONFIG_EXPERIMENTAL_RGB_LAYER=y`. Leaves
+  `CONFIG_ZMK_RGB_UNDERGLOW_EFF_START=3` (SWIRL) because the Kconfig
+  range for `EFF_START` is hardcoded `[0,3]` and is **not** widened by
+  `EXPERIMENTAL_RGB_LAYER`. Setting it to `4` causes a fatal Kconfig
+  warning. Effect 4 (layer-indicators) must be reached by one tap of
+  `RGB_EFF` after enabling underglow.
 - `config/go60.keymap` — adds an `underglow-layer { ... }` block (extends
   the node already declared in `app/boards/arm/go60/go60_lh.dts` and
   `go60_rh.dts`) with one `*_rgb` child per layer. Plus `IND_*` colour
@@ -78,11 +82,11 @@ layers' bindings are `&trans`, falling through).
 - `state.layer_enabled` is initialised to `false` on every boot, regardless
   of `EFF_START`. With `ON_START=n` (our existing setting), RGB is off
   on cold boot.
-- The first time you toggle RGB on (`&rgb_ug RGB_TOG` — already bound on
-  the Magic layer), if `current_effect == LAYER_INDICATORS` (which it is,
-  thanks to `EFF_START=4`), `layer_enabled` flips to `true`.
+- Cold boot effect is SWIRL (effect 3). To activate layer-indicators
+  (effect 4), tap `RGB_EFF` once. The `_select_effect` code sets
+  `state.layer_enabled = (effect == LAYER_INDICATORS)` and persists it.
 - Once `layer_enabled = true`, settings are persisted to flash, so future
-  boots restore it automatically.
+  boots restore both the effect choice and the on/off state automatically.
 - Auto-off-idle still applies. After `ZMK_IDLE_TIMEOUT` ms (default 30 s
   on Go60 from `Kconfig.defconfig`) of no activity, RGB powers down.
   It re-enables on next layer change.
@@ -90,9 +94,13 @@ layers' bindings are `&trans`, falling through).
 ## First-boot procedure
 
 1. Flash both halves with the new firmware.
-2. Hold the Magic-layer key, tap `RGB TOG` (the LED-toggle binding on
-   Magic). Both indicator LEDs should light up to reflect the active layer.
-3. Activate any non-base layer to confirm: e.g. tap-hold for Nav and the
+2. Hold Magic (RH T2 — right thumb middle), tap `RGB_TOG` (T-key position
+   on Magic). LEDs come on in SWIRL effect.
+3. Still on Magic, tap `RGB_EFF` once. Effect cycles SWIRL → LAYER_INDICATORS.
+   The two corner LEDs should switch to reflect the active layer (just the
+   indicator colour for whatever layer you're currently holding, or off
+   on Base).
+4. Confirm: activate any non-base layer — e.g. tap-hold Nav, and the
    corner LEDs should turn green.
 
 ## Adding more colour to a layer
@@ -112,9 +120,23 @@ vim_rgb {
 Note that the `LAYER_RGB(color)` macro is just for the corner-only style
 — for richer per-layer maps you'll want to write the 60 entries out.
 
+## Known broken: `settings_reset` build
+
+PR36's `behavior_underglow_battery.c` is compiled whenever
+`CONFIG_ZMK_RGB_UNDERGLOW=y` (per its `target_sources_ifdef` in
+`app/CMakeLists.txt`) and references `zmk_battery_state_of_charge()` —
+but the `settings_reset` shield disables `CONFIG_ZMK_BATTERY_REPORTING`,
+so the link fails with undefined references to that and
+`zmk_event_zmk_battery_state_changed`. The shield-level conf merge order
+means we can't override RGB only for that build. Until darknao fixes
+the upstream guard, the `settings_reset` build in `build.yaml` will fail
+on every CI run. The existing
+`settings_reset-eyelash_sofle_left-zmk.uf2` you've previously downloaded
+remains usable for clearing BLE bonds.
+
 ## Rolling back
 
-If the fork breaks something, revert `config/west.yml` to:
+If the fork breaks something else, revert `config/west.yml` to:
 
 ```yaml
 - name: zmk
@@ -124,9 +146,9 @@ If the fork breaks something, revert `config/west.yml` to:
 ```
 
 …and remove `CONFIG_EXPERIMENTAL_RGB_LAYER=y` from `config/go60.conf`,
-restore `CONFIG_ZMK_RGB_UNDERGLOW_EFF_START=3`, and delete the
-`underglow-layer { ... }` block from `config/go60.keymap` (along with the
-`IND_*` macros and `LAYER_RGB`). The remaining keymap is unchanged.
+and delete the `underglow-layer { ... }` block from `config/go60.keymap`
+(along with the `IND_*` macros and `LAYER_RGB`). The remaining keymap
+is unchanged.
 
 ## Pre-built firmware
 
