@@ -8,10 +8,12 @@ manifest:
       url-base: https://github.com/GPeye
     - name: infely
       url-base: https://github.com/infely
+    - name: darknao
+      url-base: https://github.com/darknao
   projects:
     - name: zmk
-      remote: moergo-sc
-      revision: go60-zmk0.3.0
+      remote: darknao
+      revision: rgb-layer-24.12
       import: app/west.yml
     - name: nice-view-battery
       remote: infely
