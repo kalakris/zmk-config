@@ -57,11 +57,20 @@ layers' bindings are `&trans`, falling through).
   `EXPERIMENTAL_RGB_LAYER`. Setting it to `4` causes a fatal Kconfig
   warning. Effect 4 (layer-indicators) must be reached by one tap of
   `RGB_EFF` after enabling underglow.
-- `config/go60.keymap` — adds an `underglow-layer { ... }` block (extends
-  the node already declared in `app/boards/arm/go60/go60_lh.dts` and
-  `go60_rh.dts`) with one `*_rgb` child per layer. Plus `IND_*` colour
-  macros and a `LAYER_RGB(color)` helper that emits the 60-entry bindings
-  array.
+- `config/go60_rgb_layers.dtsi` — **new file**. Defines `IND_*` colour
+  macros, the `LAYER_RGB(color)` helper, and the `underglow-layer { ... }`
+  block with one `*_rgb` child per layer.
+- `config/go60_lh.keymap` and `config/go60_rh.keymap` — both add
+  `#include "go60_rgb_layers.dtsi"`. (Note: `build.yaml` targets the
+  half-specific boards directly, so `config/go60.keymap` is unused; edit
+  the half-specific files instead.)
+- `config/go60_lh.keymap` — also deletes the `underglow_indicators` node
+  and its `chosen` reference, because PR36 places it on LH assuming LH is
+  central, but we've swapped to RH-central. Without this deletion the
+  peripheral LH build fails to link (`zmk_led_generate_status` references
+  BLE / endpoints / keymap symbols not present on the peripheral).
+  Trade-off: `RGB_STATUS` no longer paints layer/battery/BLE indicators
+  on LH. Per-layer RGB still works on both halves.
 
 ## How `&ug` works
 

@@ -7,6 +7,7 @@
 
 #include "positions_go60.dtsi"
 #include "shared.dtsi"
+#include "go60_rgb_layers.dtsi"
 
 /* ── Go60-specific: custom input processor + trackpad listeners ── */
 
@@ -55,3 +56,17 @@
 &cirque_rh_listener {
     status = "disabled";
 };
+
+/* PR36 places underglow_indicators on LH (assumes LH is central). We've
+ * swapped to RH-central, so the indicators code in rgb_underglow.c
+ * references BLE/endpoints/keymap symbols that aren't linked into the
+ * peripheral build. Delete the node and the chosen ref so the stub
+ * zmk_led_generate_status() is used instead. Trade-off: RGB_STATUS no
+ * longer shows status indicators (per-layer RGB still works).
+ */
+/ {
+    chosen {
+        /delete-property/ zmk,underglow-indicators;
+    };
+};
+/delete-node/ &underglow_indicators;
