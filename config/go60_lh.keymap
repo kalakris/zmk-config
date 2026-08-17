@@ -42,6 +42,11 @@
     };
 };
 
+/* No &zip_temp_layer here (unlike go60_rh.keymap): the temp-layer
+ * processor is only compiled on the central, and this half's listeners
+ * are disabled below anyway — the RH central applies it to both pads.
+ */
+
 /* ── Override: left half is now peripheral ── */
 /* Forward local trackpad to central via split */
 &cirque_split {

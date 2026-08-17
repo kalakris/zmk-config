@@ -77,6 +77,25 @@
 /* Right-hand 3×3 grid: RH C2-C4 × R2-R4 (for z_tmux, v_vim) */
 #define RIGHT_3X3   19 20 21 31 32 33 43 44 45
 
+/* Positions that do NOT cancel the trackpad temp layer (see Mouse layer).
+ * Any other key press instantly drops back out of the Mouse layer, so
+ * typing restores RH T1/T2 immediately.  Kept active for:
+ *   25-28  LH home-row mods (A S D F)
+ *   31-34  RH home-row mods (J K L ;)
+ *   36 47  LH/RH shift
+ *   48-50  LH bottom-row mods (LCTRL LALT LGUI)
+ *   57 58  RH T1/T2 — the click keys themselves
+ * so that shift/cmd/ctrl-click keeps working.
+ */
+#define MOUSE_KEEP_KEYS  25 26 27 28 31 32 33 34 36 47 48 49 50 57 58
+
+/* Trackpad temp layer: index of the Mouse layer in shared.dtsi (keep in
+ * sync with layer order there) and how long it stays active after the
+ * last trackpad event.
+ */
+#define MOUSE_LAYER      9
+#define MOUSE_LAYER_MS   1000
+
 /* All keys (for lth) */
 #define ALL_KEYS    0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59
 

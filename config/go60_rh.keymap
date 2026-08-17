@@ -30,6 +30,23 @@
     };
 };
 
+/* Trackpad-activated Mouse layer (RH T1 = LCLK, RH T2 = RCLK).
+ *
+ * Tune the pre-defined &zip_temp_layer instance rather than declaring a
+ * second one: the driver keeps its state on instance 0, so exactly one
+ * instance must exist.
+ *
+ *   require-prior-idle-ms — don't grab the layer if a key was pressed in
+ *     the last 200 ms, so brushing the pad mid-typing can't steal T1/T2.
+ *   excluded-positions    — pressing anything NOT in this list drops the
+ *     layer immediately; mods and the click keys stay in so that
+ *     shift/cmd-click works.
+ */
+&zip_temp_layer {
+    require-prior-idle-ms = <200>;
+    excluded-positions = <MOUSE_KEEP_KEYS>;
+};
+
 /* ── Override: right half is now central ── */
 /* Remove device from cirque_split (central receives, doesn't send) */
 &cirque_split {
@@ -40,15 +57,18 @@
 &cirque_lh_listener {
     status = "okay";
     device = <&cirque_split>;
-    input-processors = <&zip_xy_scaler 3 1>, <&zip_button_behaviors>;
+    input-processors = <&zip_xy_scaler 3 1>, <&zip_button_behaviors>,
+                       <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
 };
 
 &cirque_rh_listener {
     status = "okay";
     device = <&glidepoint>;
-    input-processors = <&zip_xy_scaler 3 1>, <&zip_button_behaviors>;
+    input-processors = <&zip_xy_scaler 3 1>, <&zip_button_behaviors>,
+                       <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
     nav_scroll {
         layers = <2>;
-        input-processors = <&zip_xy_to_vscroll_mapper>, <&zip_xy_scaler 1 16>;
+        input-processors = <&zip_xy_to_vscroll_mapper>, <&zip_xy_scaler 1 16>,
+                           <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
     };
 };
