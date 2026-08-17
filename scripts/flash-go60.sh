@@ -19,21 +19,37 @@ for f in "$LH_FW" "$RH_FW"; do
     fi
 done
 
+# The volume appears in /Volumes a moment before it is writable, so a copy
+# fired on first sight loses the race with "Permission denied". Retry until it
+# takes, and never let a failed copy kill the watcher (set -e would).
+flash_half() {
+    local vol="$1" fw="$2"
+    echo "$vol detected — flashing $(basename "$fw")..."
+    for _ in $(seq 1 15); do
+        if cp "$fw" "/Volumes/$vol/" 2>/dev/null; then
+            echo "  OK — waiting for $vol to unmount (board reboots on success)"
+            # Without this the next poll finds the volume still mounted and
+            # flashes again; the UF2 bootloader unmounts once it has the image.
+            for _ in $(seq 1 30); do
+                [ -d "/Volumes/$vol" ] || { echo "  $vol unmounted — flashed."; return 0; }
+                sleep 1
+            done
+            echo "  WARNING: $vol still mounted after 30s — flash may not have applied" >&2
+            return 1
+        fi
+        sleep 1
+    done
+    echo "  ERROR: could not write to /Volumes/$vol after 15 attempts" >&2
+    return 1
+}
+
 echo "Watching for Go60 bootloader volumes..."
 echo "  LH firmware: $LH_FW"
 echo "  RH firmware: $RH_FW"
 echo "Press Ctrl+C to stop."
 
 while true; do
-    if [ -d /Volumes/GO60LHBOOT ]; then
-        echo "GO60LHBOOT detected — flashing left half..."
-        cp "$LH_FW" /Volumes/GO60LHBOOT/
-        echo "Done. Left half flashed."
-    fi
-    if [ -d /Volumes/GO60RHBOOT ]; then
-        echo "GO60RHBOOT detected — flashing right half..."
-        cp "$RH_FW" /Volumes/GO60RHBOOT/
-        echo "Done. Right half flashed."
-    fi
+    [ -d /Volumes/GO60LHBOOT ] && flash_half GO60LHBOOT "$LH_FW" || true
+    [ -d /Volumes/GO60RHBOOT ] && flash_half GO60RHBOOT "$RH_FW" || true
     sleep 1
 done
