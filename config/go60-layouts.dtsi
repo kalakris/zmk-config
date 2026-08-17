@@ -1,7 +1,7 @@
 /*
  * Go60 physical layout — used by keymap-drawer only, NOT by the firmware build.
  *
- * Vendored from darknao/zmk@rgb-layer-24.12 app/boards/arm/go60/go60-layouts.dtsi.
+ * Vendored from moergo-sc/zmk@go60-zmk0.3.0 app/boards/arm/go60/go60-layouts.dtsi.
  * The board lives in the ZMK fork, which the draw workflow deliberately does not
  * fetch (`west config manifest.project-filter " -zmk,-zephyr"`), so the layout has
  * to live in this repo for drawing to work.

@@ -7,7 +7,6 @@
 
 #include "positions_go60.dtsi"
 #include "shared.dtsi"
-#include "go60_rgb_layers.dtsi"
 
 /* ── Go60-specific: custom input processor + trackpad listeners ── */
 

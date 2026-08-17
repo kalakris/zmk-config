@@ -37,7 +37,7 @@ draw_args: "go60:'-d config/go60-layouts.dtsi'"
 ```
 
 That file is a copy of `app/boards/arm/go60/go60-layouts.dtsi` from
-`darknao/zmk@rgb-layer-24.12` **with one fix**: upstream lists the last 12 keys
+`moergo-sc/zmk@go60-zmk0.3.0` **with one fix**: upstream lists the last 12 keys
 as `[LH bottom][LH thumbs][RH thumbs][RH bottom]`, but `matrix_transform0` in
 `go60.dtsi` numbers those positions `48-50 LH bottom, 51-53 RH bottom,
 54-56 LH thumbs, 57-59 RH thumbs`. keymap-drawer maps key *order* in the layout

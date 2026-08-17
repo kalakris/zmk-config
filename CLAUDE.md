@@ -101,7 +101,3 @@ The keymap can also be exported to MoErgo's Go60 Layout Editor format. See [docs
 python3 scripts/generate-go60-layout.py
 # Import sofle-eyelash-go60-layout.json at https://my.moergo.com/go60/
 ```
-
-## Go60 Per-Layer RGB Underglow
-
-`west.yml` points the `zmk` project at `darknao/zmk:rgb-layer-24.12` (an open PR adding per-key/per-layer RGB on top of 25.11) instead of the stock MoErgo fork. Per-layer indicator colours live in the `underglow-layer { ... }` block in `config/go60.keymap`. See [docs/go60-rgb-pr36.md](docs/go60-rgb-pr36.md) for the colour map, activation procedure, and how to roll back.
