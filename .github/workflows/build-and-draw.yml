@@ -14,7 +14,10 @@ jobs:
     permissions:
       contents: write
     with:
-      keymap_patterns: "config/eyelash_sofle.keymap"
+      keymap_patterns: "config/eyelash_sofle.keymap config/go60.keymap"
+      # The Go60 board lives in the ZMK fork, which this workflow does not fetch,
+      # so point the drawer at the vendored copy of its physical layout.
+      draw_args: "go60:'-d config/go60-layouts.dtsi'"
       commit_message: "[Draw] ${{ github.event.head_commit.message }}"
       destination: "commit"
       fail_on_error: true

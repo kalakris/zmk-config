@@ -16,6 +16,8 @@ ZMK firmware configuration for two split keyboards — the **Eyelash Sofle** and
 - `config/west.yml` — West manifest pointing to MoErgo's ZMK fork
 - `build.yaml` — Build targets: 3 Sofle (left+studio, right, settings_reset) + 2 Go60 (lh, rh)
 - `boards/` — Custom board definitions for the Eyelash Sofle
+- `config/go60-layouts.dtsi` — Go60 physical layout, for keymap-drawer only (not the firmware build)
+- `ubersicht-widget/` — macOS desktop overlay showing the current keymap drawing
 
 ## Building and Downloading Firmware
 
@@ -45,7 +47,15 @@ gh run watch          # live stream of build progress
 #     go60_rh-zmk.uf2  — right half
 ```
 
-The workflow also auto-commits a keymap drawing via keymap-drawer (Sofle only; commit message prefixed with `[Draw]`). This means after pushing, the remote may have one extra commit — use `git pull --rebase` before pushing again.
+The workflow also auto-commits keymap drawings via keymap-drawer for both boards — `keymap-drawer/eyelash_sofle.svg` and `keymap-drawer/go60.svg` (commit message prefixed with `[Draw]`). This means after pushing, the remote may have one extra commit — use `git pull --rebase` before pushing again.
+
+## Keymap Drawings and Desktop Overlay
+
+An Übersicht widget (`ubersicht-widget/keymap.widget/`) renders one of the committed SVGs on the macOS desktop, pulling it from `origin/<branch>` so a push is enough to update it. The Go60 needs a vendored physical layout (`config/go60-layouts.dtsi`) passed via `draw_args`, because its board lives in the ZMK fork that the draw job does not fetch. See [docs/keymap-overlay.md](docs/keymap-overlay.md) for the layout-ordering gotcha, local rendering, and widget knobs.
+
+```bash
+./ubersicht-widget/sync.sh    # reinstall the widget after editing it
+```
 
 ## Shared Keymap Architecture
 

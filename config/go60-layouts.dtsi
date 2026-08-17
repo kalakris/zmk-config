@@ -1,0 +1,90 @@
+/*
+ * Go60 physical layout — used by keymap-drawer only, NOT by the firmware build.
+ *
+ * Vendored from darknao/zmk@rgb-layer-24.12 app/boards/arm/go60/go60-layouts.dtsi.
+ * The board lives in the ZMK fork, which the draw workflow deliberately does not
+ * fetch (`west config manifest.project-filter " -zmk,-zephyr"`), so the layout has
+ * to live in this repo for drawing to work.
+ *
+ * MODIFIED vs upstream: upstream orders the last 12 keys as
+ *     [LH bottom][LH thumbs][RH thumbs][RH bottom]
+ * but matrix_transform0 in go60.dtsi assigns key positions as
+ *     48-50 LH bottom, 51-53 RH bottom, 54-56 LH thumbs, 57-59 RH thumbs
+ * (map row `RC(4,2..4) RC(4,9..11)`, then `RC(0,6) RC(1,6) RC(2,6) RC(2,7) RC(1,7) RC(0,7)`).
+ * The two middle groups are swapped below so key order matches key *position* order —
+ * otherwise thumb legends would render on the bottom row and vice versa.
+ *
+ * Referenced explicitly via `draw_args` in .github/workflows/build-and-draw.yml.
+ */
+
+#include <physical_layouts.dtsi>
+
+/ {
+    physical_layout0: physical_layout_0 {
+        compatible = "zmk,physical-layout";
+        display-name = "Default";
+
+        keys  //                     w   h    x    y     rot    rx    ry
+            = <&key_physical_attrs 100 100    0   50       0     0     0>
+            , <&key_physical_attrs 100 100  100   50       0     0     0>
+            , <&key_physical_attrs 100 100  200    0       0     0     0>
+            , <&key_physical_attrs 100 100  300    0       0     0     0>
+            , <&key_physical_attrs 100 100  400    0       0     0     0>
+            , <&key_physical_attrs 100 100  500    0       0     0     0>
+            , <&key_physical_attrs 100 100 1150    0       0     0     0>
+            , <&key_physical_attrs 100 100 1250    0       0     0     0>
+            , <&key_physical_attrs 100 100 1350    0       0     0     0>
+            , <&key_physical_attrs 100 100 1450    0       0     0     0>
+            , <&key_physical_attrs 100 100 1550   50       0     0     0>
+            , <&key_physical_attrs 100 100 1650   50       0     0     0>
+            , <&key_physical_attrs 100 100    0  150       0     0     0>
+            , <&key_physical_attrs 100 100  100  150       0     0     0>
+            , <&key_physical_attrs 100 100  200  100       0     0     0>
+            , <&key_physical_attrs 100 100  300  100       0     0     0>
+            , <&key_physical_attrs 100 100  400  100       0     0     0>
+            , <&key_physical_attrs 100 100  500  100       0     0     0>
+            , <&key_physical_attrs 100 100 1150  100       0     0     0>
+            , <&key_physical_attrs 100 100 1250  100       0     0     0>
+            , <&key_physical_attrs 100 100 1350  100       0     0     0>
+            , <&key_physical_attrs 100 100 1450  100       0     0     0>
+            , <&key_physical_attrs 100 100 1550  150       0     0     0>
+            , <&key_physical_attrs 100 100 1650  150       0     0     0>
+            , <&key_physical_attrs 100 100    0  250       0     0     0>
+            , <&key_physical_attrs 100 100  100  250       0     0     0>
+            , <&key_physical_attrs 100 100  200  200       0     0     0>
+            , <&key_physical_attrs 100 100  300  200       0     0     0>
+            , <&key_physical_attrs 100 100  400  200       0     0     0>
+            , <&key_physical_attrs 100 100  500  200       0     0     0>
+            , <&key_physical_attrs 100 100 1150  200       0     0     0>
+            , <&key_physical_attrs 100 100 1250  200       0     0     0>
+            , <&key_physical_attrs 100 100 1350  200       0     0     0>
+            , <&key_physical_attrs 100 100 1450  200       0     0     0>
+            , <&key_physical_attrs 100 100 1550  250       0     0     0>
+            , <&key_physical_attrs 100 100 1650  250       0     0     0>
+            , <&key_physical_attrs 100 100    0  350       0     0     0>
+            , <&key_physical_attrs 100 100  100  350       0     0     0>
+            , <&key_physical_attrs 100 100  200  300       0     0     0>
+            , <&key_physical_attrs 100 100  300  300       0     0     0>
+            , <&key_physical_attrs 100 100  400  300       0     0     0>
+            , <&key_physical_attrs 100 100  500  300       0     0     0>
+            , <&key_physical_attrs 100 100 1150  300       0     0     0>
+            , <&key_physical_attrs 100 100 1250  300       0     0     0>
+            , <&key_physical_attrs 100 100 1350  300       0     0     0>
+            , <&key_physical_attrs 100 100 1450  300       0     0     0>
+            , <&key_physical_attrs 100 100 1550  350       0     0     0>
+            , <&key_physical_attrs 100 100 1650  350       0     0     0>
+            , <&key_physical_attrs 100 100  200  400       0     0     0>
+            , <&key_physical_attrs 100 100  300  400       0     0     0>
+            , <&key_physical_attrs 100 100  400  400       0     0     0>
+            , <&key_physical_attrs 100 100 1250  400       0     0     0>
+            , <&key_physical_attrs 100 100 1350  400       0     0     0>
+            , <&key_physical_attrs 100 100 1450  400       0     0     0>
+            , <&key_physical_attrs 100 100  520  410    1250   520   410>
+            , <&key_physical_attrs 100 100  640  440    2500   640   440>
+            , <&key_physical_attrs 100 100  750  495    3700   750   495>
+            , <&key_physical_attrs 100 100  915  550 (-3700)   915   550>
+            , <&key_physical_attrs 100 100 1015  480 (-2500)  1015   480>
+            , <&key_physical_attrs 100 100 1130  430 (-1250)  1130   430>
+            ;
+    };
+};

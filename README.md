@@ -9,7 +9,7 @@ ZMK firmware configuration for two split keyboards sharing a single keymap via C
 
 ## Keymap
 
-<img src="keymap-drawer/sofle.svg">
+<img src="keymap-drawer/go60.svg">
 
 ### Layers
 
@@ -43,6 +43,17 @@ git push
 ```
 
 Firmware artifacts are saved under `firmware/<branch>/firmware/`.
+
+## Keymap Drawings & Desktop Overlay
+
+Each push also redraws `keymap-drawer/eyelash_sofle.svg` and `keymap-drawer/go60.svg`. An Übersicht widget can show either one on the macOS desktop, refreshed from the remote so pushing is enough to update it:
+
+```bash
+./ubersicht-widget/setup.sh   # first time
+./ubersicht-widget/sync.sh    # after editing the widget
+```
+
+See [docs/keymap-overlay.md](docs/keymap-overlay.md).
 
 ## Go60 Layout Editor Export
 
