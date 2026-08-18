@@ -68,15 +68,17 @@
     nav_scroll {
         layers = <2>;
         /* Order matters: the mapper rewrites REL_X/REL_Y to REL_WHEEL, so
-         * anything after it must target wheel codes. zip_scroll_transform
-         * does (y-codes = REL_WHEEL); zip_xy_scaler below does NOT, so its
-         * 1/16 never applies and scroll runs unscaled. Left as-is to keep the
-         * current scroll speed — swap it for <&zip_scroll_scaler 1 16> to
-         * actually slow scrolling down.
+         * anything after it must target wheel codes. Both zip_scroll_transform
+         * and zip_scroll_scaler do; zip_xy_scaler (codes REL_X/REL_Y) does not
+         * and was silently a no-op here, which is why scroll ran unscaled.
+         *
+         * The 2 is the scroll speed divisor: raise it to slow scrolling
+         * further, lower it to speed up. track-remainders means slow drags
+         * still accumulate into a scroll step rather than being rounded away.
          */
         input-processors = <&zip_xy_to_vscroll_mapper>,
                            <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                           <&zip_xy_scaler 1 16>,
+                           <&zip_scroll_scaler 1 2>,
                            <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
     };
 };
