@@ -46,6 +46,14 @@
     excluded-positions = <MOUSE_KEEP_KEYS>;
 };
 
+/* Lower the right pad's ADC gain from the stock maximum ("1x" = most
+ * sensitive). The pad's capacitive baseline drifts under sustained touch
+ * and at max gain the drift shows up as a jumpy cursor until a no-touch
+ * recalibration. "2x" matches MoErgo's "medium" sensitivity snippet. */
+&glidepoint {
+    sensitivity = "2x";
+};
+
 /* ── Override: right half is now central ── */
 /* Remove device from cirque_split (central receives, doesn't send) */
 &cirque_split {
