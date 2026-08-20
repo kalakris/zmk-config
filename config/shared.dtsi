@@ -492,13 +492,13 @@ THUMB(&none,
             bindings = <
 ROW(&trans, &trans, &trans, &trans, &trans, &trans,
     &trans,
+    &trans,         &trans,        &trans,        &trans,         &trans,   &trans)
+ROW(&trans, &trans, &trans, &trans, &trans, &trans,
+    &trans,
     &trans,         &trans,        &kp LC(UP),    &trans,         &trans,   &trans)
 ROW(&trans, &trans, &trans, &trans, &trans, &trans,
     &trans,
     &kp LG(GRAVE),  &kp LC(LEFT),  &kp LC(DOWN),  &kp LC(RIGHT),  &kp F11,  &trans)
-ROW(&trans, &trans, &trans, &trans, &trans, &trans,
-    &trans,
-    &trans,         &trans,        &trans,        &trans,         &trans,   &trans)
 ROW(&trans, &trans, &trans, &trans, &trans, &trans,
     &trans,
     &trans,         &trans,        &trans,        &trans,         &trans,   &trans)
