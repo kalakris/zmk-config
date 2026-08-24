@@ -80,15 +80,16 @@
          * and zip_scroll_scaler do; zip_xy_scaler (codes REL_X/REL_Y) does not
          * and was silently a no-op here, which is why scroll ran unscaled.
          *
-         * Scaler is 1:1 (no firmware division): we send the full-rate tick
-         * stream so host software (LinearMouse) can scale and smooth it with
-         * real velocity information. Firmware division (e.g. 1 8) quantizes
-         * away finger velocity; raise the divisor only if running without
-         * host-side smoothing.
+         * The 8 divisor (with track-remainders) emits dense +/-1 ticks whose
+         * RATE encodes finger speed — the same shape as a high-res mouse
+         * wheel, which is what LinearMouse's smoothed engine expects. Do not
+         * drop to 1 1: undivided events carry multi-unit deltas (10-30) that
+         * the smoothed engine turns into huge velocities its speed slider
+         * cannot compensate for (min boost is 0.85 at speed=0).
          */
         input-processors = <&zip_xy_to_vscroll_mapper>,
                            <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                           <&zip_scroll_scaler 1 1>,
+                           <&zip_scroll_scaler 1 8>,
                            <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
     };
 };
