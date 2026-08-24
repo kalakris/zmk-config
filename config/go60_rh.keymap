@@ -80,13 +80,15 @@
          * and zip_scroll_scaler do; zip_xy_scaler (codes REL_X/REL_Y) does not
          * and was silently a no-op here, which is why scroll ran unscaled.
          *
-         * The 8 is the scroll speed divisor: raise it to slow scrolling
-         * further, lower it to speed up. track-remainders means slow drags
-         * still accumulate into a scroll step rather than being rounded away.
+         * Scaler is 1:1 (no firmware division): we send the full-rate tick
+         * stream so host software (LinearMouse) can scale and smooth it with
+         * real velocity information. Firmware division (e.g. 1 8) quantizes
+         * away finger velocity; raise the divisor only if running without
+         * host-side smoothing.
          */
         input-processors = <&zip_xy_to_vscroll_mapper>,
                            <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                           <&zip_scroll_scaler 1 8>,
+                           <&zip_scroll_scaler 1 1>,
                            <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
     };
 };
