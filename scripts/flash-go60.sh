@@ -23,10 +23,10 @@ done
 # fired on first sight loses the race with "Permission denied". Retry until it
 # takes, and never let a failed copy kill the watcher (set -e would).
 flash_half() {
-    local vol="$1" fw="$2"
+    local vol="$1" fw="$2" err=""
     echo "$vol detected — flashing $(basename "$fw")..."
     for _ in $(seq 1 15); do
-        if cp "$fw" "/Volumes/$vol/" 2>/dev/null; then
+        if err=$(cp "$fw" "/Volumes/$vol/" 2>&1); then
             echo "  OK — waiting for $vol to unmount (board reboots on success)"
             # Without this the next poll finds the volume still mounted and
             # flashes again; the UF2 bootloader unmounts once it has the image.
@@ -39,7 +39,7 @@ flash_half() {
         fi
         sleep 1
     done
-    echo "  ERROR: could not write to /Volumes/$vol after 15 attempts" >&2
+    echo "  ERROR: could not write to /Volumes/$vol after 15 attempts (last error: $err)" >&2
     return 1
 }
 
