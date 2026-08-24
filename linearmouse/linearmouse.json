@@ -1,0 +1,61 @@
+{
+  "$schema" : "https:\/\/schema.linearmouse.app\/0.11.4",
+  "schemes" : [
+    {
+      "if" : {
+        "device" : {
+          "productID" : "0x27d9",
+          "vendorID" : "0x16c0"
+        }
+      },
+      "pointer" : {
+        "acceleration" : 1.2,
+        "disableAcceleration" : false,
+        "redirectsToScroll" : false,
+        "speed" : "unset"
+      },
+      "scrolling" : {
+        "acceleration" : {
+          "vertical" : 1
+        },
+        "distance" : {
+          "horizontal" : "0.5px",
+          "vertical" : "auto"
+        },
+        "smoothed" : {
+          "horizontal" : {
+            "enabled" : true,
+            "preset" : "easeInOut"
+          },
+          "vertical" : {
+            "acceleration" : 0.44,
+            "bouncing" : true,
+            "enabled" : true,
+            "inertia" : 0.74,
+            "inputScale" : 0.085,
+            "preset" : "easeInOut",
+            "response" : 0.68,
+            "speed" : 1
+          }
+        },
+        "speed" : {
+          "vertical" : 0
+        }
+      }
+    },
+    {
+      "if" : {
+        "device" : {
+          "category" : "mouse",
+          "productID" : "0xb015",
+          "productName" : "M720 Triathlon",
+          "serialNumber" : "DDAE8FB80460EB6F",
+          "vendorID" : "0x46d"
+        }
+      },
+      "pointer" : {
+        "acceleration" : 1.2083
+      }
+    }
+  ]
+}
