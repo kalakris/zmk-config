@@ -15,6 +15,18 @@
         "speed" : "unset"
       },
       "scrolling" : {
+        "touchStream" : {
+          "enabled" : true,
+          "scale" : 0.6,
+          "direction" : "natural",
+          "acceleration" : {
+            "enabled" : true,
+            "exponent" : 0.5,
+            "referenceSpeed" : 800,
+            "minGain" : 0.4,
+            "maxGain" : 3.0
+          }
+        },
         "acceleration" : {
           "vertical" : 1
         },
@@ -57,21 +69,5 @@
         "acceleration" : 1.2083
       }
     }
-  ],
-  "touchStream" : {
-    "axis" : "x",
-    "enabled" : true,
-    "invert" : false,
-    "scale" : 0.6,
-    "tapToClick" : {
-      "enabled" : true
-    },
-    "acceleration" : {
-      "enabled" : true,
-      "exponent" : 0.5,
-      "referenceSpeed" : 800,
-      "minGain" : 0.4,
-      "maxGain" : 3.0
-    }
-  }
+  ]
 }
