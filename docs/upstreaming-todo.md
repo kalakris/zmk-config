@@ -73,3 +73,11 @@ adversarial cross-review of the v2 implementation.
 - 2D panning / horizontal scroll (frames already carry both axes)
 - Tap-and-drag / drag-lock; palm rejection; edge zones
 - Battery impact measurement for the 100 Hz stream (for the README)
+
+## Post-review addendum
+
+- [ ] Direction polish: with `scrolling.reverse` off, Raw Touch currently
+  scrolls in the direction anchored to this user's v1-validated preference
+  (old-school). Before sharing, decide whether the unreversed default should
+  instead match the macOS natural-scrolling convention (one sign flip in the
+  capabilities derivation + anchor-test update).
