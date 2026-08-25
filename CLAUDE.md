@@ -2,7 +2,7 @@
 
 ## Repository Overview
 
-ZMK firmware configuration for two split keyboards — the **Eyelash Sofle** and the **MoErgo Go60** — sharing a single keymap via C preprocessor macros. The actual ZMK firmware source is pulled in via West (Zephyr's package manager) from MoErgo's fork (`moergo-sc/zmk:go60-zmk0.3.0`).
+ZMK firmware configuration for two split keyboards — the **Eyelash Sofle** and the **MoErgo Go60** — sharing a single keymap via C preprocessor macros. The actual ZMK firmware source is pulled in via West (Zephyr's package manager). On `main`, `west.yml` points at MoErgo's fork (`moergo-sc/zmk:go60-zmk0.3.0`) — the stable fallback. **The user's daily Go60 firmware is built from branch `raw-touch`**, whose `west.yml` points at `kalakris/zmk@raw-touch` for the raw touch stream (see "Raw touch scrolling" below).
 
 ## Key Files
 
@@ -13,7 +13,7 @@ ZMK firmware configuration for two split keyboards — the **Eyelash Sofle** and
 - `config/go60.keymap` — Thin wrapper: includes + Go60-specific config (dual Cirque trackpads)
 - `config/eyelash_sofle.conf` — Sofle Kconfig (RGB, sleep, Bluetooth, mouse, encoder, etc.)
 - `config/go60.conf` — Go60 Kconfig (RGB, sleep, trackpad, full consumer HID)
-- `config/west.yml` — West manifest pointing to MoErgo's ZMK fork
+- `config/west.yml` — West manifest (moergo upstream on `main`; kalakris/zmk fork on `raw-touch`)
 - `build.yaml` — Build targets: 3 Sofle (left+studio, right, settings_reset) + 2 Go60 (lh, rh)
 - `boards/` — Custom board definitions for the Eyelash Sofle
 - `config/go60-layouts.dtsi` — Go60 physical layout, for keymap-drawer only (not the firmware build)
@@ -70,7 +70,7 @@ The keymap is shared between Sofle and Go60 using preprocessor macros that handl
 ### Layers
 0. **Base** — QWERTY with home-row mods (urob timerless HRM pattern)
 1. **Graphite** — Graphite alpha overlay on Base
-2. **Nav** — Navigation, function keys, mouse keys
+2. **Nav** — Navigation, function keys, mouse keys. While held, the Go60's right trackpad becomes a scroller: on `raw-touch` the `nav_scroll` listener overlay carries the `&zip_touch_stream_scroll` marker (raw-touch-stream scroll context) plus a ÷8 wheel fallback chain; on `main` it is the plain ÷8 wheel chain
 3. **System** — Bluetooth, system controls, bootloader
 4. **Numpad** — Number pad layout, RGB controls
 5. **Tmux** — Tmux tab switching via `tmux_tab` macro (Ctrl+A then number)
@@ -92,6 +92,35 @@ The keymap is shared between Sofle and Go60 using preprocessor macros that handl
 
 ### Key Constants
 - `QUICK_TAP_MS = 175` — Quick-tap window used across behaviors
+
+## Raw Touch Scrolling (LinearMouse fork)
+
+Magic-Trackpad-quality scrolling for the Go60's right Cirque pad on macOS.
+Firmware (branch `raw-touch`) puts the pad in absolute mode and streams raw
+touch frames over a vendor HID report (usage page 0xFF00, report ID 0x04,
+7-byte frames at ~100 Hz, plus an 8-byte self-describing feature report,
+protocol v2); a patched LinearMouse fork consumes them and synthesizes
+scroll events with real gesture phases, lift-off momentum, and a ballistics
+curve. Dual-mode: standard pointer + Nav-layer ÷8 wheel events remain as a
+driverless fallback; the host suppresses the wheel events per physical
+device identity (the Sofle shares ZMK's default VID/PID). Tap-to-click is
+firmware-side (`stream-tap-click`); the right pad's chain must NOT contain
+`&zip_button_behaviors`, which would eat the injected BTN_0.
+
+Repos (all with tag `v0-prototype` = validated prototype; binaries in
+`firmware/raw-touch-v0-prototype/`):
+- this repo, branch `raw-touch` — active firmware config + `docs/raw-touch-protocol.md` (wire spec)
+- `~/src/zmk` (`kalakris/zmk@raw-touch`) — vendor HID reports, `touch_stream.c`, marker processor
+- `~/src/cirque-input-module` (`kalakris/cirque-input-module@raw-touch`) — `abs-mode`, `stream-tap-*` props
+- `~/src/linearmouse` (`kalakris/linearmouse@go60-inputscale`) — host consumer; first two commits are a generic `inputScale` upstream-PR candidate
+
+Build loops:
+- **Firmware**: `git checkout raw-touch` → push → `./scripts/download-firmware.sh` (waits for the branch-tip run) → `./scripts/flash-go60.sh firmware/raw-touch/firmware` (bootloader: RH T3 + `/`; only the right half needs reflashing for scroll changes) → **return to `main`** (scripts differ between branches; `main`'s are newest).
+- **Host**: edit fork → `./linearmouse/build-and-install.sh` (signed, TCC grant persists). Config at `~/.config/linearmouse/linearmouse.json` live-reloads; snapshot to `linearmouse/linearmouse.json` after tuning.
+
+Full state doc (architecture, tuning knobs, gotchas, rollback):
+[docs/raw-touch.md](docs/raw-touch.md). Pre-upstreaming punch list:
+[docs/upstreaming-todo.md](docs/upstreaming-todo.md).
 
 ## Go60 Layout Editor Export
 
