@@ -35,6 +35,10 @@ sleep 1
 rm -rf /Applications/LinearMouse.app
 ditto "$APP" /Applications/LinearMouse.app
 
+# Remove the archive copy so Spotlight never offers a stale duplicate
+# (multiple on-disk copies cause repeated Accessibility prompts).
+rm -rf "$FORK_DIR/build"
+
 open -a LinearMouse
 echo
 echo "Installed (signed). Accessibility grant persists across rebuilds;"
