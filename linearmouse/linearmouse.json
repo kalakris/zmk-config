@@ -1,5 +1,11 @@
 {
   "$schema" : "https:\/\/schema.linearmouse.app\/sha-4b45bfb",
+  "touchStream" : {
+    "enabled" : true,
+    "axis" : "x",
+    "invert" : true,
+    "scale" : 0.25
+  },
   "schemes" : [
     {
       "if" : {
