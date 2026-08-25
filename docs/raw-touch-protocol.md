@@ -37,13 +37,15 @@ touch-stream module dedups repeated Z-idle frames, so still exactly one
 release report reaches the wire — but a single lost packet can no longer
 strand the host in a touching state.
 
-Dual-mode hygiene: with `CONFIG_ZMK_TOUCH_STREAM` enabled, the input
-listener suppresses mouse HID reports whose entire body is zero when the
-previously sent report was also all-zero. Without this, the 1:8-scaled
+Dual-mode hygiene: the input listener skips a mouse report at sync time
+when no nonzero x/y/wheel value was accumulated and no button transition
+was requested — such a report would be a host-invisible no-op (zero
+relative deltas, unchanged button state). Without this, the 1:8-scaled
 wheel overlay emits `REL_WHEEL` value 0 on most frames during scroll,
-producing ~100 Hz empty mouse reports alongside the stream. A transition
-to zero (e.g. a button release) is still sent, so click/drag semantics
-are unchanged; behavior without the touch stream is unchanged entirely.
+producing ~100 Hz empty mouse reports alongside the stream. Button
+presses and releases always go out, so click/drag semantics are
+unchanged. This check is general (not gated on the touch stream) and is
+a candidate for upstreaming.
 
 | byte | field  | meaning                                                           |
 |------|--------|-------------------------------------------------------------------|
