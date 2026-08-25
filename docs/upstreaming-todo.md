@@ -17,7 +17,7 @@ adversarial cross-review of the v2 implementation.
   feature-report version handshake already reject non-streaming devices;
   VID/PID filtering makes the feature ZMK-specific for no benefit.
 - [ ] **Split the branch into two PRs**: (a) `scrolling.smoothed.inputScale`
-  + GUI slider + docs (first three commits, self-contained, generic);
+  + GUI slider + docs (first two commits, self-contained, generic);
   (b) the touch-stream feature. They are interleaved on one branch today.
 - [ ] Tiny separate upstream fix: `SmoothedScrollingTransformer`'s per-event
   `os_log` at `.info` should be `.debug` (we already fixed our poster;
