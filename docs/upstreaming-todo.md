@@ -1,0 +1,75 @@
+# Raw touch stream — pre-upstreaming punch list
+
+Deferred findings from the v2 cleanup reviews (2026-08-25), to implement
+before (or as part of) upstreaming. Sources: 4-angle /simplify review +
+adversarial cross-review of the v2 implementation.
+
+## LinearMouse fork (`kalakris/linearmouse`, branch `go60-inputscale`)
+
+- [ ] **Delete the deprecated host tap-to-click path** (~560 lines:
+  `TouchTapRecognizer`, `TouchStreamClickPoster`, `TapToClick` config,
+  manager wiring, tests, docs). Blocked on: firmware tap-to-click passing
+  hardware validation. Both enabled at once = double-click, so the host
+  path must not survive into an upstream PR.
+- [ ] **Device-agnostic discovery**: drop the hardcoded ZMK VID/PID
+  (0x16C0/0x27D9) from the IOHIDManager matching dictionary in
+  `TouchStreamManager`. The usage-pair match (0xFF00/0x01) plus the
+  feature-report version handshake already reject non-streaming devices;
+  VID/PID filtering makes the feature ZMK-specific for no benefit.
+- [ ] **Split the branch into two PRs**: (a) `scrolling.smoothed.inputScale`
+  + GUI slider + docs (first three commits, self-contained, generic);
+  (b) the touch-stream feature. They are interleaved on one branch today.
+- [ ] Tiny separate upstream fix: `SmoothedScrollingTransformer`'s per-event
+  `os_log` at `.info` should be `.debug` (we already fixed our poster;
+  upstream's line was deliberately left alone in the fork).
+- [ ] Config hygiene when the dust settles: the Go60 scheme still carries
+  v0 smoothed-wheel tuning (`inputScale 0.03`) that is dead while the
+  stream is active and mistuned for the ÷8 fallback; retune or remove.
+  Also refresh/delete the stale v0 `linearmouse/linearmouse.json`
+  snapshot on the zmk-config `raw-touch` branch when merging.
+
+## ZMK fork (`kalakris/zmk`, branch `raw-touch`)
+
+- [ ] **Move `stream-tap-click` / `stream-tap-max-ms` /
+  `stream-tap-max-movement` out of the Cirque driver binding** into
+  ZMK-owned config (Kconfig options or a ZMK-side DT node). The driver
+  explicitly ignores these; consumer config does not belong in the shared
+  driver binding and must be stripped before PRing abs-mode upstream.
+- [ ] **hog.c hardcoded GATT attribute indices**: propose an
+  index-computing cleanup (enum arithmetic or report-reference lookup at
+  init) as its OWN upstream PR — it fixes all four report senders and
+  should not be buried in the feature branch. Our feature followed the
+  existing hardcoded convention on purpose.
+- [ ] **Submit the ungated zero-report suppression as a standalone bugfix
+  PR** (commit `cfc4b3e6` was deliberately written upstream-shaped: any
+  sync accumulating no nonzero motion and no button transitions skips the
+  mouse report).
+- [ ] Do NOT macro-generalize the per-report HID plumbing across
+  hid.c/usb_hid.c/endpoints.c/hog.c — the four-file repetition is
+  upstream's own convention and matching it is what keeps the diff
+  reviewable.
+
+## cirque-input-module fork (`kalakris/cirque-input-module`)
+
+- [ ] PR `abs-mode` to petejohanson/cirque-input-module once the tap
+  props above are stripped from the binding. The abs-mode implementation
+  itself was reviewed as clean, driver-generic, upstream-ready.
+
+## Protocol / design decisions to settle (not code cleanups)
+
+- [ ] **Gate frame streaming on scroll context?** Today frames stream
+  during all touches; pointer-context frames are consumed only by the
+  deprecated host tap path. Gating would ~halve BLE airtime while
+  pointing (battery win) but forecloses future host-side pointer-context
+  features (drag-lock, gestures, host taps). Decide after the host tap
+  path is deleted; if gated, keep it firmware-configurable.
+- [ ] Publish `docs/raw-touch-protocol.md` as a standalone versioned spec
+  so other keyboards (Charybdis, Svalboard, other Cirque boards) and
+  other hosts (Linux uinput, Windows RawInput) can implement it.
+
+## Roadmap (post-upstream, not blockers)
+
+- Left pad streaming (`pad_id 1` reserved; needs split-transport work)
+- 2D panning / horizontal scroll (frames already carry both axes)
+- Tap-and-drag / drag-lock; palm rejection; edge zones
+- Battery impact measurement for the 100 Hz stream (for the README)
