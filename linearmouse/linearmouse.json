@@ -63,6 +63,9 @@
     "enabled" : true,
     "invert" : false,
     "scale" : 0.6,
+    "tapToClick" : {
+      "enabled" : true
+    },
     "acceleration" : {
       "enabled" : true,
       "exponent" : 0.5,
