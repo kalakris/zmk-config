@@ -1,11 +1,5 @@
 {
   "$schema" : "https:\/\/schema.linearmouse.app\/sha-4b45bfb",
-  "touchStream" : {
-    "enabled" : true,
-    "axis" : "x",
-    "invert" : true,
-    "scale" : 0.25
-  },
   "schemes" : [
     {
       "if" : {
@@ -41,7 +35,7 @@
             "inputScale" : 0.03,
             "preset" : "easeInOut",
             "response" : 0.68,
-            "speed" : 0
+            "speed" : 1.01
           }
         },
         "speed" : {
@@ -63,5 +57,18 @@
         "acceleration" : 1.2083
       }
     }
-  ]
+  ],
+  "touchStream" : {
+    "axis" : "x",
+    "enabled" : true,
+    "invert" : false,
+    "scale" : 0.6,
+    "acceleration" : {
+      "enabled" : true,
+      "exponent" : 0.5,
+      "referenceSpeed" : 800,
+      "minGain" : 0.4,
+      "maxGain" : 3.0
+    }
+  }
 }
