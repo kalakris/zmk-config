@@ -82,6 +82,9 @@
 &cirque_rh_listener {
     status = "okay";
     device = <&glidepoint>;
-    input-processors = <&zip_xy_scaler 3 1>, <&zip_button_behaviors>,
+    /* 1:1, not the relative-mode 3x: pointer deltas here are derived from
+     * absolute counts (~38/mm) by the touch-stream module, which run larger
+     * than the ASIC's relative-mode output that the 3x was tuned for. */
+    input-processors = <&zip_xy_scaler 1 1>, <&zip_button_behaviors>,
                        <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
 };
