@@ -76,8 +76,7 @@ adversarial cross-review of the v2 implementation.
 
 ## Post-review addendum
 
-- [ ] Direction polish: with `scrolling.reverse` off, Raw Touch currently
-  scrolls in the direction anchored to this user's v1-validated preference
-  (old-school). Before sharing, decide whether the unreversed default should
-  instead match the macOS natural-scrolling convention (one sign flip in the
-  capabilities derivation + anchor-test update).
+- [x] Direction polish — DONE (`b9a7858`): Raw Touch's baseline now follows
+  the system Natural Scrolling preference (live-observed), so
+  `scrolling.reverse` means the same thing in every mode: off = system
+  default, on = flipped.
