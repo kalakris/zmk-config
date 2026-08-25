@@ -12,14 +12,6 @@
 
 / {
     input_processors {
-        zip_xy_to_vscroll_mapper: zip_xy_to_vscroll_mapper {
-            compatible = "zmk,input-processor-code-mapper";
-            #input-processor-cells = <0>;
-            type = <INPUT_EV_REL>;
-            map = <INPUT_REL_X INPUT_REL_WHEEL
-                   INPUT_REL_Y INPUT_REL_WHEEL>;
-        };
-
         zip_click_to_right_click_mapper: zip_click_to_right_click_mapper {
             compatible = "zmk,input-processor-code-mapper";
             #input-processor-cells = <0>;
@@ -49,9 +41,18 @@
 /* Lower the right pad's ADC gain from the stock maximum ("1x" = most
  * sensitive). The pad's capacitive baseline drifts under sustained touch
  * and at max gain the drift shows up as a jumpy cursor until a no-touch
- * recalibration. "2x" matches MoErgo's "medium" sensitivity snippet. */
+ * recalibration. "2x" matches MoErgo's "medium" sensitivity snippet.
+ *
+ * abs-mode switches the Pinnacle to absolute reporting for the raw touch
+ * stream (see docs/raw-touch-protocol.md). Requires
+ * CONFIG_ZMK_TOUCH_STREAM=y (go60_rh.conf): the touch-stream module turns
+ * the absolute frames back into REL_X/REL_Y for normal pointing, so
+ * without it the pad would stop moving the cursor. Note the pad's
+ * hardware tap-to-click is a relative-mode feature and is lost here;
+ * clicks come from RH T1/T2 on the Mouse layer as before. */
 &glidepoint {
     sensitivity = "2x";
+    abs-mode;
 };
 
 /* ── Override: right half is now central ── */
@@ -68,27 +69,19 @@
                        <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
 };
 
+/* No nav_scroll override any more: scrolling on the Nav layer is now
+ * synthesized on the host from the raw touch stream (vendor HID report,
+ * see docs/raw-touch-protocol.md + the patched LinearMouse fork). While
+ * the Nav layer is active the firmware withholds the pad's motion from
+ * this listener entirely, so no wheel mapping is needed here.
+ *
+ * The base chain below only ever sees the REL_X/REL_Y deltas the
+ * touch-stream module derives from the absolute frames (plus the ABS
+ * frames themselves, which zip_xy_scaler/zip_button_behaviors ignore and
+ * zip_temp_layer uses to keep the Mouse layer alive while touching). */
 &cirque_rh_listener {
     status = "okay";
     device = <&glidepoint>;
     input-processors = <&zip_xy_scaler 3 1>, <&zip_button_behaviors>,
                        <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
-    nav_scroll {
-        layers = <2>;
-        /* Order matters: the mapper rewrites REL_X/REL_Y to REL_WHEEL, so
-         * anything after it must target wheel codes. Both zip_scroll_transform
-         * and zip_scroll_scaler do; zip_xy_scaler (codes REL_X/REL_Y) does not
-         * and was silently a no-op here, which is why scroll ran unscaled.
-         *
-         * Scaler is 1:1: full-rate multi-unit deltas carry finger velocity to
-         * the host. This REQUIRES the patched LinearMouse fork (inputScale in
-         * smoothed mode, ~0.125) to divide on the host side — with stock
-         * LinearMouse or no smoother, this stream is unusably fast; use
-         * <&zip_scroll_scaler 1 8> instead in that case.
-         */
-        input-processors = <&zip_xy_to_vscroll_mapper>,
-                           <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                           <&zip_scroll_scaler 1 1>,
-                           <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
-    };
 };

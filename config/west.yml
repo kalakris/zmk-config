@@ -8,10 +8,14 @@ manifest:
       url-base: https://github.com/GPeye
     - name: infely
       url-base: https://github.com/infely
+    - name: kalakris
+      url-base: https://github.com/kalakris
   projects:
     - name: zmk
-      remote: moergo-sc
-      revision: go60-zmk0.3.0
+      remote: kalakris
+      # Fork of moergo-sc/zmk go60-zmk0.3.0 with the raw touch stream
+      # prototype (see docs/raw-touch-protocol.md).
+      revision: raw-touch
       import: app/west.yml
     - name: nice-view-battery
       remote: infely
