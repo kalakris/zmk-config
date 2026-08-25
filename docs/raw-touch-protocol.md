@@ -30,6 +30,21 @@ One report per Pinnacle sample while touched (~100 Hz); exactly one
 release report (touched = 0, z = 0, x = y = 0) on lift-off; nothing while
 idle.
 
+Lift-off redundancy: the driver programs the Pinnacle to emit **3** Z-idle
+(all-zero) packets on lift-off instead of 1, because packets are
+occasionally dropped (e.g. the STATUS1 = 0xFF glitch guard). The
+touch-stream module dedups repeated Z-idle frames, so still exactly one
+release report reaches the wire — but a single lost packet can no longer
+strand the host in a touching state.
+
+Dual-mode hygiene: with `CONFIG_ZMK_TOUCH_STREAM` enabled, the input
+listener suppresses mouse HID reports whose entire body is zero when the
+previously sent report was also all-zero. Without this, the 1:8-scaled
+wheel overlay emits `REL_WHEEL` value 0 on most frames during scroll,
+producing ~100 Hz empty mouse reports alongside the stream. A transition
+to zero (e.g. a button release) is still sent, so click/drag semantics
+are unchanged; behavior without the touch stream is unchanged entirely.
+
 | byte | field  | meaning                                                           |
 |------|--------|-------------------------------------------------------------------|
 | 0    | pad_id | 0 = right pad (central). 1 = left pad — reserved, not implemented |
