@@ -1,5 +1,5 @@
 {
-  "$schema" : "https:\/\/schema.linearmouse.app\/0.11.4",
+  "$schema" : "https:\/\/schema.linearmouse.app\/sha-4b45bfb",
   "schemes" : [
     {
       "if" : {
@@ -28,14 +28,14 @@
             "preset" : "easeInOut"
           },
           "vertical" : {
-            "acceleration" : 0.44,
+            "acceleration" : 1.05,
             "bouncing" : true,
             "enabled" : true,
             "inertia" : 0.74,
-            "inputScale" : 0.085,
+            "inputScale" : 0.03,
             "preset" : "easeInOut",
             "response" : 0.68,
-            "speed" : 1
+            "speed" : 0
           }
         },
         "speed" : {
