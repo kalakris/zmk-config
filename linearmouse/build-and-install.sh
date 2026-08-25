@@ -14,16 +14,12 @@ set -euo pipefail
 FORK_DIR="$HOME/src/linearmouse"
 ARCHIVE="$FORK_DIR/build/LinearMouse.xcarchive"
 APP="$ARCHIVE/Products/Applications/LinearMouse.app"
-TEAM_ID="7WBD7URF58"
-
 cd "$FORK_DIR"
 
-# Regenerate signing config each run so we always build with the real
-# certificate (the repo template ships with an empty team, and agents'
-# unsigned test builds may leave it that way).
-cp Signing.xcconfig.tpl Signing.xcconfig
-sed -i '' "s/DEVELOPMENT_TEAM =/DEVELOPMENT_TEAM = $TEAM_ID/" Signing.xcconfig
-echo "CODE_SIGN_IDENTITY = Apple Development" >> Signing.xcconfig
+# Regenerate signing config each run (unconditionally — agents' unsigned
+# test builds may leave a stale empty-team file behind). The fork's own
+# script auto-discovers the "Apple Development" cert and its team ID.
+./Scripts/configure-code-signing
 
 [ -f Version.xcconfig ] || ./Scripts/configure-version
 
@@ -41,5 +37,5 @@ ditto "$APP" /Applications/LinearMouse.app
 
 open -a LinearMouse
 echo
-echo "Installed (signed, team $TEAM_ID). Accessibility grant persists"
-echo "across rebuilds; grant once if this is the first signed install."
+echo "Installed (signed). Accessibility grant persists across rebuilds;"
+echo "grant once if this is the first signed install."
