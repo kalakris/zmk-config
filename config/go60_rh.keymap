@@ -61,8 +61,11 @@
  * in abs-mode; stream-tap-click enables the firmware replacement in the
  * touch-stream module (defaults: 180 ms, 30 counts max movement — set
  * stream-tap-max-ms / stream-tap-max-movement to tune). Taps inject
- * BTN_0 through the normal listener chain, so on the Mouse layer they
- * behave exactly like RH T1 clicks. */
+ * BTN_0 into this pad's listener chain, which must NOT contain
+ * &zip_button_behaviors — that processor exists to map BTN_0 to &none
+ * (it was added to mute the relative-mode hardware taps) and would eat
+ * the firmware tap. With it removed, BTN_0 flows to the listener's
+ * native button handling and clicks on any layer. */
 &glidepoint {
     sensitivity = "2x";
     abs-mode;
@@ -85,8 +88,10 @@
 
 /* The base chain below sees the REL_X/REL_Y deltas the touch-stream
  * module derives from the absolute frames (plus the ABS frames
- * themselves, which zip_xy_scaler/zip_button_behaviors ignore and
- * zip_temp_layer uses to keep the Mouse layer alive while touching).
+ * themselves, which zip_xy_scaler ignores and zip_temp_layer uses to
+ * keep the Mouse layer alive while touching). No zip_button_behaviors
+ * here: it would swallow the firmware tap's BTN_0 (see &glidepoint
+ * comment); the left pad keeps its instance to stay click-muted.
  *
  * nav_scroll is dual-purpose while Nav (layer 2) is held:
  *   - &zip_touch_stream_scroll marks the scroll context for the raw
@@ -103,7 +108,7 @@
     /* 1:1, not the relative-mode 3x: pointer deltas here are derived from
      * absolute counts (~38/mm) by the touch-stream module, which run larger
      * than the ASIC's relative-mode output that the 3x was tuned for. */
-    input-processors = <&zip_xy_scaler 1 1>, <&zip_button_behaviors>,
+    input-processors = <&zip_xy_scaler 1 1>,
                        <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
     nav_scroll {
         layers = <2>;
