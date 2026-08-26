@@ -13,9 +13,9 @@ manifest:
   projects:
     - name: zmk
       remote: kalakris
-      # Fork of moergo-sc/zmk go60-zmk0.3.0 with the raw touch stream
-      # prototype (see docs/raw-touch-protocol.md).
-      revision: raw-touch
+      # EXPERIMENT: raw-touch + the vendored upstream Zephyr in-tree
+      # input_pinnacle driver, replacing the EOL cirque-input-module fork.
+      revision: intree-driver-test
       import: app/west.yml
     - name: nice-view-battery
       remote: infely

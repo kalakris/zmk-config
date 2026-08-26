@@ -2,6 +2,7 @@
 #define ZMK_POINTING_DEFAULT_SCRL_VAL 25
 
 #include <input/processors.dtsi>
+#include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <dt-bindings/zmk/input_transform.h>
 
@@ -45,6 +46,23 @@
  * processor is only compiled on the central, and this half's listeners
  * are disabled below anyway — the RH central applies it to both pads.
  */
+
+/* Translate the board DTS's old cirque-input-module property names to the
+ * upstream in-tree binding (see the matching block in go60_rh.keymap).
+ * This pad stays in the driver's default relative mode, where swap-xy is
+ * the transform that applies; invert-y is absolute-mode-only in-tree, so
+ * it is deliberately dropped rather than renamed — its relative-mode
+ * equivalent does not exist upstream. */
+&glidepoint {
+    /delete-property/ dr-gpios;
+    /delete-property/ rotate-90;
+    /delete-property/ y-invert;
+    /delete-property/ no-secondary-tap;
+
+    data-ready-gpios = <&go60_ext 4 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+    swap-xy;
+    sensitivity = "1x";
+};
 
 /* ── Override: left half is now peripheral ── */
 /* Forward local trackpad to central via split */
