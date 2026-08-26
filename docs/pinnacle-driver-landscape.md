@@ -17,7 +17,7 @@ now tells users to drop `petejohanson/cirque-input-module` and use in-tree.
 | Reached ZMK | ZMK main west.yml pins `zephyr @ v4.1.0+zmk-fixes` |
 | Announcement | ZMK blog "Zephyr 4.1 Update", 2025-12-09 |
 | Release status | **main only** — latest ZMK tag v0.3.0; v0.4 not cut yet |
-| Recent commits | SW reset on init (2025-10, by Peter Johanson), invert x/y rel, `sleep-mode-enable` |
+| Recent commits | SW reset on init (`fa7037ca`, 2025-10-28, by Peter Johanson — **on Zephyr main, i.e. AFTER the v4.1.0 tag ZMK pins**), invert x/y rel, `sleep-mode-enable` |
 
 **petejohanson/cirque-input-module is effectively EOL**: last commit
 0de55f36 (2025-02-18 — the exact SHA our fork branches from), 7 PRs
@@ -41,7 +41,7 @@ geeksville #6/#7.
 | Taps in abs mode | ❌ | n/a | ✅ our stream-tap-* |
 | 0xFF STATUS1 glitch guard | ❌ | ✅ | ✅ |
 | ERA Z-min tuning | ❌ | ✅ | ✅ |
-| SW reset on init | ✅ | ❌ | ❌ |
+| SW reset on init | ⚠️ Zephyr main only, NOT in v4.1.0 | ❌ | ✅ (ours, from Cirque sample code) |
 | ZMK-activity idle sleeper | ❌ | ✅ | ✅ |
 
 **Headline: absolute X/Y/Z — the thing we forked to add — has been upstream
@@ -71,15 +71,19 @@ since Feb 2024, more configurable than ours.**
    reasons — now it's also the migration enabler.) After that, the driver
    swap is a west/DTS change.
 3. **Rebase onto moergo-sc/zmk@zephyr-4-1 when MoErgo blesses it.** Gains:
-   `idle-packets-count` DT prop (drop our hardcoded Z_IDLE=3), SW
-   reset/calibration-wait on init (plausibly the proper fix for our
-   baseline-drift jitter — the "force-recalibrate patch" from the old
-   escalation plan, already written and merged upstream), hw clipping/
-   scaling, one less west project. Must port/re-add: the 0xFF STATUS1
-   glitch guard (real robustness fix — propose as a small Zephyr PR),
-   ERA Z-min, secondary-tap control if wanted, and an activity-tied
-   sleeper (upstream only has the ASIC 5s auto-sleep — battery risk on a
-   dual-pad board).
+   `idle-packets-count` DT prop (drop our hardcoded Z_IDLE=3), hw
+   clipping/scaling, one less west project.
+   ⚠️ **Corrected 2026-08-26:** this previously credited the in-tree
+   driver with SW-reset-on-init as a likely fix for our baseline-drift
+   jitter. **Backwards** — the *fork* does the software reset; Zephyr
+   v4.1.0 does not. (A reset commit `fa7037ca` did land on Zephyr **main**
+   2025-10-28, i.e. after the v4.1.0 tag ZMK pins — so vendoring from
+   Zephyr main rather than the tag may supply it for free; verify.)
+   Must port/re-add to any in-tree base: SW reset, `force_recalibrate()`
+   (our documented jitter escalation path), ERA Z-min edge tuning, the
+   0xFF STATUS1 glitch guard, secondary-tap control if wanted, and an
+   activity-tied sleeper (the in-tree driver has **no PM at all** — minor
+   sleep-current risk).
 4. **If upstreaming driver work, target Zephyr, not the module**: 0xFF
    guard, ERA Z-min, secondary-tap control are small well-scoped PRs and
    Pete reviews that tree now. Bonus goodwill: ZMK's pointing.mdx docs on
@@ -102,3 +106,19 @@ High on everything merged (read from source trees/commits/blog); the one
 untested inference is that SW-reset-on-init helps our specific drift jitter.
 ZMK's pointing docs on main contradict the blog's migration table (docs show
 old module props) — trust the Zephyr binding pages during migration.
+
+
+## Update 2026-08-26: the in-tree driver runs on Zephyr 3.5 today
+
+Vendoring experiment: upstream `input_pinnacle.c` compiles **verbatim**
+against Zephyr 3.5 (no PM code to port; input/DT/SPI/GPIO APIs identical;
+event stream byte-identical), green CI on all 5 targets —
+https://github.com/kalakris/zmk-config/actions/runs/32945803339
+Test branches `intree-driver-test` in zmk-config, kalakris/zmk and
+kalakris/cirque-input-module; nothing merged.
+
+So the EOL fork can be dropped **now**, without migrating to Zephyr 4.1 —
+which removes the "can't continue this work until we migrate" blocker.
+Two-step (~2h + bench) because four Cirque-sample-code features are absent
+in-tree (SW reset, `force_recalibrate()`, ERA edge tuning, 0xFF STATUS1
+guard). Plan and behavioural deltas: docs/zephyr-41-migration.md.
