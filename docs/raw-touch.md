@@ -216,6 +216,19 @@ cd ~/src/linearmouse            # branch go60-inputscale
   now no-ops under tests (`ProcessEnvironment.isRunningApp` guard). The
   exact historical trigger was never 100% pinned — if prompts recur
   during test runs, instrument rather than guess.
+- **THE ACCESSIBILITY-LOOP TRAP** (bitten twice): granting a permission
+  prompt raised by a *test host* binds the TCC grant to the ephemeral
+  Debug copy in `~/Library/Developer/Xcode/DerivedData/LinearMouse-*/`,
+  not the real app — which then keeps asking forever. Rules: (1) NEVER
+  grant a prompt that appears while agents are running builds/tests —
+  dismiss it; grant only right after a deploy when told the real app is
+  asking. (2) Recovery, in order: kill LinearMouse; delete the DerivedData
+  Debug app copy (and any other copies —
+  `mdfind "kMDItemCFBundleIdentifier == 'com.lujjjh.dev.LinearMouse'"`
+  must list ONLY /Applications/LinearMouse.app); `tccutil reset
+  Accessibility com.lujjjh.dev.LinearMouse`; relaunch from /Applications;
+  grant the single fresh row. (3) Proper fix (punch list): keep the test
+  host from touching TCC-protected APIs at all.
 
 ### Cross-cutting gotchas
 

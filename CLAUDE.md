@@ -117,6 +117,7 @@ Repos (all with tag `v0-prototype` = validated prototype; binaries in
 Build loops:
 - **Firmware**: `git checkout raw-touch` → push → `./scripts/download-firmware.sh` (waits for the branch-tip run) → `./scripts/flash-go60.sh firmware/raw-touch/firmware` (bootloader: RH T3 + `/`; only the right half needs reflashing for scroll changes) → **return to `main`** (scripts differ between branches; `main`'s are newest).
 - **Host**: edit fork → `./linearmouse/build-and-install.sh` (signed, TCC grant persists). Config at `~/.config/linearmouse/linearmouse.json` live-reloads; snapshot to `linearmouse/linearmouse.json` after tuning.
+- **TCC rule**: the user must NEVER grant Accessibility prompts raised during `xcodebuild test` runs (they bind to the DerivedData test-host copy and lock the real app out — the "accessibility loop"). Grant only right after a deploy. Recovery recipe: docs/raw-touch.md → "THE ACCESSIBILITY-LOOP TRAP".
 
 Full state doc (architecture, tuning knobs, gotchas, rollback):
 [docs/raw-touch.md](docs/raw-touch.md). Pre-upstreaming punch list:

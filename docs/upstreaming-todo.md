@@ -126,3 +126,8 @@ Spec authoring:
 - [ ] Standalone spec repo when publishing; cite Tier-1/Tier-2 prior art
   and include the pre-emption paragraphs from survey §6 (VoodooInput,
   PTP gates, halfdane, badjeff/zmk-hid-io, upstream LinearMouse deltas)
+- [ ] Test-host TCC hygiene: the xcodebuild test host still raises TCC
+  prompts sometimes (TouchStreamManager.start() is guarded; some other
+  path — likely event-tap creation or an AX check in app startup — is
+  not). Instrument next time it fires during a test run and suppress it
+  under ProcessEnvironment.isRunningTest, so agent test runs never prompt.
