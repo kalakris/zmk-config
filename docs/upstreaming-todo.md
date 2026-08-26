@@ -80,3 +80,15 @@ adversarial cross-review of the v2 implementation.
   the system Natural Scrolling preference (live-observed), so
   `scrolling.reverse` means the same thing in every mode: off = system
   default, on = flipped.
+
+## Licensing (check before any sharing)
+
+- [ ] **cirque-input-module has NO license** (upstream petejohanson repo too —
+  no LICENSE file, no SPDX headers). Ask upstream to add one (MIT/Apache-2.0
+  fits the ecosystem) as part of / before the abs-mode PR; without it,
+  redistribution of the driver + our patches is technically unlicensed.
+- [ ] zmk-config has no LICENSE; add MIT (or similar) covering our scripts,
+  docs, and the protocol spec before pointing the community at them. The
+  protocol spec is wholly ours — consider CC-BY or MIT explicitly in the doc.
+- linearmouse (MIT) and zmk (MIT) forks are clean; keep new files carrying
+  the upstream header conventions.
