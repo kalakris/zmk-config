@@ -292,3 +292,50 @@ unported pieces** (plus secondary-tap control):
    reason.
 5. Still CC `akscram` (Ilia Kharin) — as original author he is the
    de-facto reviewer, and his approval unblocked both of Pete's PRs.
+
+
+## Sequencing question: publish for Zephyr 3.5 first as a proof of concept?
+
+**Yes in spirit — but the module rewrite is the precondition, not the
+Zephyr version.**
+
+Facts checked 2026-08-26:
+- The official `zmkfirmware/unified-zmk-config-template` pins **no
+  revision** for the `zmk` project → new users track `main` → **Zephyr
+  4.1**. A 3.5-only artifact serves a shrinking audience.
+- ZMK **v0.3.0 (2025-08-01) is still the latest release**, so "pin a
+  release" users are on 3.5. Both audiences exist; main is the default.
+- Reference modules `badjeff/zmk-hid-io` (15★) and `zzeneg/zmk-raw-hid`
+  (46★) are both actively pushed as of 2026-08-24/25.
+
+### The real blocker is the fork
+
+Today's firmware is `kalakris/zmk@raw-touch` — a fork of *MoErgo's fork* of
+ZMK. Nobody with a different keyboard can use it at **any** Zephyr version
+without adopting MoErgo's ZMK. That, not the Zephyr pin, is what makes the
+current state unpublishable, and it is the archetypal "drive-by fork dump".
+The module rewrite costs the same 1–2 days regardless of target version and
+is what makes publication possible at all.
+
+### Recommended shape
+
+1. **Rewrite as a module first** (see the B1 verdict above).
+2. **Build it against 3.5 — what we can actually run and test** — and mark
+   the 4.1 delta explicitly in the README as an invitation: *"Built against
+   ZMK v0.3.0 / Zephyr 3.5 because that's what my keyboard vendor's fork
+   pins. The 4.1 port is confined to `usb_hid.c` / `hog.c`; PRs welcome."*
+   That turns our blocker into a contribution opportunity — someone on ZMK
+   main with a Cirque pad may do the port for us.
+3. **Never publish what we can't run.** Targeting 4.1 for reach would mean
+   shipping firmware we cannot test on our own hardware; the first bug
+   report would be unreproducible.
+4. **Lead with the host side + a video** — version-agnostic, and the actual
+   hook. The firmware is the how, not the wow.
+
+### Caution on publishing early
+
+Shipping early builds interest but also creates a support burden and pins
+the wire format in public. Plover HID succeeded shipping early — but it
+shipped a *stable* format. Either land the protocol-v3 items first
+(timestamp, contact-state bits) or label the format explicitly provisional.
+Breaking it under early adopters costs more than a two-week delay.
