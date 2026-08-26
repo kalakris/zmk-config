@@ -51,9 +51,25 @@ adversarial cross-review of the v2 implementation.
 
 ## cirque-input-module fork (`kalakris/cirque-input-module`)
 
-- [ ] PR `abs-mode` to petejohanson/cirque-input-module once the tap
-  props above are stripped from the binding. The abs-mode implementation
-  itself was reviewed as clean, driver-generic, upstream-ready.
+**PLAN SUPERSEDED (2026-08-26)** — see docs/pinnacle-driver-landscape.md.
+Zephyr's in-tree `input_pinnacle` driver (on ZMK main via the Zephyr 4.1
+bump) has had absolute mode since Feb 2024, and petejohanson's module is
+effectively EOL (abs-mode PRs from others already rotting there). Revised:
+
+- [ ] ~~PR `abs-mode` to petejohanson/cirque-input-module~~ — CANCELLED,
+  redundant with upstream `data-mode = "absolute"`.
+- [ ] Refactor our ZMK touch-stream module to be driver-independent:
+  move `stream-tap-*` props onto our own node, consume standard
+  `INPUT_ABS_X/Y/Z` (folds in the "tap props out of the driver binding"
+  item above — same work, stronger motivation).
+- [ ] Rebase `kalakris/zmk:raw-touch` onto `moergo-sc/zmk@zephyr-4-1`
+  (MoErgo's in-tree-driver migration branch) once MoErgo blesses it.
+  Port forward: 0xFF STATUS1 glitch guard, ERA Z-min, activity-tied
+  sleep. Gain: `idle-packets-count` DT prop, SW-reset-on-init (possible
+  proper fix for the baseline-drift jitter), hw clipping/scaling.
+- [ ] Driver-work upstream target is now **Zephyr**, not the module:
+  0xFF guard / ERA Z-min / secondary-tap control as small PRs; plus a
+  trivial ZMK docs PR (pointing.mdx still shows old module props).
 
 ## Protocol / design decisions to settle (not code cleanups)
 
