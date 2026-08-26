@@ -153,7 +153,12 @@ tag may supply it for free. Verify before hand-porting it.
 All four come from petejohanson's base (Cirque's own sample code), not
 from our additions, and all are self-contained:
 
-1. **Software reset on init** (`SYS_CFG_RESET`) — see the nuance above.
+1. ~~**Software reset on init**~~ — **RESOLVED 2026-08-26: already upstream.**
+   `fa7037ca` (Peter Johanson, zephyr PR #98452) merged 2026-01-18 and is in
+   Zephyr main. Vendor from Zephyr **main**, not the v4.1.0 tag, and this
+   comes free (upstream's version also clears STATUS1 first and adds
+   `k_usleep(50)`). Drop our local patch; resubmitting would be closed as
+   duplicate. **So the plan is three patches, not four.**
 2. **`pinnacle_force_recalibrate()`** — our documented escalation path for
    the baseline-drift jitter. No in-tree equivalent.
 3. **Edge-sensitivity ERA writes** (`x-axis-z-min` / `y-axis-z-min`).
@@ -165,7 +170,7 @@ with sensitivity 2x. So vendoring is a **two-step**, not a swap.
 
 ### Plan (≈2h + a bench session)
 
-- [ ] Step 1: re-apply the four missing pieces as separate, clearly
+- [ ] Step 1: re-apply the three missing pieces (SW reset comes free from Zephyr main) as separate, clearly
   labelled commits *on top of* the pristine upstream file, so the delta
   stays legible and upstreamable to Zephyr later.
 - [ ] Step 2 (bench, needs hardware): verify the two axis questions —

@@ -119,6 +119,7 @@ kalakris/cirque-input-module; nothing merged.
 
 So the EOL fork can be dropped **now**, without migrating to Zephyr 4.1 —
 which removes the "can't continue this work until we migrate" blocker.
-Two-step (~2h + bench) because four Cirque-sample-code features are absent
-in-tree (SW reset, `force_recalibrate()`, ERA edge tuning, 0xFF STATUS1
-guard). Plan and behavioural deltas: docs/zephyr-41-migration.md.
+Two-step (~2h + bench) because three Cirque-sample-code features are absent
+in-tree (`force_recalibrate()`, ERA edge tuning, 0xFF STATUS1 guard). SW
+reset is already upstream (`fa7037ca`, merged 2026-01-18) — vendor from
+Zephyr **main** rather than the v4.1.0 tag and it comes free. Plan and behavioural deltas: docs/zephyr-41-migration.md.
