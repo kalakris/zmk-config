@@ -26,7 +26,7 @@ Zephyr and LinearMouse are the opposite. Push there first.
 | 3 | `scrolling.smoothed.inputScale` | **LinearMouse** | ~25% as-is, **~55–65% reframed** | ~2h | See below |
 | 4 | **Touch stream as an out-of-tree ZMK module** | GitHub | n/a — this is the real publish | 1–2d + bench | See B1 verdict |
 | 5 | Zero-mouse-report suppression | ZMK | ~20–30%/yr | ~2h | Add a test (`app/tests/pointing/` exists) — doubles the odds. Nobody has asked for it, which is the problem |
-| 6 | `pinnacle_force_recalibrate()` | Zephyr | ~55–65% | — | Ship as `include/zephyr/input/input_pinnacle.h`, **not** a DT property (precedent: `paw32xx_force_awake()`). Feature → freeze applies → realistically v4.6 (~Feb 2027) |
+| 6 | `pinnacle_force_recalibrate()` | Zephyr | ~55–65% | — | Ship as `include/zephyr/input/input_pinnacle.h`, **not** a DT property (precedent: `paw32xx_force_awake()`). Feature → freeze applies → realistically v4.6 (~Feb 2027). **But see the reframing below — it may qualify as a bugfix and beat the freeze.** |
 | 7 | Protocol spec | README of the module repo | — | — | **Not** a standalone versioned spec repo. See below |
 | 8 | Input-listener routing refactor | ZMK | **~5%** | — | Don't submit standalone. That file has 4 commits ever, 3 by petejohanson. Outside refactors with no user-visible change stall |
 | 9 | Touch-stream pipeline (host) | LinearMouse | ~5% as one PR | — | 4,207 insertions / 26 files. Ship as a fork with a downloadable build; revisit in year two |
@@ -198,3 +198,43 @@ comments**, same file as our refactor, and **we own the exact hardware**
 (Cirque on a split central). It has a reporter, a repro, and demand — all
 the things our unrequested zero-report fix lacks. Diagnosing it would be a
 far better first ZMK contribution.
+
+
+## Reframing patch 3 (`force_recalibrate`) as a bugfix
+
+Our fork calls `pinnacle_force_recalibrate()` **exactly once**, at the end
+of `pinnacle_init()`, immediately after `set_adc_tracking_sensitivity()`
+and `tune_edge_sensitivity()`:
+
+```c
+pinnacle_set_adc_tracking_sensitivity(dev);   /* change ADC gain      */
+pinnacle_tune_edge_sensitivity(dev);          /* change edge Z-min    */
+pinnacle_force_recalibrate(dev);              /* re-measure baseline  */
+```
+
+That ordering is load-bearing. The Pinnacle's stored baseline ("what does
+an untouched pad look like") is only meaningful relative to the gain it was
+measured at, so changing ADC sensitivity or edge thresholds staleness the
+baseline. Recalibrating afterwards is the **companion** to those writes,
+not an independent feature.
+
+Consequences:
+
+1. **Independent of the touch-stream work.** The protocol needs absolute
+   X/Y/Z frames and a reliable lift-off packet — nothing more.
+2. **Patches 2 and 3 are coupled.** Carrying the ERA edge-sensitivity patch
+   without the recalibrate means writing new thresholds against a baseline
+   calibrated for the old ones. Take both or neither.
+3. **Plausible cause of our original baseline-drift jitter.** Upstream's
+   in-tree driver writes `sensitivity` at init (default 4x) and, per the
+   landscape research, never recalibrates. Our jitter appeared at maximum
+   sensitivity and disappeared when gain was reduced to 2x — exactly the
+   signature of a stale baseline being amplified. **Testable**: if it
+   holds, recalibrate-after-gain-change is the real fix and we could
+   restore higher sensitivity (better light-touch response for tap-to-click
+   and touch onset — see docs/raw-touch.md tuning notes).
+4. **Upstreaming angle.** Framed as *"the driver writes ADC sensitivity at
+   init but never recalibrates, leaving the baseline calibrated for the
+   previous gain"*, this is a **bugfix**, not a feature — so it is not
+   gated behind the ~2026-09-28 v4.5 feature freeze. Verify against
+   upstream's init path before claiming it.
