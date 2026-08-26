@@ -92,3 +92,37 @@ adversarial cross-review of the v2 implementation.
   protocol spec is wholly ours — consider CC-BY or MIT explicitly in the doc.
 - linearmouse (MIT) and zmk (MIT) forks are clean; keep new files carrying
   the upstream header conventions.
+
+## From the prior-art survey (docs/prior-art-survey.md, 2026-08-26)
+
+Protocol v3 candidates (do before publishing the spec):
+- [ ] Per-frame device timestamp (HID Scan Time, 100 µs units) — momentum
+  quality over jittery BLE depends on it; every Apple touch report has one
+- [ ] Explicit contact-state bits in flags (incl. contact-without-motion →
+  host can emit kCGScrollPhaseMayBegin for rubber-band pre-arm)
+- [ ] Move geometry to the report descriptor (Logical/Physical Max + Unit,
+  0.01 mm) — feature report shrinks to version + orientation + pads
+- [ ] Device-side mode gate so vendor frames and relative reports never
+  emit concurrently (PTP's one-collection rule; kills double-count risk)
+- [ ] Mode re-assert watchdog after sleep/BLE reconnect (hid-magicmouse
+  and bcm5974 both learned this the hard way)
+- [ ] Serial-number-prefix device matching as the normative spec rule
+  (0x16C0/0x27D9 is a shared pool; MoErgo ships compliant serials)
+- [ ] Optional single-slot Linux digitizer collection on a SECOND USB HID
+  interface (evdev touchpad w/ edge scroll for free); never on the same
+  interface (macOS Device-Mode write would kill the pointer fallback)
+
+Host-side tests before release:
+- [ ] Scroll Reverser interaction (may misclassify stream as mouse without
+  NSEventTypeGesture companions)
+- [ ] Apps reading PointDelta/FixedPtDelta fields (Calendar paging, WebKit/
+  Chromium, Adobe palettes) — verify our events carry them
+
+Spec authoring:
+- [ ] Rename: "touch stream" collides catastrophically with FingerWorks
+  TouchStream (the ur-keyboard-touchpad, acquired by Apple). Survey
+  recommends "PadWire" (clean) or "ZipTouch" (ZMK-flavored); unit noun
+  "touch frame"
+- [ ] Standalone spec repo when publishing; cite Tier-1/Tier-2 prior art
+  and include the pre-emption paragraphs from survey §6 (VoodooInput,
+  PTP gates, halfdane, badjeff/zmk-hid-io, upstream LinearMouse deltas)
