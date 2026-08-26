@@ -47,9 +47,8 @@ proposal branch, not a release:
 
 ## What we'd actually gain (and not)
 
-Real: the in-tree Cirque driver (abs mode, `idle-packets-count`,
-SW-reset-on-init — plausibly the proper fix for our baseline-drift
-jitter); USB spurious-disconnect fix (#3070); nice!view VCOM inversion
+Real: the in-tree Cirque driver (abs mode, `idle-packets-count`);
+USB spurious-disconnect fix (#3070); nice!view VCOM inversion
 (#3294) and LVGL-memory render fix (#3243); split TX-buffer sizing
 (#3216); `d_scroll_x` uninitialized (#3196).
 
@@ -74,7 +73,7 @@ main. keymap-drawer needs no changes (it never builds ZMK).
 | DC/DC → devicetree (`&reg0`/`&reg1`) — **also omitted on that branch; silent battery regression that builds clean** | 15 min | yes |
 | `CONFIG_WS2812_STRIP` removed | 5 min | yes |
 | `infely/nice-view-battery` is dead (last commit 2024-10, open LVGL-9 issue since 2025-12) — drop for stock `nice_view`, or fork `geratrevino115/nice-view-battery` | 30 min – half day | yes |
-| Rebase our `raw-touch` ZMK fork onto 4.1; re-port 0xFF guard, ERA Z-min, activity-tied sleep; redo `stream-tap-*` | **days — the real cost** | yes |
+| ~~Rebase our `raw-touch` ZMK fork onto 4.1; re-port driver patches~~ — **ELIMINATED by vendoring the in-tree driver onto our current 3.5 base** (proven green, see below). Post-vendor the driver cost is: delete the west entry, drop the `/delete-property/` blocks, re-home `stream-tap-*` (~30 min) | ~30 min | no |
 | CI `build-user-config.yml@v0.3` → `@main` in the same commit as the west bump | 5 min | yes |
 | Verify `storage_partition` offset/size unchanged across the board rewrite or lose BLE bonds | 10 min | yes |
 
@@ -114,3 +113,86 @@ targets build green). Recommendation: still no — it gains a VCOM fix and a
 USB fix, and costs the nice-view-battery widget, an unverified Studio+sleep
 regression on the half that uses Studio, and a second firmware line to
 maintain.
+
+
+## Update 2026-08-26: vendoring settles the "can't continue until we migrate" problem
+
+**Upstream Zephyr's `input_pinnacle.c` compiles verbatim against Zephyr
+3.5 — zero source shims.** Proven with green CI on all 5 targets:
+https://github.com/kalakris/zmk-config/actions/runs/32945803339
+(test branches `intree-driver-test` in zmk-config, kalakris/zmk, and
+kalakris/cirque-input-module; nothing merged).
+
+The expected blocker didn't exist: the in-tree driver has **no PM support
+at all**, so there was nothing to port. `input_report_abs()` and every DT/
+SPI/I2C/GPIO macro it uses are identical in 3.5. The event stream is
+byte-identical too (X, Y, then Z with sync), so `touch_stream.c` needed
+only property renames, not structural change.
+
+The real work is at the devicetree layer: Zephyr 3.5's edtlib **errors**
+on undeclared properties, so the Go60 board DTS's `dr-gpios`, `rotate-90`,
+`y-invert`, `no-secondary-tap` (set in MoErgo's fork, which we can't edit)
+must each be `/delete-property/`'d in our keymap overlay before the
+in-tree names are set. Same trick already used for `cirque_split`.
+
+### ⚠️ Correction to an earlier claim in this doc
+
+This doc previously credited the in-tree driver with "SW-reset-on-init —
+plausibly the proper fix for our baseline-drift jitter". **That was
+wrong**, and it inverted the truth: it is the *fork* (from petejohanson's
+base, i.e. Cirque's sample code) that does the software reset. Zephyr
+v4.1.0's init path has none.
+
+Nuance worth checking before vendoring: a SW-reset-on-init commit
+(`fa7037ca`, 2025-10-28, by Peter Johanson) did land on Zephyr **main** —
+after v4.1.0 was cut. So vendoring from Zephyr main rather than the v4.1.0
+tag may supply it for free. Verify before hand-porting it.
+
+### Four things the in-tree driver is missing vs our fork
+
+All four come from petejohanson's base (Cirque's own sample code), not
+from our additions, and all are self-contained:
+
+1. **Software reset on init** (`SYS_CFG_RESET`) — see the nuance above.
+2. **`pinnacle_force_recalibrate()`** — our documented escalation path for
+   the baseline-drift jitter. No in-tree equivalent.
+3. **Edge-sensitivity ERA writes** (`x-axis-z-min` / `y-axis-z-min`).
+4. **`STATUS1 == 0xFF` / SW_DR guard** (petejohanson `70ff465`) — drops
+   garbage frames from flaky SPI reads. ~10 lines.
+
+Swapping without these would most likely reintroduce the jitter we fixed
+with sensitivity 2x. So vendoring is a **two-step**, not a swap.
+
+### Plan (≈2h + a bench session)
+
+- [ ] Step 1: re-apply the four missing pieces as separate, clearly
+  labelled commits *on top of* the pristine upstream file, so the delta
+  stays legible and upstreamable to Zephyr later.
+- [ ] Step 2 (bench, needs hardware): verify the two axis questions —
+  in-tree applies `invert-x/y` in **absolute** mode and `swap-xy` only in
+  **relative** mode (the fork does both only in relative), so
+  `touch_stream.c` must stop mirroring Y while still mirroring the 90°
+  rotation; and the LH pad loses hardware Y-inversion entirely (compensated
+  with `&zip_xy_transform INPUT_TRANSFORM_Y_INVERT` in its listener chain).
+  Also re-verify tap-to-click and lift-off.
+- [ ] Then merge to `raw-touch`.
+
+### Other deltas (no action needed today)
+
+- In-tree reports relative-mode taps as `INPUT_BTN_TOUCH`, not `INPUT_BTN_0`
+  — ZMK's button handling only understands `BTN_0..4`, so hardware taps
+  would be dropped. Doesn't affect us (LH taps are muted; RH taps come from
+  our firmware tap-to-click), but it forecloses hardware taps without a patch.
+- No PM/sleep in-tree. ZMK tolerates `-ENOSYS` cleanly and we don't set
+  `sleep` on either Go60 node; at most a minor sleep-current regression.
+- `idle-packets-count = <3>` is **mandatory**, not cosmetic: the in-tree
+  driver writes it to `Z_IDLE` and defaults it to **0**, which emits *no*
+  lift-off packets — `touch_stream.c` would never see a release.
+- `stream-tap-*` currently rides along by appending to the vendored binding
+  yaml. That does **not** survive real Zephyr 4.1 (can't ship a second
+  binding for the same compatible), so those props must move to a ZMK-side
+  node or Kconfig — which is the driver-independent refactor already planned.
+
+**This does not change the WAIT decision.** MoErgo's branch is still stale
+and #3207/#3195/#3341 are still open. Vendoring is orthogonal: it makes the
+eventual migration cheap without committing us to it.
