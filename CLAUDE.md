@@ -111,7 +111,7 @@ Repos (all with tag `v0-prototype` = validated prototype; binaries in
 `firmware/raw-touch-v0-prototype/`):
 - this repo, branch `raw-touch` — active firmware config + `docs/raw-touch-protocol.md` (wire spec)
 - `~/src/zmk` (`kalakris/zmk@raw-touch`) — vendor HID reports, `touch_stream.c`, marker processor
-- `~/src/cirque-input-module` (`kalakris/cirque-input-module@raw-touch`) — `abs-mode`, `stream-tap-*` props
+- `~/src/cirque-input-module` (`kalakris/cirque-input-module@raw-touch`) — `abs-mode`, `stream-tap-*` props. **Transitional**: Zephyr's in-tree Pinnacle driver already has absolute mode and is on ZMK main; this fork gets dropped when we rebase onto `moergo-sc/zmk@zephyr-4-1`. Never PR abs-mode anywhere — see [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md)
 - `~/src/linearmouse` (`kalakris/linearmouse@go60-inputscale`) — host consumer; first two commits are a generic `inputScale` upstream-PR candidate
 
 Build loops:
@@ -121,7 +121,9 @@ Build loops:
 
 Full state doc (architecture, tuning knobs, gotchas, rollback):
 [docs/raw-touch.md](docs/raw-touch.md). Pre-upstreaming punch list:
-[docs/upstreaming-todo.md](docs/upstreaming-todo.md).
+[docs/upstreaming-todo.md](docs/upstreaming-todo.md). Prior art and the
+claims to avoid making publicly: [docs/prior-art-survey.md](docs/prior-art-survey.md).
+Driver-ecosystem state: [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md).
 
 ## Go60 Layout Editor Export
 

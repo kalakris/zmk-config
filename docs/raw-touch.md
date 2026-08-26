@@ -19,6 +19,14 @@ Companion documents:
   [`docs/upstreaming-todo.md`](upstreaming-todo.md) (on `main`): everything
   that must happen before PRing the pieces upstream, plus the post-upstream
   roadmap. Not duplicated here.
+- **Prior-art survey** — [`docs/prior-art-survey.md`](prior-art-survey.md):
+  why vendor HID rather than a standard touchpad descriptor (with the
+  evidence that macOS ignores third-party HID touchpads), who else has
+  built adjacent things, and the claims to avoid making in public.
+- **Pinnacle driver landscape** —
+  [`docs/pinnacle-driver-landscape.md`](pinnacle-driver-landscape.md):
+  Zephyr's in-tree driver now supersedes our Cirque fork; read before
+  touching the driver or planning any driver upstreaming.
 
 ## Architecture
 
@@ -108,7 +116,7 @@ be fetched locally — `git fetch --tags` if you need it.
 | | | `raw-touch` | **The active firmware config — the user's daily Go60 firmware is built from this branch.** `west.yml` → `kalakris/zmk@raw-touch`; `go60_rh.keymap` adds `abs-mode` + `stream-tap-click` on `&glidepoint`, the `nav_scroll` marker overlay, and drops the right pad to `&zip_xy_scaler 1 1`; `go60_rh.conf` sets `CONFIG_ZMK_TOUCH_STREAM=y`; carries `docs/raw-touch-protocol.md`. |
 | [kalakris/linearmouse](https://github.com/kalakris/linearmouse) | `~/src/linearmouse` | `go60-inputscale` | 25 commits over upstream. The first two (`4b45bfb`, `df55cc2`) are generic `scrolling.smoothed.inputScale` + GUI slider — a self-contained upstream-PR candidate. The rest is the touch-stream feature (`LinearMouse/TouchStream/`, config model, Raw Touch UI). Unit suite: ~640 tests. |
 | [kalakris/zmk](https://github.com/kalakris/zmk) | `~/src/zmk` | `raw-touch` | Fork of `moergo-sc/zmk` (base `go60-zmk0.3.0`). Vendor input + feature HID report plumbing, `app/src/pointing/touch_stream.c`, the marker processor (`input_processor_touch_stream_scroll.c`), a unified listener-config routing iterator, and ungated zero-mouse-report suppression (`cfc4b3e6`, deliberately upstream-shaped). Pulls the Cirque driver from the fork below via its west manifest. |
-| [kalakris/cirque-input-module](https://github.com/kalakris/cirque-input-module) | `~/src/cirque-input-module` | `raw-touch` | Fork of petejohanson/cirque-input-module: `abs-mode` absolute reporting, 3 Z-idle packets on lift-off (redundancy), `stream-tap-*` binding properties (consumed by ZMK, not the driver — must move before upstreaming). |
+| [kalakris/cirque-input-module](https://github.com/kalakris/cirque-input-module) | `~/src/cirque-input-module` | `raw-touch` | Fork of petejohanson/cirque-input-module: `abs-mode` absolute reporting, 3 Z-idle packets on lift-off (redundancy), `stream-tap-*` binding properties (consumed by ZMK, not the driver — must move). ⚠️ **This fork is transitional.** Zephyr's in-tree `input_pinnacle` driver already has absolute mode (since 2024) and reached ZMK main via the Zephyr 4.1 bump; pete's module is EOL. Plan is to drop this fork and migrate — see [docs/pinnacle-driver-landscape.md](pinnacle-driver-landscape.md). |
 
 ## Status: validated vs pending
 

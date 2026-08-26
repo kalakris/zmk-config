@@ -34,7 +34,9 @@ adversarial cross-review of the v2 implementation.
   `stream-tap-max-movement` out of the Cirque driver binding** into
   ZMK-owned config (Kconfig options or a ZMK-side DT node). The driver
   explicitly ignores these; consumer config does not belong in the shared
-  driver binding and must be stripped before PRing abs-mode upstream.
+  driver binding. **Now also the migration enabler** — with the props and
+  `INPUT_ABS_*` consumption on our own node, the module works against
+  Zephyr's in-tree driver unmodified and our Cirque fork can be deleted.
 - [ ] **hog.c hardcoded GATT attribute indices**: propose an
   index-computing cleanup (enum arithmetic or report-reference lookup at
   init) as its OWN upstream PR — it fixes all four report senders and
@@ -99,10 +101,11 @@ effectively EOL (abs-mode PRs from others already rotting there). Revised:
 
 ## Licensing (check before any sharing)
 
-- [ ] **cirque-input-module has NO license** (upstream petejohanson repo too —
-  no LICENSE file, no SPDX headers). Ask upstream to add one (MIT/Apache-2.0
-  fits the ecosystem) as part of / before the abs-mode PR; without it,
-  redistribution of the driver + our patches is technically unlicensed.
+- [x] ~~cirque-input-module has NO license~~ — **MOOT once we migrate off it.**
+  Both petejohanson's module and our fork lack a LICENSE/SPDX headers, so
+  redistributing that driver was legally murky — but the plan is now to drop
+  the fork for Zephyr's in-tree driver (Apache-2.0, clean). Only revisit if
+  we end up shipping the module fork after all.
 - [ ] zmk-config has no LICENSE; add MIT (or similar) covering our scripts,
   docs, and the protocol spec before pointing the community at them. The
   protocol spec is wholly ours — consider CC-BY or MIT explicitly in the doc.
