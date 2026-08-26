@@ -218,6 +218,16 @@ In the [kalakris/zmk](https://github.com/kalakris/zmk) `raw-touch` branch:
   (absolute-mode register setup + 6-byte packet parsing) and the
   `stream-tap-*` properties to the Pinnacle driver binding.
 
+  > **Transitional — do not treat this driver fork as part of the
+  > protocol.** Zephyr's in-tree `input_pinnacle` driver has supported
+  > absolute X/Y/Z (`data-mode = "absolute"`) since 2024 and is on ZMK
+  > `main` via the Zephyr 4.1 upgrade, while petejohanson's module (our
+  > fork base) is EOL. The plan is to drop this fork and consume standard
+  > `INPUT_ABS_X/Y/Z` from any driver. **Nothing in this protocol depends
+  > on the fork** — an implementation only needs absolute X/Y/Z frames
+  > from whatever driver its sensor uses. See
+  > `docs/pinnacle-driver-landscape.md` on `main`.
+
 In this repo (branch `raw-touch`): `config/west.yml` points at the fork,
 `config/go60_rh.conf` enables `CONFIG_ZMK_TOUCH_STREAM`, and
 `config/go60_rh.keymap` sets `abs-mode` + `stream-tap-click` on
