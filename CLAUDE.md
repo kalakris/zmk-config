@@ -124,6 +124,8 @@ Full state doc (architecture, tuning knobs, gotchas, rollback):
 [docs/upstreaming-todo.md](docs/upstreaming-todo.md). Prior art and the
 claims to avoid making publicly: [docs/prior-art-survey.md](docs/prior-art-survey.md).
 Driver-ecosystem state: [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md).
+Zephyr 4.1 / ZMK 0.4 migration decision (currently: **wait**, with named
+triggers): [docs/zephyr-41-migration.md](docs/zephyr-41-migration.md).
 
 ## Go60 Layout Editor Export
 
