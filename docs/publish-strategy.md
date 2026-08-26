@@ -238,3 +238,57 @@ Consequences:
    previous gain"*, this is a **bugfix**, not a feature — so it is not
    gated behind the ~2026-09-28 v4.5 feature freeze. Verify against
    upstream's init path before claiming it.
+
+
+## Provenance: the three patches are Pete's unfinished migration
+
+Traced 2026-08-26. **The module and Zephyr's driver are independent
+implementations of the same chip, born two weeks apart:**
+
+- `petejohanson/cirque-input-module` — first commit `3006def`, 2024-02-11,
+  384-line driver that *already* contained the ERA machinery and
+  `force_recalibrate`. "Initial **module** version" implies extraction from
+  ZMK's own tree.
+- Zephyr `drivers/input/input_pinnacle.c` — first commit 2024-02-25 by
+  **Ilia Kharin** (`akscram`). Separate author, separate codebase, no
+  shared lineage.
+
+**Pete has been porting his module into Zephyr's driver, one feature at a
+time, and paused:**
+
+| Date | Zephyr commit (Peter Johanson) | Module equivalent |
+|---|---|---|
+| 2025-10-28 | software reset on init | already in `pinnacle_init` |
+| 2025-11-17 | invert x/y in rel mode | module `9dd4178` (2024-11-27) |
+| 2025-12-09 | `sleep-mode-enable` | module's `sleep` property |
+
+Nothing since December 2025. **Our three patches are exactly the remaining
+unported pieces** (plus secondary-tap control):
+
+| Module feature | Author | Ported to Zephyr? |
+|---|---|---|
+| SW reset on init | Pete | ✅ 2025-10-28 |
+| invert x/y (rel) | Pete | ✅ 2025-11-17 |
+| sleep | Pete | ✅ 2025-12-09 |
+| **0xFF / SW_DR guard** (`70ff465`, 2024-12-20) | Pete | ❌ **← patch 1** |
+| **ERA edge sensitivity** (in `3006def`) | Pete | ❌ **← patch 2** |
+| **`force_recalibrate()`** (in `3006def`) | Pete | ❌ **← patch 3** |
+| secondary-tap control (`4e376df`) | Pete | ❌ |
+
+### Consequences for how we pitch this
+
+1. **None of the three is our code.** All originate with Peter Johanson in
+   the module. Submit with `git commit --author="Peter Johanson <…>"` plus
+   our own `Signed-off-by:` (Zephyr's DCO covers submitting others' work),
+   and say so in the PR body.
+2. **Best first move is a message to Pete, not a cold PR** — "I have
+   Pinnacle hardware and time; want me to finish porting the module's
+   remaining fixes, or would you rather?" He is the author, he is active in
+   that tree, and he paused mid-migration.
+3. **Frame every PR as continuing the migration**, citing his three ported
+   commits. This is known-good code with a year of field use, moving by the
+   same route its siblings already took — not speculative additions.
+4. The odds in the table above are probably **conservative** for this
+   reason.
+5. Still CC `akscram` (Ilia Kharin) — as original author he is the
+   de-facto reviewer, and his approval unblocked both of Pete's PRs.
