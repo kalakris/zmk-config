@@ -1,4 +1,14 @@
 ---
+# The two go60 targets carry an extra -DZMK_EXTRA_MODULES so the vendored
+# raw touch module at vendor/zmk-raw-touch is built alongside. Both paths
+# must be listed: the reusable ZMK workflow already passes
+# -DZMK_EXTRA_MODULES=$GITHUB_WORKSPACE (because this repo has a root
+# zephyr/module.yml declaring board_root), and a later -D on the same
+# command line replaces it rather than appending.
+#
+# This is temporary scaffolding. Once kalakris/zmk-raw-touch-wip is public,
+# the module becomes a normal west project (the commented-out entry in
+# config/west.yml) and these cmake-args go away.
 include:
   - board: eyelash_sofle_right
     shield: nice_view_adapter nice_view_battery
@@ -10,4 +20,6 @@ include:
   - board: eyelash_sofle_left
     shield: settings_reset
   - board: go60_lh
+    cmake-args: -DZMK_EXTRA_MODULES="${GITHUB_WORKSPACE};${GITHUB_WORKSPACE}/vendor/zmk-raw-touch"
   - board: go60_rh
+    cmake-args: -DZMK_EXTRA_MODULES="${GITHUB_WORKSPACE};${GITHUB_WORKSPACE}/vendor/zmk-raw-touch"

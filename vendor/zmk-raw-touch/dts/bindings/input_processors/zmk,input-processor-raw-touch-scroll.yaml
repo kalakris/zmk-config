@@ -1,0 +1,22 @@
+# Copyright (c) 2026 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+description: |
+  Marker input processor for raw touch streaming.
+
+  Passes every event through unchanged. Its only effect is to mark a
+  "scroll context": while this processor is reached by events from a
+  zmk,raw-touch-pad's input device, that pad's streamed frames carry the
+  scroll-mode flag, and a host consuming the stream can synthesize
+  gesture-phase scrolling instead of pointer motion.
+
+  Because the marker only runs when the chain containing it is the one
+  actually handling the pad's events, layer-overlay ordering and
+  process-next shadowing are honoured for free.
+
+  Place it FIRST in the chain, before any processor that might consume or
+  rewrite events.
+
+compatible: "zmk,input-processor-raw-touch-scroll"
+
+include: ip_zero_param.yaml

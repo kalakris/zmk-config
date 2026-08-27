@@ -1,0 +1,29 @@
+# Copyright (c) 2026 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+description: |
+  Drops sync events that accumulated no host-visible change.
+
+  An input listener sends a mouse HID report on every sync event, even one
+  that carries no motion, no scroll and no button transition - a
+  host-invisible no-op that still costs a USB transfer or a BLE
+  notification. A pad streaming absolute frames at ~100 Hz produces one
+  such sync per frame (absolute events contribute nothing to a mouse
+  report), and a downscaling wheel overlay adds more by emitting value-0
+  relative events. On BLE these compete with the raw stream's own
+  notifications for connection events.
+
+  Place it LAST in the chain, after every scaler, mapper and temp-layer
+  processor, so it sees final values and does not starve them of events.
+
+  Each devicetree node carries one instance of the "has anything been
+  accumulated since the last sync" flag. Referencing the same node from a
+  listener's base chain and from its layer overlays is fine - only one of
+  those chains handles any given event, and a sync group does not
+  normally straddle a layer change. Referencing it from two DIFFERENT
+  listeners is not: their event streams interleave and would corrupt each
+  other's flag. Declare a second node for a second pad.
+
+compatible: "zmk,input-processor-raw-touch-idle-filter"
+
+include: ip_zero_param.yaml
