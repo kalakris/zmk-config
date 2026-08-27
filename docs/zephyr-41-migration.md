@@ -96,7 +96,7 @@ main. keymap-drawer needs no changes (it never builds ZMK).
 
 - [x] **Driver-independent refactor of the touch-stream module** — **DONE
   2026-08-26/27.** It went further than planned: the whole stream moved out
-  of ZMK core into a standalone module (`kalakris/zmk-raw-touch-wip`), so
+  of ZMK core into a standalone module (`kalakris/zmk-raw-touch`), so
   the migration is no longer "rebase a driver fork" *or* "rebase a ZMK
   fork" — it is a west/DTS change. `stream-tap-*` and the pad geometry now
   live on the module's own `zmk,raw-touch-pad` node, which is what makes

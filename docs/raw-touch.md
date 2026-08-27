@@ -36,7 +36,7 @@ works driverless; a stream-aware host additionally opens the vendor HID
 device and takes over scrolling.
 
 **Where the firmware lives (changed 2026-08-26).** The device side is now an
-out-of-tree ZMK module, `kalakris/zmk-raw-touch-wip`, built on top of *stock*
+out-of-tree ZMK module, `kalakris/zmk-raw-touch`, built on top of *stock*
 `moergo-sc/zmk` — no ZMK fork. The **binary running on the user's keyboard
 is still the old `raw-touch` fork build** until the bench pass; the module
 build sits on branches `module-port` / `module-port-intree`. The wire format
@@ -52,7 +52,7 @@ diagram below describes both. Names differ: the fork's
 │ Cirque Pinnacle (abs-mode, ~100 Hz, single-touch)          │
 │   │ absolute frames (x, y, z)                              │
 │   ▼                                                        │
-│ raw touch module (kalakris/zmk-raw-touch-wip)              │
+│ raw touch module (kalakris/zmk-raw-touch)              │
 │   ├─ derives REL_X/REL_Y ──► input listener chain          │
 │   │                            ├─ pointer reports (0x03)   │
 │   │                            └─ Nav overlay: ÷8 wheel    │
@@ -137,7 +137,7 @@ be fetched locally — `git fetch --tags` if you need it.
 | | | `module-port` (`13a68eb`) | **The intended replacement.** Stock `moergo-sc/zmk` @ `57a7b8e0` + the same Cirque fork + the module. `go60_rh.keymap` keeps `abs-mode` on `&glidepoint` but moves tap/geometry to a `raw_touch_rh` node; `go60_rh.conf` sets `CONFIG_ZMK_RAW_TOUCH=y` and `CONFIG_USB_HID_DEVICE_COUNT=2`. CI-green on all 5 targets; **`go60_lh` comes out byte-identical to the `raw-touch` build**, so only the right half needs reflashing. |
 | | | `module-port-intree` (`b2bf28c`) | The same plus Zephyr's in-tree Pinnacle driver (`kalakris/cirque-input-module@intree-driver`) — the full end state. Also CI-green. Here the left half's driver really changes, so flash both halves. |
 | [kalakris/linearmouse](https://github.com/kalakris/linearmouse) | `~/src/linearmouse` | `go60-inputscale` | 25 commits over upstream. The first two (`4b45bfb`, `df55cc2`) are generic `scrolling.smoothed.inputScale` + GUI slider — a self-contained upstream-PR candidate. The rest is the touch-stream feature (`LinearMouse/TouchStream/`, config model, Raw Touch UI). Unit suite: ~640 tests. |
-| [kalakris/zmk-raw-touch-wip](https://github.com/kalakris/zmk-raw-touch-wip) | `~/src/zmk-raw-touch-wip` | `main` (`5199d34`) | **The device side, as of 2026-08-26.** Private; the working name is provisional. Out-of-tree ZMK module, 22 files / ~1450 lines C: private HID report descriptor, second USB HID interface (`HID_1`), second BLE HIDS instance (with the feature-report characteristic), the frame handler, and two input processors — `zip_raw_touch_scroll` (scroll-context marker) and `zip_raw_touch_idle_filter`. Its `zmk,raw-touch-pad` binding is the whole config surface, including the tap and geometry props that used to live on the Cirque driver. |
+| [kalakris/zmk-raw-touch](https://github.com/kalakris/zmk-raw-touch) | `~/src/zmk-raw-touch` | `main` (`5199d34`) | **The device side, as of 2026-08-26.** Private; the working name is provisional. Out-of-tree ZMK module, 22 files / ~1450 lines C: private HID report descriptor, second USB HID interface (`HID_1`), second BLE HIDS instance (with the feature-report characteristic), the frame handler, and two input processors — `zip_raw_touch_scroll` (scroll-context marker) and `zip_raw_touch_idle_filter`. Its `zmk,raw-touch-pad` binding is the whole config surface, including the tap and geometry props that used to live on the Cirque driver. |
 | [kalakris/zmk](https://github.com/kalakris/zmk) | `~/src/zmk` | `raw-touch` | Fork of `moergo-sc/zmk` (base `go60-zmk0.3.0`) carrying the 219-line ZMK core patch: vendor HID plumbing, `app/src/pointing/touch_stream.c`, `input_processor_touch_stream_scroll.c`, a listener-config routing iterator, and zero-mouse-report suppression (`cfc4b3e6`). ⚠️ **No longer load-bearing** — the module above replaces all of it, and the `module-port` branch builds from stock MoErgo ZMK. Still the source of the binary currently flashed; delete it once the bench pass confirms parity. |
 | [kalakris/cirque-input-module](https://github.com/kalakris/cirque-input-module) | `~/src/cirque-input-module` | `raw-touch` / `intree-driver` | `raw-touch` is the fork of petejohanson/cirque-input-module: `abs-mode` absolute reporting, 3 Z-idle packets on lift-off (redundancy), and the now-removed `stream-tap-*` binding properties. `intree-driver` is Zephyr **main**'s `input_pinnacle.c` vendored pristine from `27150c9d` (`7d6f543`) plus three labelled patches — 0xFF/SW_DR guard (`66897c3`), per-axis ERA edge sensitivity (`995e9e0`), force-recalibrate-on-init (`b5c2365`); SW-reset-on-init was already upstream. ⚠️ **The fork is transitional.** Zephyr's in-tree `input_pinnacle` driver already has absolute mode (since 2024) and reached ZMK main via the Zephyr 4.1 bump; pete's module is EOL. Plan is to drop this fork and migrate — see [docs/pinnacle-driver-landscape.md](pinnacle-driver-landscape.md). |
 
@@ -265,7 +265,7 @@ git checkout main               # ALWAYS return to main (see gotchas)
   `pgrep -fl flash-go60` whenever a flash behaves oddly.
 - On `raw-touch`, ZMK-core changes go in `~/src/zmk` (push to
   `kalakris/zmk@raw-touch`). On the module branches there is no ZMK fork:
-  stream changes go in `~/src/zmk-raw-touch-wip`, and because that repo is
+  stream changes go in `~/src/zmk-raw-touch`, and because that repo is
   private (CI's `west update` authenticates anonymously) they must be
   re-vendored — `./scripts/sync-raw-touch-module.sh`, then commit
   `vendor/zmk-raw-touch/`. **Pushing the module repo alone changes

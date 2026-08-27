@@ -37,7 +37,7 @@ adversarial cross-review of the v2 implementation.
   Also refresh/delete the stale v0 `linearmouse/linearmouse.json`
   snapshot on the zmk-config `raw-touch` branch when merging.
 
-## Raw touch module (`kalakris/zmk-raw-touch-wip`)
+## Raw touch module (`kalakris/zmk-raw-touch`)
 
 **Retitled 2026-08-26** — this section used to be "ZMK fork
 (`kalakris/zmk`, branch `raw-touch`)". The fork is no longer load-bearing:

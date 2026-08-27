@@ -119,14 +119,14 @@ CI-green but **not yet flashed**; `raw-touch` is what is running.
 Repos (`v0-prototype` tag on the older four = validated prototype; binaries
 in `firmware/raw-touch-v0-prototype/`):
 - this repo — `raw-touch` (running) and `module-port*` (next); both carry `docs/raw-touch-protocol.md` (wire spec)
-- `~/src/zmk-raw-touch-wip` (`kalakris/zmk-raw-touch-wip@main`) — **the module**: private HID report descriptor, second USB HID interface + second BLE HIDS instance, frame handler, `zip_raw_touch_scroll` marker, `zip_raw_touch_idle_filter`. Private; name provisional and must not contain "touchstream"
+- `~/src/zmk-raw-touch` (`kalakris/zmk-raw-touch@main`) — **the module**: private HID report descriptor, second USB HID interface + second BLE HIDS instance, frame handler, `zip_raw_touch_scroll` marker, `zip_raw_touch_idle_filter`. Private; name provisional and must not contain "touchstream"
 - `~/src/zmk` (`kalakris/zmk@raw-touch`) — the old ZMK core patch. **No longer load-bearing; delete after the bench pass** — but first rescue the upstream-shaped zero-report-suppression commit (`cfc4b3e6`), which exists nowhere else
 - `~/src/cirque-input-module` — `@raw-touch` (fork with `abs-mode`) and `@intree-driver` (Zephyr main's driver vendored + 3 patches). **Transitional**; never PR abs-mode anywhere — see [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md)
 - `~/src/linearmouse` (`kalakris/linearmouse@go60-inputscale`) — host consumer; first two commits are a generic `inputScale` upstream-PR candidate
 
 Build loops:
 - **Firmware**: `git checkout raw-touch` (or `module-port`) → push → `./scripts/download-firmware.sh` (waits for the branch-tip run) → `./scripts/flash-go60.sh firmware/<branch>/firmware` (bootloader: RH T3 + `/`; only the right half needs reflashing for scroll changes — on `module-port` the left half's binary is byte-identical to `raw-touch`'s) → **return to `main`** (scripts differ between branches; `main`'s are newest).
-- **Module edits** (`module-port*` only): the module repo is private, so CI cannot fetch it — edit `~/src/zmk-raw-touch-wip`, then `./scripts/sync-raw-touch-module.sh` and commit `vendor/zmk-raw-touch/`. Pushing the module repo alone changes nothing.
+- **Module edits** (`module-port*` only): the module repo is private, so CI cannot fetch it — edit `~/src/zmk-raw-touch`, then `./scripts/sync-raw-touch-module.sh` and commit `vendor/zmk-raw-touch/`. Pushing the module repo alone changes nothing.
 - **Host**: edit fork → `./linearmouse/build-and-install.sh` (signed, TCC grant persists). Config at `~/.config/linearmouse/linearmouse.json` live-reloads; snapshot to `linearmouse/linearmouse.json` after tuning.
 - **TCC rule**: the user must NEVER grant Accessibility prompts raised during `xcodebuild test` runs (they bind to the DerivedData test-host copy and lock the real app out — the "accessibility loop"). Grant only right after a deploy. Recovery recipe: docs/raw-touch.md → "THE ACCESSIBILITY-LOOP TRAP".
 

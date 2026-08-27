@@ -2,7 +2,7 @@
 
 Status: **built and CI-green; not flashed, not public** (2026-08-26). The
 module exists at
-[`kalakris/zmk-raw-touch-wip`](https://github.com/kalakris/zmk-raw-touch-wip)
+[`kalakris/zmk-raw-touch`](https://github.com/kalakris/zmk-raw-touch)
 (private, branch `main`, HEAD `5199d34`, 22 files / ~1450 lines of C), and
 two `zmk-config` branches build against it — `module-port` and
 `module-port-intree`, both green on all 5 targets, first try. **The 219-line
@@ -46,14 +46,14 @@ carry" below). The result needs no ZMK fork at all.
 
 ## Shape as built
 
-`kalakris/zmk-raw-touch-wip` — private, branch `main`, HEAD `5199d34`. The
+`kalakris/zmk-raw-touch` — private, branch `main`, HEAD `5199d34`. The
 name is deliberately provisional and neutral, and **must not contain
 "TouchStream"** (see the rename blocker). Every identifier prefix renames
 together, once, when the real name is chosen: Kconfig `ZMK_RAW_TOUCH_`,
 devicetree compatibles `zmk,raw-touch-*`, C symbols `zmk_raw_touch_*`.
 
 ```
-zmk-raw-touch-wip/
+zmk-raw-touch/
   zephyr/module.yml            # needs `settings: dts_root: .`
   CMakeLists.txt, Kconfig, LICENSE (MIT), README.md  # demo first, protocol an appendix
   boards/example.overlay       # copy-pasteable worked example
@@ -294,12 +294,13 @@ blocker into a contribution opportunity.
 Unchanged by the port — all still open, and the reason the module repo is
 private.
 
-- [ ] **Rename.** "touch stream" collides with **FingerWorks TouchStream**
-  — the 1998–2005 multitouch split keyboard that streamed finger contacts
-  to a host, acquired by Apple to build the iPhone. r/ErgoMechKeyboards
-  knows this history. Survey suggests **PadWire** (clean across npm/PyPI/
-  crates/GitHub) or **ZipTouch** (ZMK-flavoured), with "touch frame" as the
-  unit noun. One-shot first impression.
+- [x] **Rename: DONE 2026-08-27.** Final name **`zmk-raw-touch`** — the
+  working title, kept. Collision-checked (GitHub clean; no tech products
+  named Raw Touch anywhere), same register as `zmk-raw-hid`/`zmk-hid-io`,
+  and every symbol already used the `raw_touch` prefix, so the rename cost
+  nothing. Repo renamed from `zmk-raw-touch-wip`; GitHub redirects the old
+  URL. "Touch stream" stays banned (FingerWorks); "touch frame" is the
+  unit noun.
 - [ ] **Protocol v3 or an explicit "provisional" label.** Breaking the wire
   format under early adopters costs more than a two-week delay. The v3
   items: per-frame device timestamp (HID Scan Time, 100 µs units),
