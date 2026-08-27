@@ -204,7 +204,7 @@ macOS kext scan: on **0xFF00**, Apple claims usages 0x04, 0x0B, 0x0D, 0x16, 0x23
 
 ## 6. What would embarrass us (pre-emptions needed)
 
-1. **"You reinvented VoodooInput."** Highest risk. Answer: kernel extension (dead on Apple Silicon), spoofs Apple's VID (forbidden by Apple's own ADG), VoodooI2C is Intel-only, and MT2 emulation demands multi-finger input a single-touch Pinnacle cannot supply.
+1. **"You reinvented VoodooInput."** Highest risk. Answer: kernel extension (dead on Apple Silicon), spoofs Apple's VID (forbidden by Apple's own ADG), VoodooI2C is Intel-only, and MT2 emulation demands multi-finger input a single-touch Pinnacle cannot supply. **See §7 for the device-side variant of this question**, which dodges the kext objection and must be answered separately.
 2. **"Should have shipped a PTP descriptor."** The three gates (§3); certification was never the obstacle.
 3. **"Fork claims may be stale."** Upstream LinearMouse landed `SmoothedScrollingEngine` (PR #1108, 2026-03-21 → #1337, 2026-08-07). Defensible fork-specific claims are narrower: real touch edges vs staleness timeout; momentum from *measured* lift-off velocity; touch-to-catch on actual finger-down. Upstream also has a raw-HID input-report path (`InputReportHandler.swift`) — cite as an upstreaming seam.
 4. **"Your frame is poorer than Apple's."** True: no ellipse (meaningless for single-touch) — but the missing timestamp and state bits are real gaps to close, not argue away.
@@ -217,3 +217,46 @@ macOS kext scan: on **0xFF00**, Apple claims usages 0x04, 0x0B, 0x0D, 0x16, 0x23
 11. **"You forked a driver to add absolute mode that Zephyr has had since 2024."** ⚠️ **HIGH RISK, added 2026-08-26** — and true. Zephyr's in-tree `input_pinnacle` (on ZMK main via the Zephyr 4.1 bump) supports `data-mode = "absolute"` with Z reporting; petejohanson's module, which we forked, is EOL. Never present abs-mode as our contribution. Correct framing: *we started on the module because that's what MoErgo's ZMK fork pins; the in-tree driver supersedes that patch and we migrate to it.* Our contribution is the touch-stream module + protocol + host, which the in-tree driver does not touch (ZMK still never converts ABS→cursor). Full detail: docs/pinnacle-driver-landscape.md.
 
 **Nothing invalidates the design.** No project anywhere consumes raw touch from a third-party device on macOS *and* posts phased scroll — Wacom's closed driver and MockTab are the only neighbors. Concede the transport pattern generously; the payload, the self-describing feature report, and the touch-derived momentum engine are ours.
+
+
+## 7. "Why not have the keyboard emulate a Magic Trackpad directly?"
+
+Distinct from the VoodooInput question in §6.1: rather than a kext faking an
+Apple device, the **keyboard itself** presents Apple's identifiers and MT2
+frames over USB. No kernel extension, so no Apple Silicon / SIP problem.
+
+**The mechanism would work.** Apple's matching is VID/PID/manufacturer with
+nothing cryptographic — `AppleTopCaseHIDEventDriver` binds on VendorID 1452
+(0x05AC) + an explicit `ProductIDArray`, and `Manufacturer` is a real
+constraint (score 100 in `MatchPropertyTable`). VoodooInput proves the
+approach by publishing exactly those identifiers plus a cloned descriptor;
+real hardware presenting the same thing would enumerate more cleanly than a
+kext does. The payoff would be Apple's own gesture engine, ballistics and
+momentum included, for free.
+
+**Rejected, for three reasons in descending finality:**
+
+1. **Apple trackpad scrolling is two-finger; the Pinnacle has one contact.**
+   A single finger on a Magic Trackpad means *cursor motion*. To scroll you
+   would have to fabricate a second synthetic contact, and two invented
+   fingers moving in perfect lockstep is not input Apple's recognizer was
+   designed to accept — with no way to debug its tolerances. Fatal for this
+   hardware.
+2. **It requires shipping Apple's Vendor ID.** Tolerable on a personal
+   bench; unshippable to a community, explicitly forbidden by Apple's
+   Accessory Design Guidelines, and impossible to upstream anywhere.
+3. **It surrenders every tuning knob.** Apple's engine would own the
+   ballistics, decay curve and catch behaviour. We would get Apple's feel
+   exactly — but our tuned values (exponent 0.5, gains 0.4–3.0, old-school
+   direction) become someone else's constants.
+
+Smaller: the BLE path is much dicier (`AppleBluetoothMultitouch` pins
+specific PIDs; Magic Trackpads use their own pairing flow), and it is
+macOS-or-nothing where the current design degrades gracefully everywhere.
+
+**Caveat worth remembering for the TPS43 path:** with five real contacts,
+objection 1 disappears — genuine MT2 frames become emittable without
+fabrication, inheriting Apple's full gesture vocabulary (pinch, swipe)
+instead of our single-touch ceiling. Objections 2 and 3 stand, so it stays
+unpublishable and untunable — but it becomes a real architectural fork
+rather than a hack. See tps43-bench.md.
