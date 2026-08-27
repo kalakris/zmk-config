@@ -131,6 +131,15 @@ int zmk_raw_touch_usb_send_report(void) {
     case USB_DC_RESET:
     case USB_DC_DISCONNECTED:
     case USB_DC_UNKNOWN:
+        /* Re-arm the semaphore while the bus is down. A transfer aborted by
+         * cable pull or bus reset never fires int_in_ready, so the give below
+         * is the only way hid_sem ever comes back -- without it, the first
+         * frame in flight at unplug time wedges the stream permanently
+         * (every later send times out and drops). Safe here and only here:
+         * with the bus in one of these states no transfer is running, so
+         * nothing can be reading tx_report. k_sem_give saturates at the
+         * limit of 1, so repeated calls are harmless. */
+        k_sem_give(&hid_sem);
         return -ENODEV;
     default:
         break;
