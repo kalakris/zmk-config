@@ -28,6 +28,16 @@
             type = <INPUT_EV_KEY>;
             map = <INPUT_BTN_0 INPUT_BTN_1>;
         };
+
+        /* Second idle-filter instance for the left pad's listener. The
+         * filter keeps per-node state, so the module's rule is one node
+         * per listener - never share an instance across listeners. (The
+         * scroll MARKER below is per-device-latched and safe to share;
+         * both nav_scroll overlays reuse &zip_raw_touch_scroll.) */
+        zip_raw_touch_idle_filter_lh: zip_raw_touch_idle_filter_lh {
+            compatible = "zmk,input-processor-raw-touch-idle-filter";
+            #input-processor-cells = <0>;
+        };
     };
 };
 
@@ -124,6 +134,19 @@
         y-invert;
         tap-click;
     };
+
+    /* The left pad, streaming as pad-id 1. Its absolute frames arrive on
+     * the central via the split relay (&cirque_split); everything else is
+     * identical to the right pad - both pads are mounted the same way, so
+     * the orientation bits match, and the geometry defaults apply. */
+    raw_touch_lh: raw_touch_lh {
+        compatible = "zmk,raw-touch-pad";
+        device = <&cirque_split>;    /* LH pad arrives via the split relay */
+        pad-id = <1>;
+        rotate-90;
+        y-invert;
+        tap-click;
+    };
 };
 
 /* ── Override: right half is now central ── */
@@ -132,12 +155,33 @@
     /delete-property/ device;
 };
 
-/* Enable listeners with swapped device assignments */
+/* Enable listeners with swapped device assignments.
+ *
+ * The left pad's chain mirrors the right pad's below: 1:1 scaler (not the
+ * relative-mode 3x - pointer deltas are derived from absolute counts by
+ * the touch-stream module and run ~3x larger than the ASIC's
+ * relative-mode output the 3x was tuned for), no &zip_button_behaviors
+ * (it would swallow the firmware tap's BTN_0), and its OWN idle-filter
+ * instance last - the filter keeps per-node state and must not be shared
+ * with the right pad's listener. */
 &cirque_lh_listener {
     status = "okay";
     device = <&cirque_split>;
-    input-processors = <&zip_xy_scaler 3 1>, <&zip_button_behaviors>,
-                       <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
+    input-processors = <&zip_xy_scaler 1 1>,
+                       <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>,
+                       <&zip_raw_touch_idle_filter_lh>;
+    nav_scroll {
+        layers = <2>;
+        /* Same dual-purpose overlay as the right pad's: the shared scroll
+         * marker flags the streamed frames, the wheel chain is the
+         * driverless fallback (1:24 for abs-derived deltas). */
+        input-processors = <&zip_raw_touch_scroll>,
+                           <&zip_xy_to_vscroll_mapper>,
+                           <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
+                           <&zip_scroll_scaler 1 24>,
+                           <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>,
+                           <&zip_raw_touch_idle_filter_lh>;
+    };
 };
 
 /* The base chain below sees the REL_X/REL_Y deltas the touch-stream
@@ -145,7 +189,7 @@
  * themselves, which zip_xy_scaler ignores and zip_temp_layer uses to
  * keep the Mouse layer alive while touching). No zip_button_behaviors
  * here: it would swallow the firmware tap's BTN_0 (see &glidepoint
- * comment); the left pad keeps its instance to stay click-muted.
+ * comment); same on the left pad's chain above.
  *
  * nav_scroll is dual-purpose while Nav (layer 2) is held:
  *   - &zip_raw_touch_scroll marks the scroll context for the raw

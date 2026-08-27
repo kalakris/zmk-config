@@ -47,11 +47,19 @@
  * are disabled below anyway — the RH central applies it to both pads.
  */
 
-/* Left pad, under Zephyr's in-tree Cirque driver. This pad does NOT
- * stream - it runs in relative mode and is forwarded to the central over
- * the split link - so unlike the right pad it wants the hardware feed
- * transforms on. swap-xy + invert-y reproduce the forked driver's
- * relative-mode behaviour exactly. */
+/* Left pad, under Zephyr's in-tree Cirque driver, configured identically
+ * to the right pad: absolute mode, 2x sensitivity, lift-off packets. The
+ * absolute frames are forwarded to the central over the split link, where
+ * the raw_touch_lh node (go60_rh.keymap) streams them as pad-id 1 and
+ * derives the pointer deltas.
+ *
+ * sensitivity "2x" lowers the ADC gain from the stock maximum ("1x" =
+ * most sensitive) for parity with the right pad: at max gain the
+ * capacitive baseline drifts under sustained touch and shows up as a
+ * jumpy cursor. "2x" matches MoErgo's "medium" sensitivity snippet.
+ *
+ * Tap-to-click and the pad's geometry/orientation live on the
+ * raw_touch_lh node on the central, not here. */
 &glidepoint {
     /* MoErgo's Go60 board DTS sets these four on &glidepoint under the
      * forked driver's names. Zephyr 3.5's edtlib errors on properties a
@@ -64,8 +72,25 @@
 
     data-ready-gpios = <&go60_ext 4 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
 
-    swap-xy;
-    invert-y;
+    sensitivity = "2x";
+
+    /* Absolute reporting, for the raw touch stream. */
+    data-mode = "absolute";
+
+    /* MANDATORY. Written to the Pinnacle's Z_IDLE register; upstream
+     * DEFAULTS IT TO 0, which emits no lift-off packets at all - the
+     * module would never see a release, so no release frame, no momentum
+     * and no tap-to-click. The forked driver hardcoded 3 in absolute
+     * mode. */
+    idle-packets-count = <3>;
+
+    /* Deliberately NOT setting swap-xy / invert-y (the relative-mode
+     * config did). Upstream applies invert-x/invert-y in BOTH modes, so
+     * setting invert-y would bake the mirror into the streamed absolute
+     * frames. Frames must stay raw: the orientation is declared on
+     * raw_touch_lh instead, where the module applies it to the derived
+     * pointer deltas and publishes it in the feature report for the
+     * host. swap-xy is inert in absolute mode either way. */
 };
 
 /* ── Override: left half is now peripheral ── */
