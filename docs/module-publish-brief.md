@@ -49,6 +49,49 @@ rename note below). Contents:
   README.md                    # video first, protocol as an appendix
 ```
 
+## It works with the MoErgo fork — and lets us drop `kalakris/zmk`
+
+Verified 2026-08-26. Two facts:
+
+1. **West resolves duplicate project names in favour of the top-level
+   manifest** — *"If the same name occurs in multiple manifests, the first
+   definition is used"*, and the top-level file is processed before project
+   imports. So `config/west.yml` can override anything MoErgo's ZMK pulls.
+2. **MoErgo's `app/west.yml` @ `go60-zmk0.3.0` pins the driver by name**:
+   `cirque-input-module`, remote `petejohanson`, revision `0de55f36`.
+
+So the end state needs **no ZMK fork at all**:
+
+```yaml
+# config/west.yml
+projects:
+  - name: zmk
+    remote: moergo-sc          # stock MoErgo, unforked
+    revision: go60-zmk0.3.0
+    import: app/west.yml
+  - name: cirque-input-module  # top-level wins over MoErgo's pin
+    remote: kalakris           # our fork, or the vendored in-tree driver
+    revision: <sha>
+  - name: <touch-module>       # the new module, added alongside
+    remote: kalakris
+    revision: <sha>
+```
+
+**Payoff beyond publishability:** `kalakris/zmk` disappears. No fork-of-a-
+fork to rebase, and MoErgo's upstream fixes flow to us for free (e.g. the
+Go60 physical-layout key-order fix `5b43b3f8`, 2026-08-21, which we had
+patched by hand in `config/go60-layouts.dtsi`).
+
+Caveats to prove in stage 1:
+- The vendored transport must be compatible with **MoErgo's** ZMK at Zephyr
+  3.5, not just upstream ZMK. MoErgo's deltas are mostly Go60 board
+  support, so this is expected to be fine — but it is the thing to check.
+- One driver override remains either way (abs-mode isn't in petejohanson's
+  module) — use the vendored in-tree driver, per the ~2h plan in
+  zephyr-41-migration.md.
+- `CONFIG_USB_HID_DEVICE_COUNT=2` and the second BLE HIDS instance must
+  work on MoErgo's build.
+
 ## Work items
 
 1. **Vendor the transport.** Start from `zzeneg/zmk-raw-hid`'s structure.
@@ -131,7 +174,11 @@ known contributor rather than a stranger dropping a fork:
 
 > I want to republish my ZMK raw-touch-stream firmware as a standalone
 > out-of-tree ZMK module, so it stops requiring a fork of MoErgo's fork of
-> ZMK and can be used by anyone with a Cirque trackpad.
+> ZMK and can be used by anyone with a Cirque trackpad. A second goal:
+> when this lands I should be able to build my own firmware from **stock**
+> `moergo-sc/zmk` plus modules, deleting the `kalakris/zmk` fork — west
+> gives the top-level manifest precedence, so my `config/west.yml` can
+> override MoErgo's `cirque-input-module` pin and add the new module.
 >
 > Read these first, in order — they contain all the prior research and
 > decisions, don't redo them:
