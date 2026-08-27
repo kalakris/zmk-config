@@ -4,6 +4,7 @@
 #include <input/processors.dtsi>
 #include <raw_touch/processors.dtsi>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
 #include <dt-bindings/zmk/input_transform.h>
 
 #include "positions_go60.dtsi"
@@ -62,8 +63,37 @@
  * below, not here: the module reads them from its own binding so it does
  * not depend on any particular trackpad driver. */
 &glidepoint {
+    /* MoErgo's Go60 board DTS sets these four on &glidepoint under the
+     * forked driver's names. Zephyr 3.5's edtlib errors on properties a
+     * binding does not declare, so they must be deleted before the
+     * in-tree names are set. */
+    /delete-property/ dr-gpios;
+    /delete-property/ rotate-90;
+    /delete-property/ y-invert;
+    /delete-property/ no-secondary-tap;
+
+    data-ready-gpios = <&go60_ext 4 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+
     sensitivity = "2x";
-    abs-mode;
+
+    /* Absolute reporting, for the raw touch stream. */
+    data-mode = "absolute";
+
+    /* MANDATORY. Written to the Pinnacle's Z_IDLE register; upstream
+     * DEFAULTS IT TO 0, which emits no lift-off packets at all - the
+     * module would never see a release, so no release frame, no momentum
+     * and no tap-to-click. The forked driver hardcoded 3 in absolute
+     * mode. */
+    idle-packets-count = <3>;
+
+    /* Deliberately NOT setting swap-xy / invert-y here, unlike the left
+     * pad below. Upstream applies invert-x/invert-y in BOTH modes (the
+     * fork applied them in relative mode only), so setting invert-y would
+     * bake the mirror into the streamed absolute frames. Frames must stay
+     * raw: the orientation is declared on raw_touch_rh instead, where the
+     * module applies it to the derived pointer deltas and publishes it in
+     * the feature report for the host. swap-xy is inert in absolute mode
+     * either way. */
 };
 
 /* The streaming pad. This node is what enables CONFIG_ZMK_RAW_TOUCH, and

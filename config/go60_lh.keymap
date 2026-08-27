@@ -3,6 +3,7 @@
 
 #include <input/processors.dtsi>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
 #include <dt-bindings/zmk/input_transform.h>
 
 #include "positions_go60.dtsi"
@@ -45,6 +46,27 @@
  * processor is only compiled on the central, and this half's listeners
  * are disabled below anyway — the RH central applies it to both pads.
  */
+
+/* Left pad, under Zephyr's in-tree Cirque driver. This pad does NOT
+ * stream - it runs in relative mode and is forwarded to the central over
+ * the split link - so unlike the right pad it wants the hardware feed
+ * transforms on. swap-xy + invert-y reproduce the forked driver's
+ * relative-mode behaviour exactly. */
+&glidepoint {
+    /* MoErgo's Go60 board DTS sets these four on &glidepoint under the
+     * forked driver's names. Zephyr 3.5's edtlib errors on properties a
+     * binding does not declare, so they must be deleted before the
+     * in-tree names are set. */
+    /delete-property/ dr-gpios;
+    /delete-property/ rotate-90;
+    /delete-property/ y-invert;
+    /delete-property/ no-secondary-tap;
+
+    data-ready-gpios = <&go60_ext 4 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+
+    swap-xy;
+    invert-y;
+};
 
 /* ── Override: left half is now peripheral ── */
 /* Forward local trackpad to central via split */
