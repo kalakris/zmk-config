@@ -36,6 +36,14 @@ BUILD_ASSERT(CONFIG_USB_HID_DEVICE_COUNT >= 2,
              "CONFIG_ZMK_RAW_TOUCH_USB needs a second USB HID interface. "
              "Set CONFIG_USB_HID_DEVICE_COUNT=2 (or more) in your .conf.");
 
+/* The full v3 input report (report ID + 11-byte body = 12 bytes) still fits
+ * one interrupt IN packet at the default CONFIG_HID_INTERRUPT_EP_MPS of 16,
+ * so a frame never straddles a USB (micro)frame boundary. Keep it that way:
+ * a multi-packet report would also change the in_ready/hid_sem pacing
+ * assumptions below. */
+BUILD_ASSERT(sizeof(struct zmk_raw_touch_report) <= CONFIG_HID_INTERRUPT_EP_MPS,
+             "Raw touch input report no longer fits a single interrupt IN packet");
+
 /* HID_0 is ZMK's keyboard/consumer/mouse interface; ours is the next one. */
 #define ZMK_RAW_TOUCH_USB_HID_DEV "HID_1"
 

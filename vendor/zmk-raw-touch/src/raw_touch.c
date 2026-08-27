@@ -3,16 +3,18 @@
  *
  * SPDX-License-Identifier: MIT
  *
- * Raw touch streaming (protocol v2): forwards absolute touch frames
+ * Raw touch streaming (protocol v3): forwards absolute touch frames
  * (position + touch strength) from a trackpad running in absolute mode to
  * the host over a vendor-defined HID report (see zmk/raw_touch/hid.h).
  *
  * One report is emitted per pad sample while touched (~100 Hz), plus
- * exactly one release report (touched = 0, z = 0) on lift-off. An 8-byte
- * feature report on the same report ID describes the pad (protocol
- * version, pads present, resolution, orientation, coordinate ranges) and
- * is readable over USB GET_REPORT and the BLE HOG feature-report
- * characteristic.
+ * exactly one release report (touched = 0, z = 0) on lift-off. Each frame
+ * carries a per-pad sequence number (drop detection) and a device-side
+ * timestamp in 100 us units (host-side velocity that BLE batching cannot
+ * distort). A 20-byte feature report on the same report ID describes the
+ * protocol version, the pads present and, per pad, its resolution,
+ * orientation, coordinate ranges and contact count; it is readable over
+ * USB GET_REPORT and the BLE HOG feature-report characteristic.
  *
  * One instance per zmk,raw-touch-pad devicetree node. Nothing here is
  * specific to any particular touchpad ASIC: the node names the input
@@ -103,6 +105,9 @@ struct raw_touch_pad_data {
     bool have_prev_pos;
     uint16_t prev_x, prev_y;
 
+    /* Streamed-frame sequence number, +1 per emitted report, wraps. */
+    uint8_t seq;
+
     /* Tap detection state for the current touch. */
     int64_t touch_down_ts;
     uint16_t touch_down_x, touch_down_y;
@@ -149,9 +154,15 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
     uint8_t flags = (touched ? ZMK_RAW_TOUCH_FLAGS_TOUCHED : 0) |
                     (scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0);
 
+    /* Device-side sample time (HID Scan Time convention, 100 us units):
+     * hosts derive finger velocity from this rather than from arrival
+     * time, which BLE connection-interval batching distorts. */
+    uint16_t timestamp = (uint16_t)(k_ticks_to_us_floor64(k_uptime_ticks()) / 100);
+
     /* !touched implies cur_x/y/z are all zero (that is how touched is
      * derived above), so the release report's zeros need no special case. */
-    zmk_raw_touch_hid_set(cfg->pad_id, data->cur_x, data->cur_y, data->cur_z, flags);
+    zmk_raw_touch_hid_set(cfg->pad_id, data->cur_x, data->cur_y, data->cur_z, flags, data->seq++,
+                          timestamp);
     zmk_raw_touch_send_report();
 
     if (touched && !data->prev_touched) {
@@ -319,39 +330,46 @@ static const struct raw_touch_pad_config *const raw_touch_pads[] = {
 static int raw_touch_init(void) {
     uint8_t pads_present = 0;
 
-    /* Protocol v2's feature report carries ONE set of geometry and
-     * orientation fields, but the module supports several pads. Publish
-     * the lowest-numbered pad's values and warn about any pad that
-     * disagrees; per-pad geometry is a protocol v3 item. */
-    const struct raw_touch_pad_config *primary = raw_touch_pads[0];
-
     for (size_t i = 0; i < ARRAY_SIZE(raw_touch_pads); i++) {
-        const struct raw_touch_pad_config *cfg = raw_touch_pads[i];
-
-        pads_present |= BIT(cfg->pad_id);
-
-        if (cfg->pad_id < primary->pad_id) {
-            primary = cfg;
-        }
+        pads_present |= BIT(raw_touch_pads[i]->pad_id);
     }
 
-    for (size_t i = 0; i < ARRAY_SIZE(raw_touch_pads); i++) {
-        const struct raw_touch_pad_config *cfg = raw_touch_pads[i];
+    zmk_raw_touch_hid_set_feature_header(pads_present);
 
-        if (cfg == primary) {
-            continue;
+    /* Fill the feature report's pad slots with the present pads in
+     * ascending pad-id order, each with its own geometry and orientation.
+     * pad-ids are unique (the binding requires it), so scanning for the
+     * smallest id above the last one placed visits each pad once. */
+    int slot = 0;
+    int last_pad_id = -1;
+
+    while (slot < ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS) {
+        const struct raw_touch_pad_config *next = NULL;
+
+        for (size_t i = 0; i < ARRAY_SIZE(raw_touch_pads); i++) {
+            const struct raw_touch_pad_config *cfg = raw_touch_pads[i];
+
+            if ((int)cfg->pad_id > last_pad_id && (next == NULL || cfg->pad_id < next->pad_id)) {
+                next = cfg;
+            }
         }
 
-        if (cfg->x_max != primary->x_max || cfg->y_max != primary->y_max ||
-            cfg->resolution != primary->resolution ||
-            RT_ORIENTATION(cfg) != RT_ORIENTATION(primary)) {
-            LOG_WRN("Pad %d geometry differs from pad %d; the feature report describes pad %d only",
-                    cfg->pad_id, primary->pad_id, primary->pad_id);
+        if (next == NULL) {
+            break;
         }
+
+        /* max_contacts = 1: the module streams a single contact per pad
+         * (contact_id 0); a Pinnacle reports one finger anyway. */
+        zmk_raw_touch_hid_set_feature_slot(slot++, next->resolution, RT_ORIENTATION(next),
+                                           next->x_max, next->y_max, 1);
+        last_pad_id = next->pad_id;
     }
 
-    zmk_raw_touch_hid_set_feature(pads_present, primary->resolution, RT_ORIENTATION(primary),
-                                  primary->x_max, primary->y_max);
+    if (ARRAY_SIZE(raw_touch_pads) > ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS) {
+        LOG_WRN("%d raw touch pads configured but the feature report has %d slots; "
+                "pads with the highest pad-ids are not described",
+                (int)ARRAY_SIZE(raw_touch_pads), ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS);
+    }
 
     return 0;
 }
