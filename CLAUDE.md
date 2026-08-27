@@ -4,9 +4,8 @@
 
 ZMK firmware configuration for two split keyboards — the **Eyelash Sofle** and the **MoErgo Go60** — sharing a single keymap via C preprocessor macros. The actual ZMK firmware source is pulled in via West (Zephyr's package manager). Branch map for the Go60 (see "Raw touch scrolling" below):
 
-- `main` — stock MoErgo (`moergo-sc/zmk:go60-zmk0.3.0`), no touch stream. The stable fallback.
-- `raw-touch` — **what the user's Go60 is running today.** `west.yml` → `kalakris/zmk@raw-touch`, a fork of MoErgo's fork carrying the stream as a ZMK core patch.
-- `module-port` / `module-port-intree` — **the intended replacement.** Stock MoErgo ZMK plus the out-of-tree `zmk-raw-touch` module; no ZMK fork. `-intree` also swaps in Zephyr's in-tree Pinnacle driver. Both CI-green on all 5 targets; **neither has been flashed yet.**
+- `main` — **what the user's Go60 runs.** Stock MoErgo ZMK (pinned SHA, no ZMK fork) + the out-of-tree `zmk-raw-touch` module (vendored under `vendor/` while its repo is private) + Zephyr main's in-tree Pinnacle driver via `cirque-input-module@intree-driver`. Hardware-verified 2026-08-27 over USB and BLE (promoted from `module-port-intree`).
+- `raw-touch`, `module-port`, `module-port-intree` — historical stages of the module port; superseded by `main`. `raw-touch` still points at the deletable `kalakris/zmk` fork (its one PR-worthy commit is salvaged in `patches/`).
 
 ## Key Files
 
@@ -17,7 +16,7 @@ ZMK firmware configuration for two split keyboards — the **Eyelash Sofle** and
 - `config/go60.keymap` — Thin wrapper: includes + Go60-specific config (dual Cirque trackpads)
 - `config/eyelash_sofle.conf` — Sofle Kconfig (RGB, sleep, Bluetooth, mouse, encoder, etc.)
 - `config/go60.conf` — Go60 Kconfig (RGB, sleep, trackpad, full consumer HID)
-- `config/west.yml` — West manifest (moergo upstream on `main`; kalakris/zmk fork on `raw-touch`; stock moergo + Cirque override + the touch module on `module-port*`)
+- `config/west.yml` — West manifest: stock moergo (SHA-pinned) + Cirque driver override + the touch module (commented-out west entry; vendored until the repo is public)
 - `build.yaml` — Build targets: 3 Sofle (left+studio, right, settings_reset) + 2 Go60 (lh, rh). On `module-port*` the two Go60 targets carry `-DZMK_EXTRA_MODULES` cmake-args
 - `vendor/zmk-raw-touch/` + `scripts/sync-raw-touch-module.sh` — **`module-port*` only.** Vendored copy of the (private) module repo, because CI's `west update` can't clone it. Temporary; see the brief
 - `boards/` — Custom board definitions for the Eyelash Sofle

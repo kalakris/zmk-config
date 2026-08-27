@@ -51,7 +51,7 @@ the stream now lives in an out-of-tree module built against stock
   `x-invert`, `y-invert`, `x-max`, `y-max`, `resolution`, `pad-id`). The
   module consumes standard `INPUT_ABS_X/Y/Z` and knows nothing about any
   ASIC, so it works against Zephyr's in-tree driver unmodified.
-- [ ] **BEFORE deleting `kalakris/zmk`**: that fork is the only place the
+- [ ] **BEFORE deleting `kalakris/zmk`**: that fork is the only place the **SALVAGED 2026-08-27**: preserved as `patches/zmk-skip-empty-mouse-report-syncs.patch` on main; the fork is now safe to delete.
   two upstream-shaped bugfix commits exist. Cherry-pick or export them
   first — see the next item.
 - [ ] **Submit the ungated zero-report suppression as a standalone bugfix

@@ -1,0 +1,107 @@
+From cfc4b3e600d7a9e640183a87cc5b565d9ddc47a1 Mon Sep 17 00:00:00 2001
+From: Mrinal Kalakrishnan <mail@mrinal.net>
+Date: Tue, 25 Aug 2026 08:14:06 -0700
+Subject: [PATCH] fix(pointing): Skip mouse reports for syncs with no
+ accumulated changes
+
+An input listener sends a mouse HID report on every sync event, even when
+nothing was accumulated since the last sync. Such a report carries zero
+relative deltas and an unchanged button bitmap, so it is a host-invisible
+no-op - but it still costs a USB interrupt-in transfer or a BLE
+notification per sync. Devices or processor chains that produce
+value-less syncs (events consumed by an input processor, a scaler or
+mapper emitting a value-0 relative event, high-rate devices syncing
+without state changes) can generate these empty reports at the device's
+full sample rate.
+
+Skip sending when no nonzero x/y/wheel value was accumulated and no
+button transition (button_set/button_clear) was requested this cycle.
+Button transitions always go out, so presses, releases, and drags are
+unaffected: a held button with no motion simply sends nothing, and the
+host keeps the button state from the last real report. Any sync that
+would change host-visible state is still sent.
+
+This replaces the earlier touch-stream-gated two-stage suppression
+(accumulator-mode check plus last-report-empty tracking) with one general
+value-based check.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+---
+ app/src/pointing/input_listener.c | 43 +++++++++----------------------
+ 1 file changed, 12 insertions(+), 31 deletions(-)
+
+diff --git a/app/src/pointing/input_listener.c b/app/src/pointing/input_listener.c
+index f8f8257d..fe04a9d1 100644
+--- a/app/src/pointing/input_listener.c
++++ b/app/src/pointing/input_listener.c
+@@ -38,13 +38,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+ 
+ #if VALID_LISTENER_COUNT > 0
+ 
+-#if IS_ENABLED(CONFIG_ZMK_TOUCH_STREAM)
+-// Whether the last mouse report actually sent had an all-zero body. The
+-// mouse HID report is global (shared across listeners), so this is too.
+-// Starts true: before anything is sent the host already assumes zeros.
+-static bool last_mouse_report_empty = true;
+-#endif // IS_ENABLED(CONFIG_ZMK_TOUCH_STREAM)
+-
+ enum input_listener_xy_data_mode {
+     INPUT_LISTENER_XY_DATA_MODE_NONE,
+     INPUT_LISTENER_XY_DATA_MODE_REL,
+@@ -304,16 +297,20 @@ static void input_handler(const struct input_listener_config *config,
+     }
+ 
+     if (evt->sync) {
+-#if IS_ENABLED(CONFIG_ZMK_TOUCH_STREAM)
+-        // Absolute touch frames (streamed separately, see touch_stream.c)
+-        // sync at ~100 Hz without accumulating any mouse state here; skip
+-        // sending empty mouse reports for them.
+-        if (data->mouse.data.mode == INPUT_LISTENER_XY_DATA_MODE_NONE &&
+-            data->mouse.wheel_data.mode == INPUT_LISTENER_XY_DATA_MODE_NONE &&
++        // A sync that accumulated no motion, no scroll, and no button
++        // transitions would produce a report identical in effect to
++        // sending nothing: zero relative deltas and unchanged button state
++        // are invisible to the host (a held button stays held either way).
++        // Skip it. Such syncs come from devices or processors that sync
++        // without contributing values, e.g. events consumed by an input
++        // processor, or a scaler emitting a value-0 relative event.
++        if (data->mouse.data.x.value == 0 && data->mouse.data.y.value == 0 &&
++            data->mouse.wheel_data.x.value == 0 && data->mouse.wheel_data.y.value == 0 &&
+             data->mouse.button_set == 0 && data->mouse.button_clear == 0) {
++            clear_xy_data(&data->mouse.data);
++            clear_xy_data(&data->mouse.wheel_data);
+             return;
+         }
+-#endif // IS_ENABLED(CONFIG_ZMK_TOUCH_STREAM)
+ 
+         if (data->mouse.wheel_data.mode == INPUT_LISTENER_XY_DATA_MODE_REL) {
+             zmk_hid_mouse_scroll_set(data->mouse.wheel_data.x.value,
+@@ -340,24 +337,8 @@ static void input_handler(const struct input_listener_config *config,
+             }
+         }
+ 
+-#if IS_ENABLED(CONFIG_ZMK_TOUCH_STREAM)
+-        // In dual/scroll mode a wheel overlay scaling touch deltas down
+-        // (e.g. 1:8) emits REL_WHEEL value 0 on most frames, which sets
+-        // wheel_data.mode and defeats the emptiness check above, producing
+-        // ~100 Hz all-zero mouse reports. Suppress a report whose entire
+-        // body is zero - but only if the previously sent report was also
+-        // all-zero, so a transition to zero (e.g. a button release) still
+-        // goes out and click/drag semantics are preserved.
+-        const struct zmk_hid_mouse_report_body *body = &zmk_hid_get_mouse_report()->body;
+-        bool report_empty = body->buttons == 0 && body->d_x == 0 && body->d_y == 0 &&
+-                            body->d_scroll_x == 0 && body->d_scroll_y == 0;
+-        if (!report_empty || !last_mouse_report_empty) {
+-            zmk_endpoints_send_mouse_report();
+-            last_mouse_report_empty = report_empty;
+-        }
+-#else
+         zmk_endpoints_send_mouse_report();
+-#endif // IS_ENABLED(CONFIG_ZMK_TOUCH_STREAM)
++
+         zmk_hid_mouse_scroll_set(0, 0);
+         zmk_hid_mouse_movement_set(0, 0);
+ 
+-- 
+2.50.1 (Apple Git-155)
+
