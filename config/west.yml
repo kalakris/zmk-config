@@ -11,14 +11,50 @@ manifest:
     - name: kalakris
       url-base: https://github.com/kalakris
   projects:
+    # Stock MoErgo ZMK - not a fork. The raw touch stream now lives in an
+    # out-of-tree module instead of a patch to ZMK core, so kalakris/zmk is
+    # no longer load-bearing and can be deleted once this branch is proven.
+    #
+    # Pinned to a SHA, not the branch name: go60-zmk0.3.0 is a branch, not a
+    # tag, and this is a daily driver. 57a7b8e0 is its tip as of 2026-08-26
+    # and is exactly the commit kalakris/zmk@raw-touch forked from, so the
+    # ZMK side of this change is a pure subtraction of our own patches.
     - name: zmk
-      remote: kalakris
-      # Fork of moergo-sc/zmk go60-zmk0.3.0 with the raw touch stream
-      # prototype (see docs/raw-touch-protocol.md).
-      revision: raw-touch
+      remote: moergo-sc
+      revision: 57a7b8e06b19898e59a4dbd5f554b7ed5677493b
       import: app/west.yml
+
+    # Overrides MoErgo's own cirque-input-module pin (remote petejohanson,
+    # revision 0de55f36). West resolves duplicate project names in favour of
+    # the first definition, and a manifest's own projects are processed
+    # before its imports - so this entry wins over the one that
+    # moergo-sc/zmk's app/west.yml pulls in.
+    #
+    # Still needed because absolute-mode reporting is not in petejohanson's
+    # module. See docs/pinnacle-driver-landscape.md.
+    - name: cirque-input-module
+      remote: kalakris
+      revision: a9051a6748fda583eebb81c107b0270c4f013acd
+
     - name: nice-view-battery
       remote: infely
       revision: main
+
+    # NOT YET FETCHED BY WEST. The raw touch module lives at
+    # https://github.com/kalakris/zmk-raw-touch-wip, which is private while
+    # the name and the protocol-v3 question are open - and `west update` in
+    # CI authenticates anonymously, so it cannot clone a private repo.
+    #
+    # Until the repo goes public it is vendored into modules/zmk-raw-touch/
+    # on this branch and passed to the build with -DZMK_EXTRA_MODULES
+    # (see build.yaml). Run ./scripts/sync-raw-touch-module.sh to refresh it.
+    #
+    # To switch to the real thing once the repo is public: uncomment the
+    # entry below, delete modules/zmk-raw-touch/, and drop the cmake-args
+    # from the two go60 targets in build.yaml.
+    #
+    # - name: zmk-raw-touch
+    #   remote: kalakris
+    #   revision: main
   self:
     path: boards

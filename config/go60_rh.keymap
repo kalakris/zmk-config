@@ -2,6 +2,7 @@
 #define ZMK_POINTING_DEFAULT_SCRL_VAL 25
 
 #include <input/processors.dtsi>
+#include <raw_touch/processors.dtsi>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <dt-bindings/zmk/input_transform.h>
 
@@ -53,23 +54,46 @@
  *
  * abs-mode switches the Pinnacle to absolute reporting for the raw touch
  * stream (see docs/raw-touch-protocol.md). Requires
- * CONFIG_ZMK_TOUCH_STREAM=y (go60_rh.conf): the touch-stream module turns
+ * CONFIG_ZMK_RAW_TOUCH=y (go60_rh.conf): the raw touch module turns
  * the absolute frames back into REL_X/REL_Y for normal pointing, so
  * without it the pad would stop moving the cursor.
  *
- * The pad's hardware tap-to-click is a relative-mode feature and is lost
- * in abs-mode; stream-tap-click enables the firmware replacement in the
- * touch-stream module (defaults: 180 ms, 30 counts max movement — set
- * stream-tap-max-ms / stream-tap-max-movement to tune). Taps inject
- * BTN_0 into this pad's listener chain, which must NOT contain
- * &zip_button_behaviors — that processor exists to map BTN_0 to &none
- * (it was added to mute the relative-mode hardware taps) and would eat
- * the firmware tap. With it removed, BTN_0 flows to the listener's
- * native button handling and clicks on any layer. */
+ * Tap-to-click and the pad's geometry now live on the raw_touch_rh node
+ * below, not here: the module reads them from its own binding so it does
+ * not depend on any particular trackpad driver. */
 &glidepoint {
     sensitivity = "2x";
     abs-mode;
-    stream-tap-click;
+};
+
+/* The streaming pad. This node is what enables CONFIG_ZMK_RAW_TOUCH, and
+ * it is the module's entire configuration surface - nothing about the
+ * Cirque driver appears in it.
+ *
+ * rotate-90 / y-invert MUST match what the Go60 board DTS sets on
+ * &glidepoint. Streamed frames go out untransformed and these bits are
+ * published in the feature report so the host can apply them; they are
+ * also applied to the relative deltas the module derives for the fallback
+ * pointer path.
+ *
+ * tap-click is the firmware replacement for the pad's hardware
+ * tap-to-click, which is a relative-mode feature and is lost in abs-mode.
+ * Taps inject BTN_0 into this pad's listener chain, which must NOT contain
+ * &zip_button_behaviors - that processor exists to map BTN_0 to &none (it
+ * was added to mute the relative-mode hardware taps) and would eat the
+ * firmware tap. With it removed, BTN_0 flows to the listener's native
+ * button handling and clicks on any layer.
+ * Defaults: 180 ms, 30 counts max movement - set tap-max-ms /
+ * tap-max-movement to tune. */
+/ {
+    raw_touch_rh: raw_touch_rh {
+        compatible = "zmk,raw-touch-pad";
+        device = <&glidepoint>;
+        pad-id = <0>;
+        rotate-90;
+        y-invert;
+        tap-click;
+    };
 };
 
 /* ── Override: right half is now central ── */
@@ -94,7 +118,7 @@
  * comment); the left pad keeps its instance to stay click-muted.
  *
  * nav_scroll is dual-purpose while Nav (layer 2) is held:
- *   - &zip_touch_stream_scroll marks the scroll context for the raw
+ *   - &zip_raw_touch_scroll marks the scroll context for the raw
  *     touch stream — frames stream with the scroll-mode flag set and the
  *     host (patched LinearMouse fork) synthesizes smooth scrolling with
  *     lift-off momentum from them, suppressing the wheel events below.
@@ -109,18 +133,20 @@
      * absolute counts (~38/mm) by the touch-stream module, which run larger
      * than the ASIC's relative-mode output that the 3x was tuned for. */
     input-processors = <&zip_xy_scaler 1 1>,
-                       <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
+                       <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>,
+                       <&zip_raw_touch_idle_filter>;
     nav_scroll {
         layers = <2>;
         /* Order matters: the mapper rewrites REL_X/REL_Y to REL_WHEEL, so
          * anything after it must target wheel codes (zip_scroll_transform
-         * and zip_scroll_scaler do). zip_touch_stream_scroll is a pure
+         * and zip_scroll_scaler do). zip_raw_touch_scroll is a pure
          * pass-through marker; position is irrelevant, but keep it first
          * for visibility. */
-        input-processors = <&zip_touch_stream_scroll>,
+        input-processors = <&zip_raw_touch_scroll>,
                            <&zip_xy_to_vscroll_mapper>,
                            <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
                            <&zip_scroll_scaler 1 8>,
-                           <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>;
+                           <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>,
+                           <&zip_raw_touch_idle_filter>;
     };
 };
