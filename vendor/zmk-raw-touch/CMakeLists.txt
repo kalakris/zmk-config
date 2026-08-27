@@ -11,6 +11,11 @@
 if(CONFIG_ZMK_RAW_TOUCH OR CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL OR CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_IDLE_FILTER)
   target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+  # Carries the LOG_MODULE_REGISTER, so it must be built whenever any part
+  # of the module is - the input processors are enabled independently of
+  # CONFIG_ZMK_RAW_TOUCH, by their own devicetree nodes.
+  target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/log.c)
+
   target_sources_ifdef(CONFIG_ZMK_RAW_TOUCH app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/hid.c)
   target_sources_ifdef(CONFIG_ZMK_RAW_TOUCH app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/raw_touch.c)
   target_sources_ifdef(CONFIG_ZMK_RAW_TOUCH app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/endpoints.c)

@@ -20,26 +20,31 @@ for f in "$LH_FW" "$RH_FW"; do
 done
 
 # The volume appears in /Volumes a moment before it is writable, so a copy
-# fired on first sight loses the race with "Permission denied". Retry until it
-# takes, and never let a failed copy kill the watcher (set -e would).
+# fired on first sight loses the race with "Permission denied". Two other
+# failure modes seen in practice: the mount vanishes sub-second and comes
+# back (bouncy USB during bootloader entry), and a stale mountpoint makes
+# macOS remount under "GO60RHBOOT 1" — so retry fast (0.25s) and re-resolve
+# the target by glob on every attempt. Never let a failed copy kill the
+# watcher (set -e would).
 flash_half() {
-    local vol="$1" fw="$2" err=""
+    local vol="$1" fw="$2" err="" target=""
     echo "$vol detected — flashing $(basename "$fw")..."
-    for _ in $(seq 1 15); do
-        if err=$(cp "$fw" "/Volumes/$vol/" 2>&1); then
-            echo "  OK — waiting for $vol to unmount (board reboots on success)"
+    for _ in $(seq 1 80); do
+        target=$(ls -d "/Volumes/$vol"* 2>/dev/null | head -1)
+        if [ -n "$target" ] && err=$(cp "$fw" "$target/" 2>&1); then
+            echo "  OK — waiting for $target to unmount (board reboots on success)"
             # Without this the next poll finds the volume still mounted and
             # flashes again; the UF2 bootloader unmounts once it has the image.
             for _ in $(seq 1 30); do
-                [ -d "/Volumes/$vol" ] || { echo "  $vol unmounted — flashed."; return 0; }
+                [ -d "$target" ] || { echo "  $vol unmounted — flashed."; return 0; }
                 sleep 1
             done
-            echo "  WARNING: $vol still mounted after 30s — flash may not have applied" >&2
+            echo "  WARNING: $target still mounted after 30s — flash may not have applied" >&2
             return 1
         fi
-        sleep 1
+        sleep 0.25
     done
-    echo "  ERROR: could not write to /Volumes/$vol after 15 attempts (last error: $err)" >&2
+    echo "  ERROR: could not write to $vol after 20s (last error: ${err:-volume never mounted})" >&2
     return 1
 }
 
@@ -49,7 +54,7 @@ echo "  RH firmware: $RH_FW"
 echo "Press Ctrl+C to stop."
 
 while true; do
-    [ -d /Volumes/GO60LHBOOT ] && flash_half GO60LHBOOT "$LH_FW" || true
-    [ -d /Volumes/GO60RHBOOT ] && flash_half GO60RHBOOT "$RH_FW" || true
+    ls -d /Volumes/GO60LHBOOT* >/dev/null 2>&1 && flash_half GO60LHBOOT "$LH_FW" || true
+    ls -d /Volumes/GO60RHBOOT* >/dev/null 2>&1 && flash_half GO60RHBOOT "$RH_FW" || true
     sleep 1
 done

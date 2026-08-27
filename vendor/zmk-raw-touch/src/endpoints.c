@@ -17,11 +17,31 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
-#include <zmk/endpoints.h>
-#include <zmk/endpoints_types.h>
-
 #include <zmk/raw_touch/hid.h>
 #include <zmk/raw_touch/transport.h>
+
+#define ZMK_RAW_TOUCH_HAS_TRANSPORT                                                                \
+    (IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB) || IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE))
+
+#if !ZMK_RAW_TOUCH_HAS_TRANSPORT
+
+/* Both transports are central-only, so on a split peripheral this file is all
+ * that is left of the send path -- and it must not reference ZMK's endpoints
+ * API at all. ZMK compiles its own src/endpoints.c under
+ * `(NOT CONFIG_ZMK_SPLIT) OR CONFIG_ZMK_SPLIT_ROLE_CENTRAL`, so on a
+ * peripheral zmk_endpoints_selected() does not exist and calling it would
+ * fail to link.
+ *
+ * The module core still runs there on purpose: it re-injects the relative
+ * deltas that ordinary pointing needs, and the split link forwards those to
+ * the central. Only the raw stream itself is unavailable, so the frame
+ * handler's send is a no-op. */
+int zmk_raw_touch_send_report(void) { return -ENOTSUP; }
+
+#else
+
+#include <zmk/endpoints.h>
+#include <zmk/endpoints_types.h>
 
 int zmk_raw_touch_send_report(void) {
     /* Note the plural: zmk_endpoints_selected() is stock ZMK's spelling.
@@ -66,3 +86,5 @@ int zmk_raw_touch_send_report(void) {
     LOG_ERR("Unhandled endpoint transport %d", current_instance.transport);
     return -ENOTSUP;
 }
+
+#endif /* ZMK_RAW_TOUCH_HAS_TRANSPORT */
