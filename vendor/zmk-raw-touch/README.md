@@ -1,6 +1,6 @@
-# zmk-raw-touch  *(working title — see [Naming](#naming))*
+# zmk-raw-touch
 
-> **Status: work in progress. Not published, not supported, name not final.**
+> **Status: work in progress. Not published, not supported.**
 > Nothing here is stable yet. See [Open questions](#open-questions).
 
 Trackpad scrolling on a ZMK keyboard that feels like a Magic Trackpad —
@@ -198,18 +198,23 @@ transport (`src/usb_hid.c` uses the legacy USB device stack, which the new
 
 ## Naming
 
-The working title is a placeholder. "Touch stream" is not available:
-**FingerWorks TouchStream** (1998–2005) was a multitouch split ergonomic
-keyboard that streamed absolute finger contacts to a host for gesture
-synthesis — this project's problem statement, verbatim — and Apple
-acquired it to build the iPhone. There is also an active patent-litigation
-entity of the same name. The final name will be something else; expect the
-repo, the Kconfig prefix (`ZMK_RAW_TOUCH_`) and the devicetree compatibles
-(`zmk,raw-touch-*`) to change together, once.
+`zmk-raw-touch` is the final name (decided 2026-08-27): descriptive, in the
+same register as the modules this one's transport approach comes from
+(`zmk-raw-hid`, `zmk-hid-io`), and collision-checked.
+
+The obvious alternative vocabulary — "touch stream" — is deliberately
+avoided everywhere in this project: **FingerWorks TouchStream** (1998-2005)
+was a multitouch split ergonomic keyboard that streamed absolute finger
+contacts to a host for gesture synthesis — this project's problem
+statement, verbatim — and Apple acquired it to build the iPhone. There is
+also an active patent-litigation entity of the same name.
+
+The unit noun is **"touch frame"**: one sampled snapshot of a contact.
+Microsoft, HID, and Apple all use "frame" for this, so the spec reads
+familiarly to anyone who has implemented Precision Touchpad.
 
 ## Open questions
 
-- The name (above).
 - Whether to freeze the wire format at v2 or cut a **v3** first. Candidate
   v3 changes: a per-frame device timestamp (HID Scan Time, 100 µs units),
   explicit contact-state bits, pad geometry declared in the report

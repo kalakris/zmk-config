@@ -51,7 +51,7 @@ manifest:
       revision: main
 
     # NOT YET FETCHED BY WEST. The raw touch module lives at
-    # https://github.com/kalakris/zmk-raw-touch-wip, which is private while
+    # https://github.com/kalakris/zmk-raw-touch, which is private while
     # the name and the protocol-v3 question are open - and `west update` in
     # CI authenticates anonymously, so it cannot clone a private repo.
     #
