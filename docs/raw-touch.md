@@ -120,17 +120,48 @@ be fetched locally — `git fetch --tags` if you need it.
 
 ## Status: validated vs pending
 
-Everything is hardware-validated on the user's machine as of 2026-08-25
-**except**:
+**As of 2026-08-26 the system is complete and in daily use.** Working and
+hardware-validated: raw-touch scrolling with ballistics, real lift-off
+momentum and touch-to-catch; firmware tap-to-click; the "Raw Touch"
+scrolling mode in LinearMouse with live-responding settings; dual-mode
+wheel fallback; direction semantics unified with the system Natural
+Scrolling preference.
 
+Fixed after the initial validation (all deployed):
+- Firmware taps were swallowed by `&zip_button_behaviors` on the right
+  pad's listener chain (a 2026-03 config change that muted the ASIC's
+  hardware taps). Removed for that pad only.
+- Every touch-stream setting applied **one change late** — the config
+  subscription read `ConfigurationState.configuration` during `willSet`.
+  Fixed with a main-queue hop; regression-tested.
+- The pane-level "Reverse scrolling" toggle was a no-op in Raw Touch mode
+  (the reverse transformer skips synthetic events). It is now the single
+  direction control, applied once at the engine, XOR'd with the system
+  Natural Scrolling preference — so it means the same thing in every mode.
+
+Still pending (user tests, not known bugs):
 - **Sofle + Go60 simultaneously**: confirm the Sofle's encoder scroll works
-  while the Go60 stream is open (the physical-identity suppression exists
-  precisely for this; needs a check with both keyboards connected).
-- **A dedicated BLE session**: the BLE HOG transport (feature-report
-  characteristic, notification-only payload frames) is implemented but a
-  focused Bluetooth-only test session hasn't been run.
+  while the Go60 stream is open (physical-identity suppression exists
+  precisely for this).
+- **A dedicated BLE session**: the BLE HOG transport is implemented but a
+  focused Bluetooth-only test hasn't been run.
 
-Both are pending user tests, not known bugs.
+### Strategic decisions taken (2026-08-26)
+
+Research settled several questions; each has a dedicated doc:
+
+| Decision | Verdict | Doc |
+|---|---|---|
+| Zephyr 4.1 / ZMK 0.4 migration | **Wait** — named triggers; gains thin, three open regressions hit our config, MoErgo's branch stale | [zephyr-41-migration.md](zephyr-41-migration.md) |
+| Our Cirque driver fork | **Transitional** — Zephyr's in-tree driver has had abs mode since 2024; ours is EOL-based | [pinnacle-driver-landscape.md](pinnacle-driver-landscape.md) |
+| Can we use the in-tree driver now? | **Yes** — it compiles verbatim on Zephyr 3.5, green CI; ~2h + bench to adopt | [zephyr-41-migration.md](zephyr-41-migration.md) |
+| Is the vendor-HID work fork-forever? | **No** — it can be an out-of-tree module (proven pattern, no ZMK fork) | [publish-strategy.md](publish-strategy.md) |
+| How to publish | **Module first, 3.5, lead with a video**; small patches to Zephyr/LinearMouse first | [publish-strategy.md](publish-strategy.md), [module-publish-brief.md](module-publish-brief.md) |
+| Prior art / claims to avoid | vendor HID justified; never claim abs-mode novelty; rename before publishing | [prior-art-survey.md](prior-art-survey.md) |
+
+**Next major piece of work: the module rewrite.** See
+[module-publish-brief.md](module-publish-brief.md) — it contains the plan
+and a ready-to-paste prompt for a fresh session.
 
 ## Tuning: current values and where every knob lives
 

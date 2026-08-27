@@ -4,7 +4,8 @@
 > these by realistic acceptance odds and reorders the plan. Headlines:
 > ZMK core is effectively closed (~1 outside core PR/month), so the touch
 > stream ships as an **out-of-tree module** (proven pattern, no ZMK fork)
-> rather than a core PR; Zephyr and LinearMouse are open and fast, so the
+> rather than a core PR — plan and session prompt in
+> [module-publish-brief.md](module-publish-brief.md); Zephyr and LinearMouse are open and fast, so the
 > small patches go first; and lead publication with a video, not a spec.
 
 Deferred findings from the v2 cleanup reviews (2026-08-25), to implement

@@ -121,11 +121,16 @@ Build loops:
 
 Full state doc (architecture, tuning knobs, gotchas, rollback):
 [docs/raw-touch.md](docs/raw-touch.md). Pre-upstreaming punch list:
-[docs/upstreaming-todo.md](docs/upstreaming-todo.md). Prior art and the
+[docs/upstreaming-todo.md](docs/upstreaming-todo.md). Multi-finger successor
+evaluation — Azoteq TPS43 on a Sofle bench rig, researched but **not started**,
+electrical design closed: [docs/tps43-bench.md](docs/tps43-bench.md). Prior art and the
 claims to avoid making publicly: [docs/prior-art-survey.md](docs/prior-art-survey.md).
 Driver-ecosystem state: [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md).
 Zephyr 4.1 / ZMK 0.4 migration decision (currently: **wait**, with named
 triggers): [docs/zephyr-41-migration.md](docs/zephyr-41-migration.md).
+**Next planned work — republish as a standalone ZMK module (with a
+ready-to-paste session prompt):**
+[docs/module-publish-brief.md](docs/module-publish-brief.md).
 
 ## Go60 Layout Editor Export
 
