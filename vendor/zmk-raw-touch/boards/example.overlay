@@ -116,8 +116,10 @@
              *
              * Everything after it is the driverless fallback: map motion
              * to wheel ticks, invert for natural scrolling, and scale
-             * down to a sane rate. A host consuming the raw stream
-             * suppresses these wheel events itself.
+             * down to a sane rate (1:24 suits deltas derived from
+             * absolute counts, which run ~3x larger than typical
+             * relative-mode driver output). A host consuming the raw
+             * stream suppresses these wheel events itself.
              *
              * Order matters - the mapper rewrites REL_X/REL_Y to
              * REL_WHEEL, so processors after it must target wheel codes.
@@ -127,7 +129,7 @@
             input-processors = <&zip_raw_touch_scroll>,
                                <&zip_xy_to_vscroll_mapper>,
                                <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                               <&zip_scroll_scaler 1 8>,
+                               <&zip_scroll_scaler 1 24>,
                                <&zip_raw_touch_idle_filter>;
         };
     };
