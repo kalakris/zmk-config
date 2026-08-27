@@ -1,0 +1,99 @@
+# Copyright (c) 2026 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+description: |
+  A trackpad whose absolute touch frames are streamed to the host over the
+  raw touch vendor HID report.
+
+  The referenced input device must emit INPUT_ABS_X, INPUT_ABS_Y and
+  INPUT_ABS_Z (the last carrying the sync flag) - i.e. it must be running
+  in absolute mode. The module is otherwise driver-agnostic: nothing here
+  is specific to any particular touchpad ASIC.
+
+  Geometry and orientation are declared here rather than read from the
+  driver's own devicetree properties, both so the module does not depend
+  on a specific driver binding and so the values can be published verbatim
+  in the self-describing feature report.
+
+compatible: "zmk,raw-touch-pad"
+
+properties:
+  device:
+    type: phandle
+    required: true
+    description: The input device producing absolute touch events.
+
+  pad-id:
+    type: int
+    default: 0
+    description: |
+      Identifies this pad in streamed frames (byte 0) and sets the pad's
+      bit in the feature report's pads-present bitmask. Must be unique and
+      less than 8.
+
+  x-max:
+    type: int
+    default: 2047
+    description: Maximum absolute X coordinate the pad reports.
+
+  y-max:
+    type: int
+    default: 1535
+    description: Maximum absolute Y coordinate the pad reports.
+
+  resolution:
+    type: int
+    default: 38
+    description: Pad resolution in counts per millimetre, 0 if unknown.
+
+  rotate-90:
+    type: boolean
+    description: |
+      The pad is physically mounted rotated 90 degrees. Streamed frames are
+      NOT transformed - the raw coordinates go out as-is and this flag is
+      published in the feature report's orientation byte so the host can
+      apply it. It IS applied to the relative deltas this module derives
+      for the fallback pointer path.
+
+  x-invert:
+    type: boolean
+    description: As rotate-90, for the X axis.
+
+  y-invert:
+    type: boolean
+    description: As rotate-90, for the Y axis.
+
+  tap-click:
+    type: boolean
+    description: |
+      Detect taps in firmware and inject an INPUT_BTN_0 press+release into
+      this pad's input listener chain. Absolute mode usually disables a
+      pad's hardware tap-to-click, so this is its replacement.
+
+      The pad's listener chain must NOT contain a processor that consumes
+      INPUT_BTN_0 (e.g. zmk,input-processor-behaviors mapping it to &none),
+      or the injected click is swallowed.
+
+  tap-max-ms:
+    type: int
+    default: 180
+    description: Maximum touch duration still counted as a tap.
+
+  tap-max-movement:
+    type: int
+    default: 30
+    description: |
+      Maximum Chebyshev distance in raw counts a touch may stray from its
+      touch-down point and still count as a tap.
+
+  scroll-layers:
+    type: array
+    description: |
+      Optional. If present, frames carry the scroll-mode flag exactly while
+      one of these keymap layers is active, and the
+      zmk,input-processor-raw-touch-scroll marker is ignored for this pad.
+
+      This is an escape hatch: the marker processor is the recommended
+      mechanism because it derives scroll context from the same processor
+      chain that actually handles the pad's events. Use this property if
+      the marker's placement in your chain makes that unreliable.

@@ -1,0 +1,134 @@
+/*
+ * Copyright (c) 2026 The ZMK Contributors
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ * A complete, copy-pasteable example: one Cirque Pinnacle trackpad on SPI,
+ * streaming raw touch frames, with ordinary pointing and a Nav-layer scroll
+ * context.
+ *
+ * The trackpad node here uses Zephyr's in-tree `cirque,pinnacle` driver
+ * property names. Nothing in the raw touch module depends on that driver -
+ * it consumes INPUT_ABS_X/Y/Z from whatever device the pad node points at,
+ * and takes geometry, orientation and tap settings from its own binding.
+ * Swap in any absolute-mode touchpad driver and only the pad's own node
+ * changes.
+ */
+
+#include <input/processors.dtsi>
+#include <raw_touch/processors.dtsi>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <dt-bindings/zmk/input_transform.h>
+
+#define NAV_LAYER 2
+
+&spi1 {
+    status = "okay";
+
+    trackpad: trackpad@0 {
+        compatible = "cirque,pinnacle";
+        reg = <0>;
+        spi-max-frequency = <1000000>;
+        status = "okay";
+
+        data-ready-gpios = <&gpio0 20 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+
+        /* Absolute reporting is what makes the raw stream possible. */
+        data-mode = "absolute";
+
+        /* MANDATORY. The driver writes this to the Pinnacle's Z_IDLE
+         * register and DEFAULTS IT TO 0, which emits no lift-off packets
+         * at all - so the module would never see a release, and there
+         * would be no momentum, no release frame and no tap-to-click. */
+        idle-packets-count = <3>;
+
+        /* Lower than the stock maximum ("1x" is most sensitive). The pad's
+         * capacitive baseline drifts under sustained touch, and at maximum
+         * gain that drift shows up as a jumpy cursor. */
+        sensitivity = "2x";
+
+        /* Deliberately NOT setting invert-x / invert-y / swap-xy here.
+         * The in-tree driver applies inversion to absolute coordinates,
+         * which would bake orientation into the streamed frames. Frames
+         * should go out raw; declare the orientation on the raw-touch-pad
+         * node below instead, where it is published in the feature report
+         * for the host to apply. */
+    };
+};
+
+/ {
+    /* The streaming pad. Its presence is what enables the module. */
+    raw_touch_pad: raw_touch_pad {
+        compatible = "zmk,raw-touch-pad";
+        device = <&trackpad>;
+        pad-id = <0>;
+
+        /* How the pad is physically mounted. Applied to the relative
+         * deltas the module derives for the fallback pointer path, and
+         * published in the feature report so a host consuming the raw
+         * frames can apply the same transform. */
+        rotate-90;
+        y-invert;
+
+        /* Absolute mode disables the pad's hardware tap-to-click, so the
+         * module detects taps itself and injects INPUT_BTN_0 into the
+         * listener chain below. Defaults: 180 ms, 30 counts of travel. */
+        tap-click;
+        tap-max-ms = <180>;
+        tap-max-movement = <30>;
+    };
+
+    input_processors {
+        /* Rewrites pointer motion into wheel ticks, for the driverless
+         * fallback scroll path. */
+        zip_xy_to_vscroll_mapper: zip_xy_to_vscroll_mapper {
+            compatible = "zmk,input-processor-code-mapper";
+            #input-processor-cells = <0>;
+            type = <INPUT_EV_REL>;
+            map = <INPUT_REL_X INPUT_REL_WHEEL
+                   INPUT_REL_Y INPUT_REL_WHEEL>;
+        };
+    };
+
+    trackpad_listener: trackpad_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackpad>;
+
+        /* Base chain: ordinary pointing. These see the REL_X/REL_Y deltas
+         * the module derives from the absolute frames (and the ABS frames
+         * themselves, which the scaler ignores).
+         *
+         * NOTE: no &zip_button_behaviors. That processor is often used to
+         * mute a pad's hardware taps - here it would swallow the module's
+         * injected BTN_0 and tap-to-click would silently do nothing. */
+        input-processors = <&zip_xy_scaler 1 1>,
+                           <&zip_raw_touch_idle_filter>;
+
+        /* While the Nav layer is held, this overlay handles the pad. */
+        nav_scroll {
+            layers = <NAV_LAYER>;
+
+            /* &zip_raw_touch_scroll is a pure pass-through marker. Its
+             * presence in the chain that is actually handling the pad's
+             * events is what sets the scroll-mode flag on streamed
+             * frames. Keep it first, before anything that could consume
+             * an event.
+             *
+             * Everything after it is the driverless fallback: map motion
+             * to wheel ticks, invert for natural scrolling, and scale
+             * down to a sane rate. A host consuming the raw stream
+             * suppresses these wheel events itself.
+             *
+             * Order matters - the mapper rewrites REL_X/REL_Y to
+             * REL_WHEEL, so processors after it must target wheel codes.
+             *
+             * The idle filter goes last, after every scaler, so it sees
+             * final values. */
+            input-processors = <&zip_raw_touch_scroll>,
+                               <&zip_xy_to_vscroll_mapper>,
+                               <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
+                               <&zip_scroll_scaler 1 8>,
+                               <&zip_raw_touch_idle_filter>;
+        };
+    };
+};

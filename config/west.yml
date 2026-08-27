@@ -45,12 +45,12 @@ manifest:
     # the name and the protocol-v3 question are open - and `west update` in
     # CI authenticates anonymously, so it cannot clone a private repo.
     #
-    # Until the repo goes public it is vendored into modules/zmk-raw-touch/
+    # Until the repo goes public it is vendored into vendor/zmk-raw-touch/
     # on this branch and passed to the build with -DZMK_EXTRA_MODULES
     # (see build.yaml). Run ./scripts/sync-raw-touch-module.sh to refresh it.
     #
     # To switch to the real thing once the repo is public: uncomment the
-    # entry below, delete modules/zmk-raw-touch/, and drop the cmake-args
+    # entry below, delete vendor/zmk-raw-touch/, and drop the cmake-args
     # from the two go60 targets in build.yaml.
     #
     # - name: zmk-raw-touch

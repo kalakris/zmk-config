@@ -9,7 +9,7 @@
 set -euo pipefail
 
 SRC="${1:-$HOME/src/zmk-raw-touch-wip}"
-DEST="$(cd "$(dirname "$0")/.." && pwd)/modules/zmk-raw-touch"
+DEST="$(cd "$(dirname "$0")/.." && pwd)/vendor/zmk-raw-touch"
 
 [ -d "$SRC/.git" ] || { echo "no git repo at $SRC" >&2; exit 1; }
 

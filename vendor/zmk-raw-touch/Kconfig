@@ -1,0 +1,110 @@
+# Copyright (c) 2026 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+menu "Raw touch streaming"
+
+config ZMK_RAW_TOUCH
+    bool "Stream raw absolute touch frames over a vendor HID report"
+    default y
+    depends on DT_HAS_ZMK_RAW_TOUCH_PAD_ENABLED
+    depends on ZMK_POINTING
+    help
+      Stream absolute touch frames (position + touch strength) from a
+      trackpad running in absolute mode to the host over a vendor-defined
+      HID report on its own HID interface / HIDS instance, so no fork of
+      ZMK core is required.
+
+      Relative deltas derived from successive frames are always re-injected
+      into the pad's normal input listener chain as well, so ordinary
+      pointing (and any keymap wheel-mapping overlays) keep working as a
+      driverless fallback.
+
+      Configure pads with zmk,raw-touch-pad devicetree nodes.
+
+if ZMK_RAW_TOUCH
+
+config ZMK_RAW_TOUCH_USB
+    bool "Send raw touch frames over USB"
+    default y
+    depends on ZMK_USB
+    # Only the central half talks to the host. The core ZMK_RAW_TOUCH symbol
+    # deliberately does NOT carry this dependency: it also re-injects the
+    # relative deltas that ordinary pointing needs, so compiling it out on a
+    # peripheral would kill the cursor.
+    depends on !ZMK_SPLIT || ZMK_SPLIT_ROLE_CENTRAL
+    help
+      Registers a SECOND USB HID interface (HID_1) carrying only the raw
+      touch report. Requires CONFIG_USB_HID_DEVICE_COUNT >= 2.
+
+config ZMK_RAW_TOUCH_BLE
+    bool "Send raw touch frames over BLE"
+    default y
+    depends on ZMK_BLE
+    depends on !ZMK_SPLIT || ZMK_SPLIT_ROLE_CENTRAL
+    help
+      Registers a SECOND HID-over-GATT (HIDS) service instance carrying
+      only the raw touch report.
+
+      NOTE: host support for two HIDS instances on one peripheral is not
+      universal. If your host ignores the second service, disable this and
+      use USB for the raw stream; the relative-delta fallback still works
+      over BLE.
+
+config ZMK_RAW_TOUCH_BLE_QUEUE_SIZE
+    int "Max number of raw touch reports to queue for sending over BLE"
+    default 30
+    depends on ZMK_RAW_TOUCH_BLE
+
+config ZMK_RAW_TOUCH_USAGE_PAGE
+    hex "Vendor usage page for the raw touch collection"
+    default 0xFF00
+
+config ZMK_RAW_TOUCH_USAGE
+    hex "Usage ID for the raw touch application collection"
+    default 0x01
+
+config ZMK_RAW_TOUCH_REPORT_ID
+    hex "HID report ID for raw touch frames"
+    default 0x04
+    help
+      The report lives on its own HID interface / HIDS instance, so this
+      is independent of ZMK's own report IDs. Kept explicit (rather than
+      dropping report IDs entirely) so the wire format is unchanged
+      apart from this byte, and so a future second report can be added.
+
+endif # ZMK_RAW_TOUCH
+
+config ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL
+    bool "Raw touch scroll-context marker input processor"
+    default y
+    depends on DT_HAS_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_ENABLED
+
+config ZMK_RAW_TOUCH_SCROLL_MAX_DEVICES
+    int "Max input devices tracked by the scroll-context latch"
+    default 4
+    depends on ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL
+    help
+      The marker processor latches a flag per input device whose events
+      reach it, and each pad's frame handler reads and clears its own.
+      One table entry is claimed per distinct input device that ever
+      reaches a marker - normally just the streaming pads.
+
+config ZMK_INPUT_PROCESSOR_RAW_TOUCH_IDLE_FILTER
+    bool "Raw touch idle-sync filter input processor"
+    default y
+    depends on DT_HAS_ZMK_INPUT_PROCESSOR_RAW_TOUCH_IDLE_FILTER_ENABLED
+    help
+      Drops sync events that accumulated no host-visible change, so an
+      absolute-mode pad streaming at ~100 Hz does not also emit ~100 Hz
+      all-zero mouse HID reports (which on BLE compete with the raw
+      stream for connection events).
+
+module = ZMK_RAW_TOUCH
+module-str = ZMK_RAW_TOUCH
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+endmenu
+
+# The raw touch stream needs a second USB HID interface alongside ZMK's.
+config USB_HID_DEVICE_COUNT
+    default 2 if ZMK_RAW_TOUCH_USB
