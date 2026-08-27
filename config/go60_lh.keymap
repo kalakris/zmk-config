@@ -72,7 +72,13 @@
 
     data-ready-gpios = <&go60_ext 4 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
 
-    sensitivity = "2x";
+    sensitivity = "1x";  /* NOT the right pad's 2x: sensitivity is hardware
+                          * gain, and only the right pad has the baseline-
+                          * drift jitter that 2x treats. This pad ran at 1x
+                          * its whole life; halving its gain put marginal
+                          * touches near the threshold (mid-touch dropouts,
+                          * gestures ending early). Parity is behavioral,
+                          * not register-identical. */
 
     /* Absolute reporting, for the raw touch stream. */
     data-mode = "absolute";
