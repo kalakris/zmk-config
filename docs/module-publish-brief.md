@@ -170,49 +170,97 @@ known contributor rather than a stranger dropping a fork:
 
 ---
 
-## Prompt for a fresh session
+## Prompt for a fresh session (front-loaded / autonomous)
 
-> I want to republish my ZMK raw-touch-stream firmware as a standalone
-> out-of-tree ZMK module, so it stops requiring a fork of MoErgo's fork of
-> ZMK and can be used by anyone with a Cirque trackpad. A second goal:
-> when this lands I should be able to build my own firmware from **stock**
-> `moergo-sc/zmk` plus modules, deleting the `kalakris/zmk` fork — west
-> gives the top-level manifest precedence, so my `config/west.yml` can
-> override MoErgo's `cirque-input-module` pin and add the new module.
->
-> Read these first, in order — they contain all the prior research and
-> decisions, don't redo them:
-> - `docs/module-publish-brief.md` (this plan)
-> - `docs/publish-strategy.md` (why a module; the reference implementations)
-> - `docs/raw-touch.md` (what exists today, tuning, ops)
-> - `docs/raw-touch-protocol.md` **on the `raw-touch` branch** (wire format)
->
-> Current firmware lives in `~/src/zmk` (`kalakris/zmk@raw-touch`, a fork of
-> `moergo-sc/zmk@go60-zmk0.3.0`, Zephyr 3.5) with the pieces to move being
-> `app/src/pointing/touch_stream.c`, the marker processor, and the vendor
-> HID plumbing in `app/include/zmk/hid.h`, `app/src/hid.c`, `usb_hid.c`,
-> `hog.c`, `endpoints.c`. Host side is `~/src/linearmouse`
-> (`kalakris/linearmouse@go60-inputscale`). Config repo is `~/zmk-config`
-> (build/flash workflows and gotchas are documented in `CLAUDE.md` — read
-> the TCC rule before running any `xcodebuild test`).
->
-> Model the module on `zzeneg/zmk-raw-hid` (46★, vendors ~283 lines of
-> transport: `usb_hid.c`, `hog.c`, `events.c`) — study it before writing
-> anything.
->
-> Do this in stages, and stop for my confirmation between them:
-> 1. **Bench check first**: prove a second BLE HIDS instance works on macOS
->    with this hardware. If it doesn't, stop and tell me — the whole shape
->    depends on it.
-> 2. Scaffold the module repo and vendor the transport (USB + BLE, incl. our
->    BLE feature-report characteristic, which neither reference module has).
-> 3. Port `touch_stream.c` and the marker processor; move `stream-tap-*`
->    onto our own node so the module is driver-agnostic.
-> 4. Build green in CI against ZMK v0.3.0 / Zephyr 3.5, then flash and
->    verify on hardware: scroll, momentum, catch, tap-to-click, and the
->    dual-mode wheel fallback.
-> 5. Only then: README with the video, example overlay, LICENSE.
->
-> Do NOT publish anything yet — the rename and the protocol-v3 decision are
-> still open (see the blockers section of the brief). Work on branches;
-> don't merge to `main` or `raw-touch` without asking.
+Stored verbatim below; the user pastes this into a new session. It is
+deliberately structured so everything that does **not** need hardware runs
+without confirmation, and all hardware-dependent verification is queued for
+when the user is at the desk.
+
+```text
+Front-load this: I'm away from my desk for about 2 hours. Do as much as
+possible WITHOUT stopping for my confirmation. Anything needing hardware
+(flashing, BLE behaviour, feel) gets queued for my return, not blocked on.
+
+GOAL: republish my ZMK raw-touch-stream firmware as a standalone
+out-of-tree ZMK module, so it no longer needs a fork of MoErgo's fork of
+ZMK. Second goal: end state builds from STOCK moergo-sc/zmk plus modules,
+deleting the kalakris/zmk fork entirely (west gives the top-level manifest
+precedence, so config/west.yml can override MoErgo's cirque-input-module
+pin and add the new module).
+
+READ FIRST (all prior research and decisions live here — do not redo them):
+- docs/module-publish-brief.md   (the plan, work items, blockers)
+- docs/publish-strategy.md       (why a module; reference implementations)
+- docs/raw-touch.md              (what exists today; tuning; ops; gotchas)
+- docs/zephyr-41-migration.md    (the vendored in-tree Cirque driver plan)
+- docs/raw-touch-protocol.md on the raw-touch branch (wire format)
+
+WHERE THINGS ARE
+- ~/src/zmk (kalakris/zmk@raw-touch, fork of moergo-sc/zmk@go60-zmk0.3.0,
+  Zephyr 3.5). Pieces to move: app/src/pointing/touch_stream.c, the marker
+  input processor, and vendor HID plumbing in app/include/zmk/hid.h,
+  app/src/hid.c, usb_hid.c, hog.c, endpoints.c.
+- ~/src/cirque-input-module (kalakris fork; also has an intree-driver-test
+  branch from a proven vendoring experiment — reuse it).
+- ~/src/linearmouse (kalakris/linearmouse@go60-inputscale) — host side.
+- ~/zmk-config — read CLAUDE.md for build/flash workflows. IMPORTANT: read
+  the TCC rule before running any xcodebuild test.
+
+USE SUBAGENTS AGGRESSIVELY, in parallel where the work is independent:
+- Opus subagents for research/analysis (e.g. the BLE question below,
+  studying zzeneg/zmk-raw-hid's structure).
+- Default-model subagents for mechanical implementation and porting.
+Don't serialise work that could run concurrently.
+
+DO THESE, IN THIS ORDER, WITHOUT ASKING ME:
+
+1. De-risk the BLE question by RESEARCH, not hardware (Opus subagent):
+   do two BLE HIDS instances actually work on macOS? zzeneg/zmk-raw-hid and
+   badjeff/zmk-hid-io both ship BLE — dig through their issues, READMEs and
+   any user reports for macOS-specific evidence. Report confidence. This is
+   the one architectural unknown; if research says it's likely broken on
+   macOS, prioritise the USB path and structure the module so BLE is
+   additive rather than assumed.
+2. Study zzeneg/zmk-raw-hid properly (46 stars, ~283 lines of vendored
+   transport: usb_hid.c, hog.c, events.c) before writing anything.
+3. Create the module repo under my account (gh repo create, private is
+   fine for now) and scaffold it: zephyr/module.yml, CMakeLists.txt,
+   Kconfig, dts/bindings, src/. Name it something NEUTRAL and temporary —
+   the real name is still undecided and must NOT contain "touchstream"
+   (FingerWorks collision, see prior-art-survey.md §5).
+4. Vendor the transport (USB + BLE), including our BLE feature-report
+   characteristic — neither reference module has one, and the
+   self-describing feature report is the part of the design most worth
+   keeping.
+5. Port touch_stream.c and the marker input processor. Move stream-tap-*
+   off the Cirque driver binding onto our own node so the module is
+   driver-agnostic.
+6. Also fold in the vendored in-tree Cirque driver (docs/zephyr-41-
+   migration.md — proven to compile on Zephyr 3.5, green CI, branches
+   already exist). Re-apply the three missing patches on top of pristine
+   upstream as separate labelled commits: 0xFF/SW_DR guard,
+   ERA edge sensitivity, force_recalibrate. NOTE: SW reset is already
+   upstream — vendor from Zephyr main, not the v4.1.0 tag.
+7. Rewire ~/zmk-config's west.yml on a NEW branch to: stock
+   moergo-sc/zmk + the driver override + the new module. Get the
+   "Build and Draw" CI green for all 5 targets. Iterate until green.
+8. Write the README (protocol as an appendix, not the headline), an
+   example devicetree overlay, and a LICENSE (MIT).
+9. Download the built firmware so it's ready to flash the moment I'm back.
+
+THEN STOP and give me:
+- A summary of what's done and what the CI proved.
+- A written, ordered VERIFICATION CHECKLIST for when I'm at my desk:
+  exactly what to flash, what to test (scroll, momentum, catch,
+  tap-to-click, dual-mode wheel fallback, pointer speed, BLE session,
+  Sofle-with-both-connected), and what each result would mean.
+- Any decisions you had to make, and anything you'd have asked me about.
+
+CONSTRAINTS
+- Work on branches. Do NOT merge to main or raw-touch. Do NOT flash.
+- Do NOT publish anything or make any repo public — the rename and the
+  protocol-v3 decision are still open (blockers section of the brief).
+- If something is genuinely blocked, note it and move on to the next item
+  rather than waiting for me.
+```
