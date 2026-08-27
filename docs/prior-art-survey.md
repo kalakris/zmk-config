@@ -234,29 +234,43 @@ real hardware presenting the same thing would enumerate more cleanly than a
 kext does. The payoff would be Apple's own gesture engine, ballistics and
 momentum included, for free.
 
-**Rejected, for three reasons in descending finality:**
+**Rejected — but note which objection actually does the work.**
 
-1. **Apple trackpad scrolling is two-finger; the Pinnacle has one contact.**
-   A single finger on a Magic Trackpad means *cursor motion*. To scroll you
-   would have to fabricate a second synthetic contact, and two invented
-   fingers moving in perfect lockstep is not input Apple's recognizer was
-   designed to accept — with no way to debug its tolerances. Fatal for this
-   hardware.
-2. **It requires shipping Apple's Vendor ID.** Tolerable on a personal
-   bench; unshippable to a community, explicitly forbidden by Apple's
-   Accessory Design Guidelines, and impossible to upstream anywhere.
-3. **It surrenders every tuning knob.** Apple's engine would own the
-   ballistics, decay curve and catch behaviour. We would get Apple's feel
-   exactly — but our tuned values (exponent 0.5, gains 0.4–3.0, old-school
-   direction) become someone else's constants.
+1. ~~Two-finger scroll vs single-touch hardware~~ — **RETRACTED
+   2026-08-26.** An earlier version of this section called the phantom
+   second contact fatal. It isn't. Two fingers in lockstep *is* the
+   canonical two-finger scroll (real fingers move together), and because we
+   synthesize the frames the coordinate space is ours: declare a
+   Magic-Trackpad-sized logical surface and map the 40 mm pad into a
+   sub-region so the phantom contact always stays in bounds. That also
+   avoids the one real wrinkle — clamping a phantom finger near an edge
+   would change inter-finger distance and read as a pinch. Fakeable, with
+   care.
+2. **Shipping Apple's Vendor ID — the actual blocker.** Note the bar is not
+   "nobody may publish identifier spoofing": VoodooInput is published
+   openly with Apple's IDs hardcoded. The difference is that VoodooInput is
+   a driver a user installs on their own machine in an already-gray
+   context, whereas this is **firmware shipped to physical devices**
+   presenting a USB-IF-assigned identifier belonging to Apple, explicitly
+   forbidden by Apple's Accessory Design Guidelines. A hobbyist flashing it
+   themselves is gray; publishing it for others is supplying the means, and
+   no vendor (MoErgo included) could ship it. **Strategically it forecloses
+   every legitimate path at once** — no Zephyr PR, no adoptable ZMK module,
+   no vendor uptake — and taints the honest protocol work by association.
+3. **It surrenders every tuning knob.** With objection 1 retracted this
+   carries more weight. Apple's engine would own the ballistics, decay
+   curve and catch behaviour, so we would inherit *Apple's* feel, not ours
+   — and our tuned values (exponent 0.5, gains 0.4–3.0, old-school
+   direction) are not exposed by it. Plausibly worse for this user
+   specifically, and unfixable.
 
 Smaller: the BLE path is much dicier (`AppleBluetoothMultitouch` pins
 specific PIDs; Magic Trackpads use their own pairing flow), and it is
 macOS-or-nothing where the current design degrades gracefully everywhere.
 
-**Caveat worth remembering for the TPS43 path:** with five real contacts,
-objection 1 disappears — genuine MT2 frames become emittable without
-fabrication, inheriting Apple's full gesture vocabulary (pinch, swipe)
-instead of our single-touch ceiling. Objections 2 and 3 stand, so it stays
-unpublishable and untunable — but it becomes a real architectural fork
-rather than a hack. See tps43-bench.md.
+**Caveat for the TPS43 path:** with five real contacts no fabrication is
+needed at all, so genuine MT2 frames become emittable and Apple's full
+gesture vocabulary (pinch, swipe) comes with them, instead of our
+single-touch ceiling. Objections 2 and 3 stand unchanged — still
+unpublishable, still untunable — so this remains a personal-bench
+curiosity rather than a project direction. See tps43-bench.md.
