@@ -8,6 +8,13 @@ upstream commits in a year, mostly Dependabot); costs land on our two
 riskiest surfaces (a hand-rolled HWMv1 split board, and a Go60 board we
 don't own); and three open regressions hit our exact config.
 
+**Update 2026-08-27: the decision still stands, and the migration is now
+much cheaper.** Both things that made it expensive are gone. The in-tree
+Cirque driver is vendored onto our Zephyr 3.5 base (`intree-driver`), and
+the raw touch stream has moved out of ZMK core into a standalone module,
+so there is no ZMK fork left to rebase. What remains is the Sofle board
+conversion and the three open regressions — see "Why not now".
+
 ## Why not now
 
 **MoErgo is the hard gate.** `moergo-sc/zmk@zephyr-4-1` is an abandoned
@@ -87,11 +94,19 @@ main. keymap-drawer needs no changes (it never builds ZMK).
 
 ## Do NOW (makes the eventual migration cheap)
 
-- [ ] **Driver-independent refactor of the touch-stream module** (already
-  in upstreaming-todo) — converts the migration from "rebase a driver
-  fork" into "a west/DTS change". Highest leverage by far.
-- [ ] **Pin `config/west.yml` to a SHA** (`57a7b8e0`) — `go60-zmk0.3.0` is
-  a *branch*, not a tag: a moving target under a daily driver.
+- [x] **Driver-independent refactor of the touch-stream module** — **DONE
+  2026-08-26/27.** It went further than planned: the whole stream moved out
+  of ZMK core into a standalone module (`kalakris/zmk-raw-touch-wip`), so
+  the migration is no longer "rebase a driver fork" *or* "rebase a ZMK
+  fork" — it is a west/DTS change. `stream-tap-*` and the pad geometry now
+  live on the module's own `zmk,raw-touch-pad` node, which is what makes
+  the axis question in Correction 2 answerable without touching the driver.
+  Highest leverage by far, as predicted.
+- [x] **Pin `config/west.yml` to a SHA** — **DONE** on both `module-port`
+  branches: `57a7b8e06b19898e59a4dbd5f554b7ed5677493b`. That is still the
+  tip of `go60-zmk0.3.0` as of 2026-08-26, and is exactly the commit
+  `kalakris/zmk@raw-touch` forked from, so dropping our ZMK fork is a pure
+  subtraction. (`main` and `raw-touch` still track the branch name.)
 - [ ] **Cherry-pick [zmk#3483 "declare scroll resolution in the report
   descriptor"](https://github.com/zmkfirmware/zmk/pull/3483) onto our
   fork.** Touches only `hid.h`, `pointing/Kconfig`, docs — zero Zephyr
@@ -126,7 +141,7 @@ kalakris/cirque-input-module; nothing merged).
 The expected blocker didn't exist: the in-tree driver has **no PM support
 at all**, so there was nothing to port. `input_report_abs()` and every DT/
 SPI/I2C/GPIO macro it uses are identical in 3.5. The event stream is
-byte-identical too (X, Y, then Z with sync), so `touch_stream.c` needed
+byte-identical too (X, Y, then Z with sync), so the streaming code needed
 only property renames, not structural change.
 
 The real work is at the devicetree layer: Zephyr 3.5's edtlib **errors**
@@ -170,17 +185,81 @@ with sensitivity 2x. So vendoring is a **two-step**, not a swap.
 
 ### Plan (≈2h + a bench session)
 
-- [ ] Step 1: re-apply the three missing pieces (SW reset comes free from Zephyr main) as separate, clearly
-  labelled commits *on top of* the pristine upstream file, so the delta
-  stays legible and upstreamable to Zephyr later.
-- [ ] Step 2 (bench, needs hardware): verify the two axis questions —
-  in-tree applies `invert-x/y` in **absolute** mode and `swap-xy` only in
-  **relative** mode (the fork does both only in relative), so
-  `touch_stream.c` must stop mirroring Y while still mirroring the 90°
-  rotation; and the LH pad loses hardware Y-inversion entirely (compensated
-  with `&zip_xy_transform INPUT_TRANSFORM_Y_INVERT` in its listener chain).
-  Also re-verify tap-to-click and lift-off.
+- [x] **Step 1: DONE 2026-08-26.** `kalakris/cirque-input-module@intree-driver`
+  — Zephyr **main**'s `input_pinnacle.c` vendored pristine from `27150c9d`
+  (`7d6f543`), then the three missing pieces re-applied as separate labelled
+  commits on top so the delta stays legible and upstreamable: the 0xFF/SW_DR
+  guard (`66897c3`), per-axis ERA edge sensitivity (`995e9e0`), and
+  force-recalibrate-on-init (`b5c2365`). SW reset on init was confirmed
+  already present in `main` — so three patches, not four, as predicted.
+  Consumed by `zmk-config@module-port-intree`; CI green on all 5 targets.
+- [ ] Step 2 (bench, needs hardware): re-verify the axis behaviour, plus
+  tap-to-click and lift-off. **See the corrected axis analysis below — the
+  earlier version of this step was wrong in both halves.**
 - [ ] Then merge to `raw-touch`.
+
+### ⚠️ Correction 2: the axis analysis above was wrong (both halves)
+
+This step previously read:
+
+> in-tree applies `invert-x/y` in **absolute** mode and `swap-xy` only in
+> **relative** mode (the fork does both only in relative), so
+> `touch_stream.c` must stop mirroring Y while still mirroring the 90°
+> rotation; and the LH pad loses hardware Y-inversion entirely (compensated
+> with `&zip_xy_transform INPUT_TRANSFORM_Y_INVERT` in its listener chain).
+
+Both claims described **v4.1.0**, not Zephyr `main`, which is what we
+actually vendored. Corrected:
+
+**(a) `invert-x` / `invert-y` apply in BOTH modes on Zephyr main**, not only
+in absolute. v4.1.0 gated them on absolute mode; a later commit made them
+unconditional, and the binding text now says so explicitly. `swap-xy` really
+is relative-only — that half was right, and it means rotation always needs
+handling in software for a streaming pad.
+
+So for the **right (streaming) pad** there are two options, and we took the
+first:
+
+- **Option A — taken.** Do *not* set `invert-y`/`swap-xy` on the driver node.
+  The absolute stream stays raw exactly as it is today, so the wire format
+  and the host software are untouched. Orientation moves to the raw touch
+  module's own `zmk,raw-touch-pad` node, which applies it to the derived
+  pointer deltas and publishes it in the feature report. This *is* the
+  "driver-independent refactor" that was listed under "Do NOW" — it turned
+  out to be the thing that makes the axis question go away.
+- Option B — set `invert-y` on the driver node, drop the module's software
+  mirror, **and** clear the `Y_INVERT` bit in the feature report's
+  orientation byte, since frames would then arrive pre-inverted and the host
+  must not mirror twice. Rejected: it changes the wire format for no gain.
+
+**(b) The LH pad does NOT lose hardware Y-inversion.** That was only true of
+v4.1.0. On Zephyr main, `swap-xy;` + `invert-y;` on the left pad reproduce
+the fork's relative-mode behaviour exactly. **Do not add the
+`&zip_xy_transform INPUT_TRANSFORM_Y_INVERT` compensation** — it would
+double-invert. `config/go60_lh.keymap` on `module-port-intree` sets the two
+properties and no transform.
+
+### Property renames (fork → in-tree), for the overlay
+
+Zephyr 3.5's edtlib **errors** on properties a binding does not declare, and
+MoErgo's board DTS sets four of the old names on `&glidepoint`, so each must
+be `/delete-property/`'d before the new names are set — in **both** Go60
+keymaps, since each board build pulls its own `glidepoint`.
+
+| Fork / MoErgo | In-tree | Note |
+|---|---|---|
+| `abs-mode` | `data-mode = "absolute"` | string enum, default `"relative"` |
+| `dr-gpios` | `data-ready-gpios` | keep MoErgo's exact flags |
+| `rotate-90` | `swap-xy` | relative-mode only; inert in absolute |
+| `x-invert` / `y-invert` | `invert-x` / `invert-y` | **both modes** — see (a) |
+| `no-secondary-tap` | *(none)* | upstream always disables it; just delete |
+| — | `idle-packets-count` | **mandatory**, see below |
+| `sensitivity` | `sensitivity` | unchanged, but upstream defaults to `"4x"` |
+| `stream-tap-*` | *(none)* | moved to the raw touch module's own node |
+
+`&cirque_split` is unaffected — it is `zmk,input-split` and carries no
+pinnacle properties. The existing `/delete-property/ device;` in
+`go60_rh.keymap` is for the central/peripheral swap and must stay.
 
 ### Other deltas (no action needed today)
 
@@ -192,11 +271,14 @@ with sensitivity 2x. So vendoring is a **two-step**, not a swap.
   `sleep` on either Go60 node; at most a minor sleep-current regression.
 - `idle-packets-count = <3>` is **mandatory**, not cosmetic: the in-tree
   driver writes it to `Z_IDLE` and defaults it to **0**, which emits *no*
-  lift-off packets — `touch_stream.c` would never see a release.
-- `stream-tap-*` currently rides along by appending to the vendored binding
-  yaml. That does **not** survive real Zephyr 4.1 (can't ship a second
-  binding for the same compatible), so those props must move to a ZMK-side
-  node or Kconfig — which is the driver-independent refactor already planned.
+  lift-off packets — the module would never see a release, so no release
+  frame, no momentum and no tap-to-click. Set `idle-packets-count = <3>`.
+- ~~`stream-tap-*` currently rides along by appending to the vendored
+  binding yaml.~~ **Resolved 2026-08-27.** They no longer touch the Cirque
+  binding at all: `tap-click` / `tap-max-ms` / `tap-max-movement` are
+  properties of the raw touch module's own `zmk,raw-touch-pad` node, along
+  with the pad geometry and orientation. Nothing in the module knows what
+  ASIC it is talking to.
 
 **This does not change the WAIT decision.** MoErgo's branch is still stale
 and #3207/#3195/#3341 are still open. Vendoring is orthogonal: it makes the
