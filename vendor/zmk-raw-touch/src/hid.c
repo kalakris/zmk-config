@@ -22,7 +22,7 @@
 /* The module's single LOG_MODULE_REGISTER. Every other file in the module
  * uses LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL) so
  * the module's log level is settable independently of CONFIG_ZMK_LOG_LEVEL. */
-LOG_MODULE_REGISTER(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
+LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
 #include <zmk/raw_touch/hid.h>
 
