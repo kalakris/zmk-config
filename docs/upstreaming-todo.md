@@ -4,9 +4,10 @@
 > these by realistic acceptance odds and reorders the plan. Headlines:
 > ZMK core is effectively closed (~1 outside core PR/month), so the touch
 > stream ships as an **out-of-tree module** (proven pattern, no ZMK fork)
-> rather than a core PR — plan and session prompt in
-> [module-publish-brief.md](module-publish-brief.md); Zephyr and LinearMouse are open and fast, so the
-> small patches go first; and lead publication with a video, not a spec.
+> rather than a core PR — **as of 2026-08-26 that module is built and
+> CI-green**: [module-publish-brief.md](module-publish-brief.md); Zephyr and
+> LinearMouse are open and fast, so the small patches go first; and lead
+> publication with a video, not a spec.
 
 Deferred findings from the v2 cleanup reviews (2026-08-25), to implement
 before (or as part of) upstreaming. Sources: 4-angle /simplify review +
@@ -36,28 +37,40 @@ adversarial cross-review of the v2 implementation.
   Also refresh/delete the stale v0 `linearmouse/linearmouse.json`
   snapshot on the zmk-config `raw-touch` branch when merging.
 
-## ZMK fork (`kalakris/zmk`, branch `raw-touch`)
+## Raw touch module (`kalakris/zmk-raw-touch`)
 
-- [ ] **Move `stream-tap-click` / `stream-tap-max-ms` /
-  `stream-tap-max-movement` out of the Cirque driver binding** into
-  ZMK-owned config (Kconfig options or a ZMK-side DT node). The driver
-  explicitly ignores these; consumer config does not belong in the shared
-  driver binding. **Now also the migration enabler** — with the props and
-  `INPUT_ABS_*` consumption on our own node, the module works against
-  Zephyr's in-tree driver unmodified and our Cirque fork can be deleted.
+**Retitled 2026-08-26** — this section used to be "ZMK fork
+(`kalakris/zmk`, branch `raw-touch`)". The fork is no longer load-bearing:
+the stream now lives in an out-of-tree module built against stock
+`moergo-sc/zmk`.
+
+- [x] **Move `stream-tap-click` / `stream-tap-max-ms` /
+  `stream-tap-max-movement` out of the Cirque driver binding** — DONE. They
+  are `tap-click` / `tap-max-ms` / `tap-max-movement` on the module's own
+  `zmk,raw-touch-pad` node, along with the pad geometry (`rotate-90`,
+  `x-invert`, `y-invert`, `x-max`, `y-max`, `resolution`, `pad-id`). The
+  module consumes standard `INPUT_ABS_X/Y/Z` and knows nothing about any
+  ASIC, so it works against Zephyr's in-tree driver unmodified.
+- [ ] **BEFORE deleting `kalakris/zmk`**: that fork is the only place the
+  two upstream-shaped bugfix commits exist. Cherry-pick or export them
+  first — see the next item.
+- [ ] **Submit the ungated zero-report suppression as a standalone bugfix
+  PR** (commit `cfc4b3e6`, deliberately written upstream-shaped: any sync
+  accumulating no nonzero motion and no button transitions skips the mouse
+  report). Note the module does *not* carry this as a core change — it is
+  reimplemented as the `zip_raw_touch_idle_filter` input processor, which is
+  the right shape for a module but the wrong shape for an upstream PR. The
+  ZMK-core version only exists on the fork.
 - [ ] **hog.c hardcoded GATT attribute indices**: propose an
   index-computing cleanup (enum arithmetic or report-reference lookup at
   init) as its OWN upstream PR — it fixes all four report senders and
   should not be buried in the feature branch. Our feature followed the
-  existing hardcoded convention on purpose.
-- [ ] **Submit the ungated zero-report suppression as a standalone bugfix
-  PR** (commit `cfc4b3e6` was deliberately written upstream-shaped: any
-  sync accumulating no nonzero motion and no button transitions skips the
-  mouse report).
+  existing hardcoded convention on purpose, and the module's vendored
+  `hog.c` still does.
 - [ ] Do NOT macro-generalize the per-report HID plumbing across
   hid.c/usb_hid.c/endpoints.c/hog.c — the four-file repetition is
   upstream's own convention and matching it is what keeps the diff
-  reviewable.
+  reviewable. Still true of the module's vendored copy.
 
 ## cirque-input-module fork (`kalakris/cirque-input-module`)
 
@@ -68,15 +81,21 @@ effectively EOL (abs-mode PRs from others already rotting there). Revised:
 
 - [ ] ~~PR `abs-mode` to petejohanson/cirque-input-module~~ — CANCELLED,
   redundant with upstream `data-mode = "absolute"`.
-- [ ] Refactor our ZMK touch-stream module to be driver-independent:
-  move `stream-tap-*` props onto our own node, consume standard
-  `INPUT_ABS_X/Y/Z` (folds in the "tap props out of the driver binding"
-  item above — same work, stronger motivation).
-- [ ] Rebase `kalakris/zmk:raw-touch` onto `moergo-sc/zmk@zephyr-4-1`
-  (MoErgo's in-tree-driver migration branch) once MoErgo blesses it.
-  Port forward: 0xFF STATUS1 glitch guard, ERA Z-min, activity-tied
-  sleep. Gain: `idle-packets-count` DT prop, SW-reset-on-init (possible
-  proper fix for the baseline-drift jitter), hw clipping/scaling.
+- [x] Refactor our touch-stream code to be driver-independent — DONE
+  (2026-08-26). `tap-*` props and pad geometry live on the module's own
+  `zmk,raw-touch-pad` node and it consumes standard `INPUT_ABS_X/Y/Z`.
+  Nothing in the module knows about the Pinnacle.
+- [x] ~~Rebase `kalakris/zmk:raw-touch` onto `moergo-sc/zmk@zephyr-4-1`~~ —
+  **OBSOLETE**: there is no ZMK fork left to rebase, and adopting the
+  in-tree driver no longer requires waiting for MoErgo. It is done on
+  `zmk-config@module-port-intree` at Zephyr **3.5**, via
+  `kalakris/cirque-input-module@intree-driver` — Zephyr main's
+  `input_pinnacle.c` vendored pristine (`27150c9d`) plus three labelled
+  patches: 0xFF/SW_DR guard, per-axis ERA edge sensitivity,
+  force-recalibrate-on-init. SW-reset-on-init came free (already upstream,
+  landed after v4.1.0 was cut), as did `idle-packets-count` — which is
+  **mandatory**, since upstream defaults it to 0 and no lift-off packets
+  means no release frame, no momentum, no tap. Not yet benched.
 - [ ] Driver-work upstream target is now **Zephyr**, not the module:
   0xFF guard / ERA Z-min / secondary-tap control as small PRs; plus a
   trivial ZMK docs PR (pointing.mdx still shows old module props).
@@ -118,7 +137,8 @@ effectively EOL (abs-mode PRs from others already rotting there). Revised:
   docs, and the protocol spec before pointing the community at them. The
   protocol spec is wholly ours — consider CC-BY or MIT explicitly in the doc.
 - linearmouse (MIT) and zmk (MIT) forks are clean; keep new files carrying
-  the upstream header conventions.
+  the upstream header conventions. The raw touch module ships MIT with
+  SPDX headers throughout.
 
 ## From the prior-art survey (docs/prior-art-survey.md, 2026-08-26)
 
