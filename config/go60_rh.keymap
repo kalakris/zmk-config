@@ -154,7 +154,13 @@
  *     lift-off momentum from them, suppressing the wheel events below.
  *   - The wheel chain still runs as a standard fallback for hosts
  *     without a stream consumer: REL deltas map to REL_WHEEL, inverted
- *     for natural scrolling and scaled 1:8 for a sane uncooked rate.
+ *     for natural scrolling and scaled 1:24 for a sane uncooked rate.
+ *     (1:24, not the 1:8 tuned on 2026-08-19: that divisor was calibrated
+ *     against relative-mode deltas, and the deltas derived from absolute
+ *     counts run ~3x larger - the same ratio that took the pointer scaler
+ *     from 3:1 to 1:1. The divisor only affects this driverless fallback;
+ *     the streamed frames bypass the processor chain entirely and
+ *     LinearMouse does its own scaling on them.)
  */
 &cirque_rh_listener {
     status = "okay";
@@ -175,7 +181,7 @@
         input-processors = <&zip_raw_touch_scroll>,
                            <&zip_xy_to_vscroll_mapper>,
                            <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                           <&zip_scroll_scaler 1 8>,
+                           <&zip_scroll_scaler 1 24>,
                            <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>,
                            <&zip_raw_touch_idle_filter>;
     };
