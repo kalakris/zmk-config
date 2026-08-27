@@ -86,14 +86,3 @@ properties:
       Maximum Chebyshev distance in raw counts a touch may stray from its
       touch-down point and still count as a tap.
 
-  scroll-layers:
-    type: array
-    description: |
-      Optional. If present, frames carry the scroll-mode flag exactly while
-      one of these keymap layers is active, and the
-      zmk,input-processor-raw-touch-scroll marker is ignored for this pad.
-
-      This is an escape hatch: the marker processor is the recommended
-      mechanism because it derives scroll context from the same processor
-      chain that actually handles the pad's events. Use this property if
-      the marker's placement in your chain makes that unreliable.

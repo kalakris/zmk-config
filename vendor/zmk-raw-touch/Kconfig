@@ -55,14 +55,6 @@ config ZMK_RAW_TOUCH_BLE_QUEUE_SIZE
     default 30
     depends on ZMK_RAW_TOUCH_BLE
 
-config ZMK_RAW_TOUCH_USAGE_PAGE
-    hex "Vendor usage page for the raw touch collection"
-    default 0xFF00
-
-config ZMK_RAW_TOUCH_USAGE
-    hex "Usage ID for the raw touch application collection"
-    default 0x01
-
 config ZMK_RAW_TOUCH_REPORT_ID
     hex "HID report ID for raw touch frames"
     default 0x04

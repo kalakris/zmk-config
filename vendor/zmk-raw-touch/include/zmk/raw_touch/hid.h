@@ -52,6 +52,12 @@ struct zmk_raw_touch_report {
 
 #define ZMK_RAW_TOUCH_PROTOCOL_VERSION 3
 
+/* The usage pair is the protocol's identity: hosts match the application
+ * collection by it, so it is fixed, not tunable (unlike the report ID,
+ * which keeps its Kconfig justification). */
+#define ZMK_RAW_TOUCH_USAGE_PAGE 0xFF00
+#define ZMK_RAW_TOUCH_USAGE 0x01
+
 /* Capabilities bit 0 is reserved for the mode gate; firmware always sends
  * 0 here today. */
 #define ZMK_RAW_TOUCH_CAP_MODE_GATE BIT(0)

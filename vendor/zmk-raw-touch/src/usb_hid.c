@@ -153,11 +153,15 @@ int zmk_raw_touch_usb_send_report(void) {
         break;
     }
 
-    /* Unlike ZMK core we check the take: on timeout the previous transfer is
-     * still reading tx_report, so overwriting it would corrupt a frame that
-     * is already on the wire. Touch frames are ephemeral and arrive at
-     * ~100 Hz, so dropping this one is strictly better than that. */
-    if (k_sem_take(&hid_sem, K_MSEC(30)) != 0) {
+    /* Unlike ZMK core we check the take: a busy semaphore means the previous
+     * transfer is still reading tx_report, so overwriting it would corrupt a
+     * frame that is already on the wire. K_NO_WAIT, not a timeout: this runs
+     * inline on the input dispatch path, so waiting here head-of-line blocks
+     * pointer deltas and taps whenever USB degrades in a way the status
+     * switch above does not catch. Touch frames are ephemeral and arrive at
+     * ~100 Hz, so dropping this one - as the BLE path does - is strictly
+     * better than either. */
+    if (k_sem_take(&hid_sem, K_NO_WAIT) != 0) {
         LOG_DBG("Raw touch USB endpoint busy, dropping frame");
         return -EAGAIN;
     }

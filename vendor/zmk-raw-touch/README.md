@@ -142,8 +142,7 @@ input listener:
 The marker is a pure pass-through; because it only runs when its chain is
 the one actually handling the pad's events, layer ordering and
 `process-next` shadowing are honoured for free. Keep it first in the
-chain. If that does not suit your setup, `scroll-layers = <NAV>;` on the
-pad node evaluates layer state directly instead.
+chain.
 
 ## `&zip_raw_touch_idle_filter`
 
@@ -162,8 +161,6 @@ One filter node per listener — do not share a node between two listeners.
 | `CONFIG_ZMK_RAW_TOUCH_USB` | y | Second USB HID interface (`HID_1`) |
 | `CONFIG_ZMK_RAW_TOUCH_BLE` | y | Second BLE HIDS instance |
 | `CONFIG_ZMK_RAW_TOUCH_BLE_QUEUE_SIZE` | 30 | Frames buffered for BLE |
-| `CONFIG_ZMK_RAW_TOUCH_USAGE_PAGE` | 0xFF00 | Vendor usage page |
-| `CONFIG_ZMK_RAW_TOUCH_USAGE` | 0x01 | Usage in that page |
 | `CONFIG_ZMK_RAW_TOUCH_REPORT_ID` | 0x04 | Report ID |
 
 Devicetree properties for `zmk,raw-touch-pad` (geometry, orientation,

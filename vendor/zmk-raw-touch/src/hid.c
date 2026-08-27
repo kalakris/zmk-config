@@ -20,9 +20,7 @@
 
 #include <zephyr/logging/log.h>
 
-/* The module's single LOG_MODULE_REGISTER. Every other file in the module
- * uses LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL) so
- * the module's log level is settable independently of CONFIG_ZMK_LOG_LEVEL. */
+/* The module's LOG_MODULE_REGISTER lives in src/log.c. */
 LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
 #include <zmk/raw_touch/hid.h>
@@ -80,9 +78,8 @@ BUILD_ASSERT(RAW_TOUCH_DESC_Y_MAX > 0 && RAW_TOUCH_DESC_Y_MAX <= 0x7FFF,
              "raw touch pad y-max must fit a 16-bit signed HID logical maximum");
 
 const uint8_t zmk_raw_touch_report_desc[] = {
-    HID_USAGE_PAGE16((CONFIG_ZMK_RAW_TOUCH_USAGE_PAGE & 0xFF),
-                     ((CONFIG_ZMK_RAW_TOUCH_USAGE_PAGE >> 8) & 0xFF)),
-    HID_USAGE(CONFIG_ZMK_RAW_TOUCH_USAGE),
+    HID_USAGE_PAGE16((ZMK_RAW_TOUCH_USAGE_PAGE & 0xFF), ((ZMK_RAW_TOUCH_USAGE_PAGE >> 8) & 0xFF)),
+    HID_USAGE(ZMK_RAW_TOUCH_USAGE),
     HID_COLLECTION(HID_COLLECTION_APPLICATION),
     HID_REPORT_ID(ZMK_RAW_TOUCH_REPORT_ID),
 

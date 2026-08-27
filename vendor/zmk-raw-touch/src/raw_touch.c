@@ -23,9 +23,7 @@
  *
  * Scroll mode: frames carry the scroll-mode flag while a processor chain
  * containing the zmk,input-processor-raw-touch-scroll marker is the one
- * handling the pad's events (see raw_touch_scroll_mode() below, and the
- * commentary in zmk/raw_touch/scroll.h). A pad may instead name layers
- * explicitly with the scroll-layers property.
+ * handling the pad's events (see the commentary in zmk/raw_touch/scroll.h).
  *
  * Dual mode: relative deltas derived from successive absolute positions
  * are ALWAYS re-injected as REL_X/REL_Y on the same input device,
@@ -55,8 +53,6 @@
 
 LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
-#include <zmk/keymap.h>
-
 #include <zmk/raw_touch/hid.h>
 #include <zmk/raw_touch/scroll.h>
 #include <zmk/raw_touch/transport.h>
@@ -83,12 +79,6 @@ struct raw_touch_pad_config {
     bool tap_click;
     uint16_t tap_max_ms;
     uint16_t tap_max_movement;
-
-    /* Optional scroll-mode override: scroll mode is "any of these keymap
-     * layers is active" instead of "the marker processor was reached".
-     * NULL / 0 when the scroll-layers property is absent. */
-    const uint8_t *scroll_layers;
-    size_t scroll_layers_len;
 };
 
 struct raw_touch_pad_data {
@@ -115,20 +105,6 @@ struct raw_touch_pad_data {
     bool tap_scroll_seen;
 };
 
-static bool raw_touch_scroll_mode(const struct raw_touch_pad_config *cfg, bool marked) {
-    if (cfg->scroll_layers_len > 0) {
-        for (size_t i = 0; i < cfg->scroll_layers_len; i++) {
-            if (zmk_keymap_layer_active(cfg->scroll_layers[i])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    return marked;
-}
-
 static void raw_touch_emit_tap(const struct raw_touch_pad_config *cfg) {
     /* K_NO_WAIT: dropping a click beats deadlocking the input queue we
      * are dispatched from. Press and release are separate sync'd events,
@@ -139,7 +115,7 @@ static void raw_touch_emit_tap(const struct raw_touch_pad_config *cfg) {
 }
 
 static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
-                                    struct raw_touch_pad_data *data, bool marked) {
+                                    struct raw_touch_pad_data *data, bool scroll_mode) {
     /* An absolute-mode pad marks lift-off with an all-zeros idle frame. */
     bool touched = !(data->cur_x == 0 && data->cur_y == 0 && data->cur_z == 0);
 
@@ -148,8 +124,6 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
          * frames so exactly one release report goes out. */
         return;
     }
-
-    bool scroll_mode = raw_touch_scroll_mode(cfg, marked);
 
     uint8_t flags = (touched ? ZMK_RAW_TOUCH_FLAGS_TOUCHED : 0) |
                     (scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0);
@@ -294,9 +268,6 @@ static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
 
 #define RT_INST(n)                                                                                 \
     BUILD_ASSERT(DT_INST_PROP(n, pad_id) < 8, "raw touch pad-id must be less than 8");             \
-    IF_ENABLED(DT_INST_NODE_HAS_PROP(n, scroll_layers),                                            \
-               (static const uint8_t rt_scroll_layers_##n[] = {                                    \
-                    DT_INST_FOREACH_PROP_ELEM_SEP(n, scroll_layers, DT_PROP_BY_IDX, (, ))};))      \
     static struct raw_touch_pad_data rt_data_##n;                                                  \
     static const struct raw_touch_pad_config rt_config_##n = {                                     \
         .dev = DEVICE_DT_GET(DT_INST_PHANDLE(n, device)),                                          \
@@ -310,10 +281,6 @@ static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
         .tap_click = DT_INST_PROP(n, tap_click),                                                   \
         .tap_max_ms = DT_INST_PROP(n, tap_max_ms),                                                 \
         .tap_max_movement = DT_INST_PROP(n, tap_max_movement),                                     \
-        .scroll_layers = COND_CODE_1(DT_INST_NODE_HAS_PROP(n, scroll_layers),                      \
-                                     (rt_scroll_layers_##n), (NULL)),                              \
-        .scroll_layers_len = COND_CODE_1(DT_INST_NODE_HAS_PROP(n, scroll_layers),                  \
-                                         (DT_INST_PROP_LEN(n, scroll_layers)), (0)),               \
     };                                                                                             \
     static void rt_input_cb_##n(struct input_event *evt) {                                         \
         raw_touch_input_event(&rt_config_##n, &rt_data_##n, evt);                                  \
@@ -338,31 +305,23 @@ static int raw_touch_init(void) {
 
     /* Fill the feature report's pad slots with the present pads in
      * ascending pad-id order, each with its own geometry and orientation.
-     * pad-ids are unique (the binding requires it), so scanning for the
-     * smallest id above the last one placed visits each pad once. */
+     * pad-ids are unique (the binding requires it), so each id fills at
+     * most one slot. */
     int slot = 0;
-    int last_pad_id = -1;
 
-    while (slot < ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS) {
-        const struct raw_touch_pad_config *next = NULL;
-
+    for (uint8_t id = 0; id < 8 && slot < ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS; id++) {
         for (size_t i = 0; i < ARRAY_SIZE(raw_touch_pads); i++) {
             const struct raw_touch_pad_config *cfg = raw_touch_pads[i];
 
-            if ((int)cfg->pad_id > last_pad_id && (next == NULL || cfg->pad_id < next->pad_id)) {
-                next = cfg;
+            if (cfg->pad_id != id) {
+                continue;
             }
-        }
 
-        if (next == NULL) {
-            break;
+            /* max_contacts = 1: the module streams a single contact per pad
+             * (contact_id 0); a Pinnacle reports one finger anyway. */
+            zmk_raw_touch_hid_set_feature_slot(slot++, cfg->resolution, RT_ORIENTATION(cfg),
+                                               cfg->x_max, cfg->y_max, 1);
         }
-
-        /* max_contacts = 1: the module streams a single contact per pad
-         * (contact_id 0); a Pinnacle reports one finger anyway. */
-        zmk_raw_touch_hid_set_feature_slot(slot++, next->resolution, RT_ORIENTATION(next),
-                                           next->x_max, next->y_max, 1);
-        last_pad_id = next->pad_id;
     }
 
     if (ARRAY_SIZE(raw_touch_pads) > ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS) {
