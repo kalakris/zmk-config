@@ -220,6 +220,15 @@
             bindings = <&mo>, <&kp>;
             hold-trigger-key-positions = <ALL_KEYS>;
             hold-trigger-on-release;
+            /* Activate the layer during the undecided window. Trackpad
+             * input events are not key events, so they can neither resolve
+             * the hold-tap nor wait for it — without this, a Nav-held flick
+             * that starts inside the tapping term streams as POINTER
+             * context and the fast flick never scrolls (measured: frames
+             * flip p->S mid-touch exactly at the term boundary). Key
+             * events are still queued and replayed per the normal decision,
+             * so typing is unaffected. */
+            hold-while-undecided;
         };
 
         lth_sk: lth_sk {
