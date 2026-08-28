@@ -18,17 +18,19 @@ boots. Fixing this was the MUST-FIX gate before upstreaming the
 ERA/recalibrate patches to Zephyr (see
 [upstreaming-todo.md](upstreaming-todo.md)).
 
-## b. Re-land the LinearMouse cleanup, item by item
+## b. Re-land the LinearMouse cleanup — DONE 2026-08-28
 
-`~/src/linearmouse` (on `main` since the 2026-08-28 restructure —
-touch-stream now lives there; `inputscale` carries the 2-commit
-inputScale feature on top and is what gets deployed): the review-pass
-cleanup batch
-`a204c40` caused a live regression (first touch dead, then added
-latency) within a minute of deploy and was reverted wholesale in
-`29a8f88` — root cause never isolated; the archive building clean proved
-nothing. The revert commit lists the seven items. Re-land them **one at
-a time, with a scroll test between deploys**, and announce every deploy.
+The reverted `a204c40` batch was **exonerated** by the discriminating
+deploy from [linearmouse-reland-plan.md](linearmouse-reland-plan.md):
+the exact batch build ran clean for 26 min of live use, pinning the
+original regression on deploy-environment TCC-grant state, not the
+code. All items re-landed on `main` as three commits (frame parser +
+guard order; VerifiedDevice merge + capabilities; lazy watchdog +
+process-routed release, adapted to the per-pad dict), minus the
+obsolete pad-0 collapse (conflicts with pad-1 arbitration). Full unit
+suite green, all six live scroll checks passed. The old
+`go60-inputscale` branch is deleted (remote); local tag
+`pre-restructure-go60-inputscale` keeps the forensic history reachable.
 
 ## c. LH pointer choppiness — FIXED 2026-08-28 (wired-split poll cadence)
 

@@ -1,5 +1,15 @@
 # LinearMouse cleanup re-land plan (next-steps item b)
 
+> **OUTCOME (2026-08-28): the environmental theory won.** The
+> discriminating deploy of the exact `a204c40` build ran clean through
+> 26 minutes of live use (old-binary identity confirmed by the expected
+> LH-scroll deadness), so the batch was innocent and the original
+> regression was deploy-time TCC-grant state. Everything below except
+> item 7 was re-landed on `main` in three commits (`d2bee0c`,
+> `a3c9a8c`, `0ba177a`), items 1+2 adapted to the per-pad dict; unit
+> suite and the six-point live scroll test green. Kept for the method
+> and the per-item analysis.
+
 Static analysis of `a204c40` (the reverted review-pass batch) vs the live
 regression (first touch dead, then motion with added latency, both USB and
 BLE, cleared by rolling the app back with the new firmware kept). Prepared
