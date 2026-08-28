@@ -139,17 +139,14 @@ Key design points:
 - **Known limits**: the Pinnacle is single-touch, so two-finger gestures
   are impossible, ever. Driverless hosts get pointer, click, typing, and
   ÷24-wheel fallback scrolling; firmware taps work everywhere. LH
-  *pointer* motion is choppy **when the halves are wired** — the wired
-  split transport delivers frames in ~22.5 ms bursts (root-caused
-  2026-08-28, see "Split-link timing" below). And a correction to an
-  earlier claim: v3 device timestamps are sample-true for the **RH pad
-  only**. Both `seq` and `timestamp` are stamped on the central in
-  `raw_touch_process_frame()` (module `src/raw_touch.c`), so LH
-  timestamps are split-relay-*arrival* times — over the wire, every
-  frame in a burst carries the same timestamp, and scroll is **not**
-  immune to the batching for that pad. Over the radio the arrival error
-  is small (±4 ms) and both scroll and pointer feel right — open item,
-  see [next-steps.md](next-steps.md).
+  *pointer* choppiness under the wire was root-caused AND fixed
+  2026-08-28 (wired-split poll cadence tuning, see "Split-link timing"
+  below). A correction to an earlier claim survives the fix: v3 device
+  timestamps are sample-true for the **RH pad only**. Both `seq` and
+  `timestamp` are stamped on the central in `raw_touch_process_frame()`
+  (module `src/raw_touch.c`), so LH timestamps are
+  split-relay-*arrival* times — honest to ±2 ms over the tuned wire,
+  ±4 ms over the radio, which feels right for both scroll and pointer.
 
 ### Split-link timing (measured 2026-08-28)
 
@@ -160,10 +157,20 @@ in **every** configuration):
 
 | Split link | Host link | Dropped frames | Cadence at host |
 |---|---|---|---|
-| Wire  | USB | **45%** | 2–3-frame bursts every ~22.5 ms |
-| Wire  | BLE | 0% | same 22.5 ms bursts, re-batched by the ~15 ms host BLE conn interval |
+| Wire (stock 20/15) | USB | **45%** | 2–3-frame bursts every ~22.5 ms |
+| Wire (stock 20/15) | BLE | 0% | same 22.5 ms bursts, re-batched by the ~15 ms host BLE conn interval |
 | Radio | BLE | 0% | ~7.5/15 ms alternation, small batches |
-| Radio | USB | 0% | ~7.5/15 ms alternation, no batching — **cleanest** |
+| Radio | USB | 0% | ~7.5/15 ms alternation, no batching |
+| **Wire (tuned 3/5)** | USB | **0%** | **~10 ms per-frame, batch size 1.00, σ≈2 ms — LH ≈ RH parity** |
+
+**RESOLVED same day**: `config/go60_rh.conf` now sets
+`..._RX_COMPLETE_TIMEOUT=3` and `..._RX_TIMEOUT=5` (central-side only —
+RH reflash suffices). Validated 2026-08-28: zero drops and zero batching
+over ~30 s of continuous LH streaming, LH device timestamps honest to
+±2 ms, and no missed LH keystrokes while typing (the half-duplex
+collision risk did not materialize). The tuned wire is now the *best*
+link — it beats the radio. If LH keys ever drop with the wire in,
+that's the collision signature: back the timeouts off (e.g. 5/8).
 
 **The wired split transport is the root cause of LH choppiness.** The
 Go60's `zmk,wired-split` node sets `half-duplex` (one data line,
@@ -266,15 +273,13 @@ Still pending (see [next-steps.md](next-steps.md) for the full list):
 - **Sofle + Go60 simultaneously**: confirm the Sofle's encoder scroll works
   while the Go60 stream is open (physical-identity suppression exists
   precisely for this).
-- **LH pointer choppiness** (root-caused 2026-08-28, mitigated): the
-  **wired** split transport delivers LH frames in 2–3-frame bursts every
-  ~22.5 ms (see "Split-link timing" under Architecture). Not just
-  pointer: LH timestamps are stamped at split-relay arrival on the
-  central, so for that pad scroll is *not* immune to the batching
-  either (v3 timestamps are sample-true for the RH pad only).
-  Mitigation: unplug the wire — over the split radio both pads are
-  clean. Wired-transport tuning and the follow-on hardening are queued
-  in [next-steps.md](next-steps.md) item (c).
+- ~~**LH pointer choppiness**~~ — root-caused and **FIXED 2026-08-28**:
+  the wired split's polled transport batched LH frames 2–3 per ~22.5 ms
+  (see "Split-link timing" under Architecture); the poll-cadence tuning
+  in `config/go60_rh.conf` (20/15 → 3/5 ms) restored per-frame delivery
+  and LH ≈ RH parity, validated on hardware. Optional-polish leftovers
+  (USB TX ring, timestamp reconstruction, host pointer synthesis) are
+  parked in [next-steps.md](next-steps.md) item (c).
 - **Dead-pad boot race** (fix pushed 2026-08-28, hardware verification
   pending): the in-tree driver's force-recalibrate-on-init patch could
   leave SW_CC stuck on some boots, so DR never fired and the pad was

@@ -27,18 +27,26 @@ latency) within a minute of deploy and was reverted wholesale in
 nothing. The revert commit lists the seven items. Re-land them **one at
 a time, with a scroll test between deploys**, and announce every deploy.
 
-## c. LH pointer choppiness — root-caused: the WIRED split transport
+## c. LH pointer choppiness — FIXED 2026-08-28 (wired-split poll cadence)
 
-**Measurement DONE 2026-08-28.** Captured LH frame timing in a 2×2
-matrix (split link × host link) with the new passive monitor
-(`scripts/raw-touch-monitor.swift` + `scripts/analyze-touch-timing.py`):
+**Root-caused, fixed, and hardware-validated the same day.** The fix is
+the two-line Kconfig change in `config/go60_rh.conf` (poll timeouts
+20/15 → 3/5 ms); with it, the wire beats every other configuration:
 
 | Split link | Host link | Dropped | Cadence at host |
 |---|---|---|---|
-| Wire  | USB | **45%** | 2–3-frame bursts every ~22.5 ms |
-| Wire  | BLE | 0% | same 22.5 ms bursts, re-batched by the ~15 ms host BLE interval |
+| Wire (stock 20/15) | USB | **45%** | 2–3-frame bursts every ~22.5 ms |
+| Wire (stock 20/15) | BLE | 0% | same 22.5 ms bursts, re-batched by the ~15 ms host BLE interval |
 | Radio | BLE | 0% | ~7.5/15 ms alternation, small batches |
-| Radio | USB | 0% | ~7.5/15 ms alternation, no batching — cleanest |
+| Radio | USB | 0% | ~7.5/15 ms alternation, no batching |
+| **Wire (tuned 3/5)** | USB | **0%** | **~10 ms per-frame, batch size 1.00, σ≈2 ms — LH ≈ RH parity** |
+
+Validated over ~30 s of continuous LH streaming (zero drops, zero
+batching, LH device timestamps now honest to ±2 ms) plus typing with no
+missed LH keystrokes (the collision risk of the tighter half-duplex
+turnaround did not materialize; margin math said ~1 ms per exchange at
+921600 baud). LH key latency improves too — keys ride the same poll
+loop.
 
 The RH pad is a clean 10 ms metronome in every configuration. **Root
 cause: the wired split transport's batched delivery** — the Go60's
@@ -48,35 +56,30 @@ the next poll `CONFIG_ZMK_SPLIT_WIRED_HALF_DUPLEX_RX_COMPLETE_TIMEOUT`
 (default 20, applied as **ms** in `publish_events_work`,
 `app/src/split/wired/central.c`) after the previous response — plus
 ~2.5 ms of turnaround, giving the measured ~22.5 ms burst period. See
-raw-touch.md → "Split-link timing" for the full mechanism. Immediate
-mitigation: **run the halves wireless** — the user confirms LH pointer
-feels significantly better with the wire unplugged. Captures live in
-`/tmp/claude-501/capture[2-5].csv` (wire+USB, wire+BLE, radio+BLE,
-radio+USB) — but `/tmp` is volatile; re-capture if gone.
+raw-touch.md → "Split-link timing" for the full mechanism. (Running the
+halves wireless was the interim mitigation before the tuning landed; it
+is no longer needed.) Captures lived in
+`/tmp/claude-501/capture[2-6].csv` (wire+USB, wire+BLE, radio+BLE,
+radio+USB, tuned-wire+USB) — `/tmp` is volatile; re-capture if gone.
 
-Remaining work:
+Residual items, all **optional polish** now (the fixes they were
+designed for no longer occur under the tuned wire):
 
-1. **Tune the wired transport** (no fork needed — plain Kconfig, central
-   side only, so `config/go60_rh.conf`): try
-   `CONFIG_ZMK_SPLIT_WIRED_HALF_DUPLEX_RX_COMPLETE_TIMEOUT=3` and
-   `CONFIG_ZMK_SPLIT_WIRED_HALF_DUPLEX_RX_TIMEOUT=5` → ~5 ms poll
-   cadence, ≤1 frame per poll. Risks: line-turnaround collisions on the
-   single half-duplex wire if the margin is too thin (CRC catches them,
-   but colliding envelopes are *dropped* — including key events; watch
-   for "Prefix mismatch" behavior, i.e. missed keys), and more UART/CPU
-   wakeups on both halves (each half runs on its own battery — the wire
-   carries data, not power). Upside beyond the pads: LH **key** latency
-   rides the same poll loop, so it improves too.
-2. **Downgraded-priority hardening** (only matters under wire-burst
-   delivery): a small USB TX ring in the module's `src/usb_hid.c`
-   (today a single in-flight slot guarded by `hid_sem` drops
-   back-to-back frames with `-EAGAIN` — the 45% above), and
-   central-side timestamp reconstruction so LH timestamps become honest
-   sample times (residual error ±4 ms over radio vs ±22 ms over wire;
-   the split relay carries no timestamps, so this must be inferred).
-3. **Host pointer synthesis from stream frames** — the elegant fix,
-   viable **now over radio**: frames get the device-clock treatment for
-   free, pointer would too.
+1. A small USB TX ring in the module's `src/usb_hid.c` — the
+   single-slot `hid_sem` drop path only bites on multi-frame bursts,
+   which the tuned poll cadence no longer produces. Worth doing only as
+   robustness for users running stock poll timings.
+2. Central-side timestamp reconstruction (LH stamps are relay-arrival,
+   not sample time — but the error is now ±2 ms over the tuned wire,
+   ±4 ms over radio; the split relay carries no timestamps, so this
+   must be inferred). Only worth it if scroll feel ever regresses.
+3. Host pointer synthesis from stream frames — refinement, not a fix;
+   pointer deltas now arrive per-frame anyway.
+
+Watch-item: battery on both halves (more UART/CPU wakeups from the 3×
+faster idle poll; each half runs on its own battery — the wire carries
+data, not power). If LH keystrokes ever start dropping with the wire
+in, that's the half-duplex collision signature — back off to e.g. 5/8.
 
 ## d. Demo video
 
