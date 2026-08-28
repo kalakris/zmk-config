@@ -34,8 +34,10 @@ manifest:
     # input_pinnacle vendored verbatim (from 27150c9d), plus three
     # separately-labelled patches for the pieces upstream still lacks -
     # the 0xFF/SW_DR garbage-frame guard, per-axis ERA edge sensitivity,
-    # and force-recalibrate-on-init. Software reset on init came free:
-    # it landed upstream after v4.1.0 was cut.
+    # and force-recalibrate-on-init (including the SW_CC-latch boot-race
+    # fix - wait for SW_CC to assert before clearing, plus a stuck-HW_DR
+    # check after the edge interrupt is armed). Software reset on init
+    # came free: it landed upstream after v4.1.0 was cut.
     #
     # A module override is still needed at all because the property names
     # differ from petejohanson's fork (abs-mode -> data-mode = "absolute",
@@ -44,7 +46,7 @@ manifest:
     # the keymaps. See docs/pinnacle-driver-landscape.md.
     - name: cirque-input-module
       remote: kalakris
-      revision: b5c23650c096e635709cd0c9e0e59c2e79140d7e
+      revision: 89a08962f1c0bde4b499badd68cb068b8a369000
 
     - name: nice-view-battery
       remote: infely

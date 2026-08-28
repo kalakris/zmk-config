@@ -100,14 +100,16 @@ effectively EOL (abs-mode PRs from others already rotting there). Revised:
   landed after v4.1.0 was cut), as did `idle-packets-count` — which is
   **mandatory**, since upstream defaults it to 0 and no lift-off packets
   means no release frame, no momentum, no tap. Not yet benched.
-- [ ] **MUST-FIX before upstreaming the ERA/recalibrate patches to
+- [x] **MUST-FIX before upstreaming the ERA/recalibrate patches to
   Zephyr: the dead-pad boot race.** The force-recalibrate-on-init patch
-  (patch 3/3 on `@intree-driver`) can leave SW_CC stuck on some boots —
+  (patch 3/3 on `@intree-driver`) could leave SW_CC stuck on some boots —
   DR then never fires and the pad is dead while the keys work fine;
   power-cycling the half recovers it. Hit once in the wild (LH pad,
-  2026-08-27). Fix in the patch itself: clear SW_CC and re-verify DR
-  after the recalibrate, then reflash both halves. Do not ship the patch
-  upstream with this race in it.
+  2026-08-27). **Fixed 2026-08-28** in the amended patch 3/3 (`89a08962`):
+  the recalibrate now waits (bounded) for SW_CC to assert before clearing
+  it, and init clears STATUS1 once more if HW_DR is already high after the
+  edge interrupt is armed. Awaiting reflash of both halves to confirm on
+  hardware.
 - [ ] Driver-work upstream target is now **Zephyr**, not the module:
   0xFF guard / ERA Z-min / secondary-tap control as small PRs; plus a
   trivial ZMK docs PR (pointing.mdx still shows old module props).
