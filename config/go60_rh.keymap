@@ -41,23 +41,6 @@
     };
 };
 
-/* Trackpad-activated Mouse layer (RH T1 = LCLK, RH T2 = RCLK).
- *
- * Tune the pre-defined &zip_temp_layer instance rather than declaring a
- * second one: the driver keeps its state on instance 0, so exactly one
- * instance must exist.
- *
- *   require-prior-idle-ms — don't grab the layer if a key was pressed in
- *     the last 200 ms, so brushing the pad mid-typing can't steal T1/T2.
- *   excluded-positions    — pressing anything NOT in this list drops the
- *     layer immediately; mods and the click keys stay in so that
- *     shift/cmd-click works.
- */
-&zip_temp_layer {
-    require-prior-idle-ms = <200>;
-    excluded-positions = <MOUSE_KEEP_KEYS>;
-};
-
 /* Lower the right pad's ADC gain from the stock maximum ("1x" = most
  * sensitive). The pad's capacitive baseline drifts under sustained touch
  * and at max gain the drift shows up as a jumpy cursor until a no-touch
@@ -168,7 +151,6 @@
     status = "okay";
     device = <&cirque_split>;
     input-processors = <&zip_xy_scaler 1 1>,
-                       <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>,
                        <&zip_raw_touch_idle_filter_lh>;
     nav_scroll {
         layers = <2>;
@@ -179,15 +161,13 @@
                            <&zip_xy_to_vscroll_mapper>,
                            <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
                            <&zip_scroll_scaler 1 24>,
-                           <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>,
                            <&zip_raw_touch_idle_filter_lh>;
     };
 };
 
 /* The base chain below sees the REL_X/REL_Y deltas the touch-stream
  * module derives from the absolute frames (plus the ABS frames
- * themselves, which zip_xy_scaler ignores and zip_temp_layer uses to
- * keep the Mouse layer alive while touching). No zip_button_behaviors
+ * themselves, which zip_xy_scaler ignores). No zip_button_behaviors
  * here: it would swallow the firmware tap's BTN_0 (see &glidepoint
  * comment); same on the left pad's chain above.
  *
@@ -213,7 +193,6 @@
      * absolute counts (~38/mm) by the touch-stream module, which run larger
      * than the ASIC's relative-mode output that the 3x was tuned for. */
     input-processors = <&zip_xy_scaler 1 1>,
-                       <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>,
                        <&zip_raw_touch_idle_filter>;
     nav_scroll {
         layers = <2>;
@@ -226,7 +205,6 @@
                            <&zip_xy_to_vscroll_mapper>,
                            <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
                            <&zip_scroll_scaler 1 24>,
-                           <&zip_temp_layer MOUSE_LAYER MOUSE_LAYER_MS>,
                            <&zip_raw_touch_idle_filter>;
     };
 };

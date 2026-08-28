@@ -303,8 +303,8 @@ THUMB(&kp C_MUTE,                                              /* enc       (Sof
       &lth 2 SPACE,  &lth 4 ENTER,                             /* LH T3 T2              */
       &kp ENTER,                                                /* LH T1    (Go60 only)  */
       &kp ENTER,                                                /* mid      (Sofle only) */
-      &kp ESC,                                                   /* RH T1    (Go60 only)  */
-      &lth_sk 7 RSHIFT, &lth 3 SPACE,                           /* RH T2 T3              */
+      &mkp LCLK,                                                 /* RH T1    (Go60 only)  */
+      &mkp RCLK, &lth 3 SPACE,                                  /* RH T2 T3              */
       &kp BACKSPACE, &kp C_VOLUME_DOWN, &kp C_VOLUME_UP)       /* RH C2R5 C3R5 C4R5     */
             >;
 
@@ -513,28 +513,5 @@ THUMB(&trans,
             >;
         };
 
-        /* Layer 9 — activated automatically by the Go60 trackpads via
-         * &zip_temp_layer (see go60_lh.keymap / go60_rh.keymap), and
-         * dropped MOUSE_LAYER_MS after the last pointer event.  Only the
-         * right thumb keys are overridden: T1 = left click, T2 = right
-         * click.  Not reachable on the Sofle (no pointing device).
-         */
-        Mouse {
-            display-name = "Mouse";
-            bindings = <
-ROW(&trans, &trans, &trans, &trans, &trans, &trans,    &trans,    &trans, &trans, &trans, &trans, &trans, &trans)
-ROW(&trans, &trans, &trans, &trans, &trans, &trans,    &trans,    &trans, &trans, &trans, &trans, &trans, &trans)
-ROW(&trans, &trans, &trans, &trans, &trans, &trans,    &trans,    &trans, &trans, &trans, &trans, &trans, &trans)
-ROW(&trans, &trans, &trans, &trans, &trans, &trans,    &trans,    &trans, &trans, &trans, &trans, &trans, &trans)
-THUMB(&trans,
-      &trans, &trans, &trans,
-      &trans, &trans,
-      &trans,
-      &trans,
-      &mkp LCLK,                                                 /* RH T1 */
-      &mkp RCLK, &trans,                                         /* RH T2 T3 */
-      &trans, &trans, &trans)
-            >;
-        };
     };
 };

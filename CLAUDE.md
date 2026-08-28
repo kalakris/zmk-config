@@ -79,13 +79,16 @@ The keymap is shared between Sofle and Go60 using preprocessor macros that handl
 4. **Numpad** — Number pad layout, RGB controls
 5. **Tmux** — Tmux tab switching via `tmux_tab` macro (Ctrl+A then number)
 6. **Vim** — Vim split navigation via `vim_split` macro (Ctrl+W then direction)
-7. **Magic** — Media, RGB, Bluetooth, bootloader (held via RH T2)
+7. **Magic** — Media, RGB, Bluetooth, bootloader. Currently unreachable: RH T2
+   (its old hold trigger) is now permanently `&mkp RCLK`; everything critical is
+   duplicated on System. Kept in case a binding returns (removing it would
+   renumber Spaces, which `&r_spaces 8` references)
 8. **Spaces** — macOS workspace navigation
-9. **Mouse** — Go60 only, not bound to any key. Activated automatically by the
-   trackpads via `&zip_temp_layer` and dropped `MOUSE_LAYER_MS` after the last
-   pointer event. Overrides RH T1 = left click, RH T2 = right click; everything
-   else is `&trans`. Wiring lives in `config/go60_rh.keymap`; tuning constants
-   (`MOUSE_LAYER`, `MOUSE_LAYER_MS`, `MOUSE_KEEP_KEYS`) in `positions_go60.dtsi`.
+
+Mouse clicks are plain base-layer bindings: RH T1 = `&mkp LCLK`, RH T2 =
+`&mkp RCLK` (2026-08-28; T1's old Esc and T2's old Magic-hold/sticky-shift were
+unused). The former trackpad-activated Mouse layer (layer 9) and its
+`&zip_temp_layer` wiring are gone.
 
 ### Behaviors
 - `hml` / `hmr` — Left/right home-row mods using positional hold-tap with `require-prior-idle-ms`

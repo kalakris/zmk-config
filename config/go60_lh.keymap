@@ -42,11 +42,6 @@
     };
 };
 
-/* No &zip_temp_layer here (unlike go60_rh.keymap): the temp-layer
- * processor is only compiled on the central, and this half's listeners
- * are disabled below anyway — the RH central applies it to both pads.
- */
-
 /* Left pad, under Zephyr's in-tree Cirque driver, configured identically
  * to the right pad: absolute mode, 2x sensitivity, lift-off packets. The
  * absolute frames are forwarded to the central over the split link, where
