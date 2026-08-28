@@ -117,3 +117,17 @@ etc.), and a tag push. Optional extra: build provenance via
 Nothing depends on it; `cfc4b3e6` is already salvaged as
 `patches/zmk-skip-empty-mouse-report-syncs.patch` on `main`. Just
 delete the GitHub repo and `~/src/zmk`.
+
+## i. Drop protocol v2 from the LinearMouse fork
+
+Decided 2026-08-28: v2 only ever ran on the user's own prototype
+firmware (the module was never public; the keyboard is on v3). Remove
+the v2 layout from `TouchStreamFrame` (dual parser + the "v3 frame too
+short → parse as v2" fallback + `payloadLength(forProtocolVersion:)`),
+the version-2 acceptance in `TouchStreamCapabilities`, and their tests.
+One deploy with a scroll test, AFTER the (b) re-land dance so a
+regression is attributable. Caveat to note in docs when done: the
+`v0-prototype` rollback binaries speak the old protocol — after
+removal, rolling back to them means wheel-fallback scrolling only.
+Module side needs nothing (it only emits v3); trim the "accepts v2+v3"
+phrasing in the module README / zmk-config CLAUDE.md then too.
