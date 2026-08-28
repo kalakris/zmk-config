@@ -1,20 +1,24 @@
 # Go60 raw touch stream — project state
 
-Magic-Trackpad-quality scrolling for the MoErgo Go60's right-hand Cirque
-Pinnacle trackpad on macOS. The firmware streams raw absolute touch frames
-to the host over a vendor HID report; a patched LinearMouse fork consumes
-them and synthesizes continuous scroll events with real gesture phases,
-measured lift-off momentum, touch-to-catch, and a velocity-gain ballistics
-curve. This document is the full project state: architecture, repo map,
-what's validated, where every knob lives, the operational loops, and how to
-roll back. It assumes no prior context.
+Magic-Trackpad-quality scrolling for the MoErgo Go60's Cirque Pinnacle
+trackpads on macOS — **both pads since 2026-08-27**. The firmware streams
+raw absolute touch frames to the host over a vendor HID report; a patched
+LinearMouse fork consumes them and synthesizes continuous scroll events
+with real gesture phases, measured lift-off momentum, touch-to-catch, and
+a velocity-gain ballistics curve. This document is the full project state:
+architecture, repo map, what's validated, where every knob lives, the
+operational loops, and how to roll back. It assumes no prior context.
 
 Companion documents:
 
-- **Protocol spec** — [`docs/raw-touch-protocol.md` on the `raw-touch`
-  branch](https://github.com/kalakris/zmk-config/blob/raw-touch/docs/raw-touch-protocol.md)
-  (wire format, feature report, scroll-mode semantics, dual-mode hygiene).
-  The spec lives on `raw-touch` because that's the branch that ships it.
+- **Protocol spec** — the **authoritative spec is now the wire-format
+  appendix of the module README** (`~/src/zmk-raw-touch/README.md`,
+  protocol **v3**). [`docs/raw-touch-protocol.md`](raw-touch-protocol.md)
+  is the historical v2 spec, kept for the still-flashable `raw-touch`
+  fork build; the host accepts both versions.
+- **Next steps** — [`docs/next-steps.md`](next-steps.md): the
+  resumable-from-zero work list (dead-pad boot race fix, host-cleanup
+  re-land, LH pointer choppiness, demo video, release train).
 - **Pre-upstreaming punch list** —
   [`docs/upstreaming-todo.md`](upstreaming-todo.md) (on `main`): everything
   that must happen before PRing the pieces upstream, plus the post-upstream
@@ -31,41 +35,43 @@ Companion documents:
 ## Architecture
 
 Dual-mode design: the firmware always emits standard relative pointer
-reports (and, while the Nav overlay is active, ÷8 wheel events) so any host
+reports (and, while the Nav overlay is active, ÷24 wheel events) so any host
 works driverless; a stream-aware host additionally opens the vendor HID
 device and takes over scrolling.
 
-**Where the firmware lives (changed 2026-08-26).** The device side is now an
-out-of-tree ZMK module, `kalakris/zmk-raw-touch`, built on top of *stock*
-`moergo-sc/zmk` — no ZMK fork. The **binary running on the user's keyboard
-is still the old `raw-touch` fork build** until the bench pass; the module
-build sits on branches `module-port` / `module-port-intree`. The wire format
-is byte-identical across the two, and the host software is unchanged, so the
-diagram below describes both. Names differ: the fork's
-`&zip_touch_stream_scroll` is the module's `&zip_raw_touch_scroll`, and
-`CONFIG_ZMK_TOUCH_STREAM` is `CONFIG_ZMK_RAW_TOUCH`. See
+**Where the firmware lives.** The device side is an out-of-tree ZMK
+module, `kalakris/zmk-raw-touch`, built on top of *stock* `moergo-sc/zmk`
+— no ZMK fork. **This is what `main` builds and what the user's keyboard
+runs** (promoted 2026-08-27, hardware-verified over USB and BLE, with the
+in-tree Pinnacle driver). The old `raw-touch` fork build and the interim
+`module-port` / `module-port-intree` branches are historical stages —
+still flashable as rollbacks, but superseded. See
 [module-publish-brief.md](module-publish-brief.md) for the port itself.
 
 ```
- Go60 right half (central)
+ Go60 left half ──── split transport ────► Go60 right half (central)
+ (LH Pinnacle abs frames relayed to             │
+  the central's input pipeline)                 ▼
 ┌────────────────────────────────────────────────────────────┐
-│ Cirque Pinnacle (abs-mode, ~100 Hz, single-touch)          │
-│   │ absolute frames (x, y, z)                              │
+│ 2× Cirque Pinnacle (abs mode, ~100 Hz, single-touch each)  │
+│   │ absolute frames (x, y, z); RH = pad 0, LH = pad 1      │
 │   ▼                                                        │
-│ raw touch module (kalakris/zmk-raw-touch)              │
-│   ├─ derives REL_X/REL_Y ──► input listener chain          │
+│ raw touch module (kalakris/zmk-raw-touch)                  │
+│   ├─ derives REL_X/REL_Y ──► input listener chains         │
 │   │                            ├─ pointer reports (0x03)   │
-│   │                            └─ Nav overlay: ÷8 wheel    │
+│   │                            └─ Nav overlay: ÷24 wheel   │
 │   │                               (fallback scrolling)     │
 │   ├─ firmware tap-to-click ──► BTN_0 into listener chain   │
 │   └─ raw frames ──► vendor HID input report                │
-│        usage page 0xFF00, report ID 0x04, 7-byte frames    │
-│        + 8-byte feature report (self-describing: version=2,│
-│          pads, resolution ~38 counts/mm, orientation bits, │
-│          x/y extents)                                      │
+│        usage page 0xFF00, report ID 0x04, protocol v3:     │
+│        11-byte frames (pad_id, contact_id, x/y u16LE, z,   │
+│          flags, seq, timestamp u16LE in 100 µs units)      │
+│        + 20-byte feature report (version=3, pads bitmask,  │
+│          two per-pad geometry slots); real logical ranges  │
+│          in the report descriptor (macOS-verified)         │
 │        scroll-mode flag set by the &zip_raw_touch_scroll   │
-│        marker when the chain that actually handles this    │
-│        pad's events (the nav_scroll overlay) reaches it    │
+│        marker when the chain that actually handles a pad's │
+│        events (its nav_scroll overlay) reaches it          │
 └──────────────┬─────────────────────────────────────────────┘
                │ USB HID / BLE HID-over-GATT
                ▼
@@ -73,12 +79,18 @@ diagram below describes both. Names differ: the fork's
               @ go60-inputscale)
 ┌────────────────────────────────────────────────────────────┐
 │ TouchStreamManager (IOHIDManager, matches usage pair       │
-│ 0xFF00/0x01, reads feature report, requires protocol v2,   │
+│ 0xFF00/0x01, reads feature report, accepts protocol v2+v3, │
 │ keys devices on HIDPhysicalDeviceIdentity — NOT VID/PID)   │
-│   │ scroll-flagged frames                                  │
+│   │ scroll-flagged frames · TouchStreamDeviceClock rebuilds│
+│   │ device-time from v3 timestamps (fixes BLE-batching     │
+│   │ velocity distortion) · 150 ms stale-touch synthesized  │
+│   │ lift-off · seq-gap logging                             │
 │   ▼                                                        │
-│ TouchScrollEngine (gesture phases, velocity tracking,      │
-│ ballistics gain curve, lift-off momentum, touch-to-catch)  │
+│ first-touch-wins pad arbitration (`activeScrollPad`; claim │
+│ cleared on gesture end / momentum end / stale / reset)     │
+│   ▼                                                        │
+│ TouchScrollEngine — pad-agnostic (gesture phases, velocity │
+│ tracking, ballistics gain, lift-off momentum, catch)       │
 │   ▼                                                        │
 │ GestureScrollSeriesPoster ──► CGEvent scroll series with   │
 │                               real gesture phases          │
@@ -90,36 +102,47 @@ diagram below describes both. Names differ: the fork's
 Key design points:
 
 - **Scroll context is declared in the keymap**, not the host: the marker
-  input processor sits in the `nav_scroll` listener overlay (layers = Nav,
-  layer 2) in `config/go60_rh.keymap`. It passes events through untouched;
-  its *presence* in the chain that actually handles the pad's events is what
-  sets the scroll-mode flag on streamed frames. How that presence is
-  detected differs between the two builds: the `raw-touch` fork walked the
-  listener's overlays from patched ZMK core, while the module has the marker
-  latch a flag per input device that the pad's frame handler consumes — more
-  faithful, because the marker only runs if its chain really handled the
-  event, so overlay ordering and `process-next` shadowing come for free.
-  Escape hatch on the module: `scroll-layers = <2>;` on the pad node
-  switches to plain layer-state evaluation.
+  input processor sits in each pad's `nav_scroll` listener overlay
+  (layers = Nav, layer 2) in `config/go60_rh.keymap`. It passes events
+  through untouched; its *presence* in the chain that actually handles the
+  pad's events is what sets the scroll-mode flag on streamed frames. The
+  marker latches a flag per input device that the pad's frame handler
+  consumes — the marker only runs if its chain really handled the event,
+  so overlay ordering and `process-next` shadowing come for free. Both
+  pads' overlays share the one `&zip_raw_touch_scroll` marker instance
+  (it is stateless per-event), but **each listener needs its own
+  `zip_raw_touch_idle_filter` instance** — the filter's state is per
+  devicetree node, so the left pad's chains use
+  `zip_raw_touch_idle_filter_lh`. (The `scroll-layers` escape hatch was
+  removed in the 2026-08-27 review pass; the latch is the only mechanism.)
 - **Physical-identity matching**: the host suppresses fallback wheel events
   per physical device (`HIDPhysicalDeviceIdentity`), because the user's
   Eyelash Sofle shares ZMK's default VID/PID (0x16C0/0x27D9) with the Go60
   — VID/PID matching would wrongly suppress the Sofle's encoder scroll.
 - **Tap-to-click is firmware-side** (the Pinnacle's hardware taps are a
-  relative-mode feature lost in abs-mode). On `raw-touch` it is
-  `stream-tap-click` on `&glidepoint`; on the module branches it is
-  `tap-click` on the `raw_touch_rh` node, off the driver binding entirely.
-  The injected BTN_0 flows down the right pad's listener
-  chain, which must **not** contain `&zip_button_behaviors` — that
-  processor maps BTN_0 to `&none` (it exists to mute the left pad's
-  hardware taps) and would eat the firmware tap. This was a real bug, fixed
-  in zmk-config `raw-touch` commit `308ba52`. A deprecated *host-side* tap
-  path also exists in the LinearMouse fork; it is slated for deletion (see
-  the punch list) — both enabled at once would double-click.
+  relative-mode feature lost in abs-mode): `tap-click` on the
+  `raw_touch_rh` / `raw_touch_lh` nodes, off the driver binding entirely.
+  The injected BTN_0 flows down the pad's listener chain, which must
+  **not** contain `&zip_button_behaviors` — that processor maps BTN_0 to
+  `&none` (it existed to mute the left pad's hardware taps) and would eat
+  the firmware tap. This was a real bug, fixed in zmk-config `raw-touch`
+  commit `308ba52`. The deprecated *host-side* tap path was deleted from
+  the LinearMouse fork (`f5e8a33`) — double-click risk gone.
+- **Both pads stream.** The left pad's absolute frames ride the split
+  transport to the central and stream as `pad_id` 1 via the
+  `raw_touch_lh` node (`device = &cirque_split`). Sensitivity is
+  **deliberately asymmetric** — LH "1x", RH "2x": ADC gain is per-pad
+  hardware, the 2x reduction exists to tame the *right* pad's baseline
+  drift jitter, and 2x on the left pad caused light-touch dropouts that
+  felt like unreliability. Host-side, one gesture at a time: first touch
+  wins the scroll claim.
 - **Known limits**: the Pinnacle is single-touch, so two-finger gestures
   are impossible, ever. Driverless hosts get pointer, click, typing, and
-  ÷8-wheel fallback scrolling; firmware taps work everywhere. The left pad
-  (`pad_id` 1) is reserved in the protocol but not streamed.
+  ÷24-wheel fallback scrolling; firmware taps work everywhere. LH
+  *pointer* motion is slightly choppy (split relay delivers frames in
+  bursts; scroll is immune because v3 timestamps reconstruct the cadence,
+  but pointer reports are arrival-timed) — open item, see
+  [next-steps.md](next-steps.md).
 
 ## Repo / branch / tag map
 
@@ -132,23 +155,34 @@ be fetched locally — `git fetch --tags` if you need it.
 
 | Repo | Location | Branch | Contents |
 |---|---|---|---|
-| [kalakris/zmk-config](https://github.com/kalakris/zmk-config) | `~/zmk-config` | `main` | Daily keymap config, scripts, docs, LinearMouse config snapshot (`linearmouse/linearmouse.json`) and deploy script (`linearmouse/build-and-install.sh`). `west.yml` still points at moergo upstream (`moergo-sc/zmk:go60-zmk0.3.0`) — the stable fallback. |
-| | | `raw-touch` | **What the user's Go60 is running today.** `west.yml` → `kalakris/zmk@raw-touch`; `go60_rh.keymap` adds `abs-mode` + `stream-tap-click` on `&glidepoint`, the `nav_scroll` marker overlay, and drops the right pad to `&zip_xy_scaler 1 1`; `go60_rh.conf` sets `CONFIG_ZMK_TOUCH_STREAM=y`; carries `docs/raw-touch-protocol.md`. Superseded by `module-port` once that is benched. |
-| | | `module-port` (`13a68eb`) | **The intended replacement.** Stock `moergo-sc/zmk` @ `57a7b8e0` + the same Cirque fork + the module. `go60_rh.keymap` keeps `abs-mode` on `&glidepoint` but moves tap/geometry to a `raw_touch_rh` node; `go60_rh.conf` sets `CONFIG_ZMK_RAW_TOUCH=y` and `CONFIG_USB_HID_DEVICE_COUNT=2`. CI-green on all 5 targets; **`go60_lh` comes out byte-identical to the `raw-touch` build**, so only the right half needs reflashing. |
-| | | `module-port-intree` (`b2bf28c`) | The same plus Zephyr's in-tree Pinnacle driver (`kalakris/cirque-input-module@intree-driver`) — the full end state. Also CI-green. Here the left half's driver really changes, so flash both halves. |
-| [kalakris/linearmouse](https://github.com/kalakris/linearmouse) | `~/src/linearmouse` | `go60-inputscale` | 25 commits over upstream. The first two (`4b45bfb`, `df55cc2`) are generic `scrolling.smoothed.inputScale` + GUI slider — a self-contained upstream-PR candidate. The rest is the touch-stream feature (`LinearMouse/TouchStream/`, config model, Raw Touch UI). Unit suite: ~640 tests. |
-| [kalakris/zmk-raw-touch](https://github.com/kalakris/zmk-raw-touch) | `~/src/zmk-raw-touch` | `main` (`5199d34`) | **The device side, as of 2026-08-26.** Private; the working name is provisional. Out-of-tree ZMK module, 22 files / ~1450 lines C: private HID report descriptor, second USB HID interface (`HID_1`), second BLE HIDS instance (with the feature-report characteristic), the frame handler, and two input processors — `zip_raw_touch_scroll` (scroll-context marker) and `zip_raw_touch_idle_filter`. Its `zmk,raw-touch-pad` binding is the whole config surface, including the tap and geometry props that used to live on the Cirque driver. |
-| [kalakris/zmk](https://github.com/kalakris/zmk) | `~/src/zmk` | `raw-touch` | Fork of `moergo-sc/zmk` (base `go60-zmk0.3.0`) carrying the 219-line ZMK core patch: vendor HID plumbing, `app/src/pointing/touch_stream.c`, `input_processor_touch_stream_scroll.c`, a listener-config routing iterator, and zero-mouse-report suppression (`cfc4b3e6`). ⚠️ **No longer load-bearing** — the module above replaces all of it, and the `module-port` branch builds from stock MoErgo ZMK. Still the source of the binary currently flashed; delete it once the bench pass confirms parity. |
+| [kalakris/zmk-config](https://github.com/kalakris/zmk-config) | `~/zmk-config` | `main` | **What the user's Go60 is running.** Daily keymap config, scripts, docs, LinearMouse config snapshot (`linearmouse/linearmouse.json`) and deploy script (`linearmouse/build-and-install.sh`). `west.yml`: stock `moergo-sc/zmk` @ SHA `57a7b8e0` + `cirque-input-module@intree-driver` + the vendored module (`vendor/zmk-raw-touch/`, via `cmake-args` in `build.yaml`). Both pads abs-mode; `raw_touch_rh` / `raw_touch_lh` nodes in `go60_rh.keymap`; `go60.conf` sets `CONFIG_INPUT_QUEUE_MAX_MSGS=64` and `CONFIG_INPUT_THREAD_STACK_SIZE=2048` (the 16/512 defaults dropped K_NO_WAIT-injected events under dual-pad load). Salvaged fork commit in `patches/`. |
+| | | `raw-touch` | Historical: the ZMK-fork build (protocol v2, right pad only). `west.yml` → `kalakris/zmk@raw-touch`; still flashable as a rollback — the host accepts v2. Carries the v2 `docs/raw-touch-protocol.md`. |
+| | | `module-port` / `module-port-intree` | Historical stages of the module port; `module-port-intree` was promoted to `main` on 2026-08-27. |
+| [kalakris/linearmouse](https://github.com/kalakris/linearmouse) | `~/src/linearmouse` | `go60-inputscale` | Commits over upstream. The first two (`4b45bfb`, `df55cc2`) are generic `scrolling.smoothed.inputScale` + GUI slider — a self-contained upstream-PR candidate. The rest is the touch-stream feature (`LinearMouse/TouchStream/`, config model, Raw Touch UI): v2+v3 parsing, `TouchStreamDeviceClock`, stale-touch lift-off, pad-agnostic engine + manager-level pad arbitration. Note `29a8f88` reverts the review-pass cleanup batch `a204c40` (live regression; re-land item-by-item). Unit suite: ~640 tests. |
+| [kalakris/zmk-raw-touch](https://github.com/kalakris/zmk-raw-touch) | `~/src/zmk-raw-touch` | `main` | **The device side.** Renamed from `zmk-raw-touch-wip` (name final), still **private**. Out-of-tree ZMK module: private HID report descriptor (protocol v3, real logical ranges), second USB HID interface (`HID_1`), second BLE HIDS instance (with the feature-report characteristic), the frame handler, and two input processors — `zip_raw_touch_scroll` (scroll-context marker) and `zip_raw_touch_idle_filter`. Its `zmk,raw-touch-pad` binding is the whole config surface, including the tap and geometry props that used to live on the Cirque driver. The README's wire-format appendix is the authoritative protocol spec. |
+| [kalakris/zmk](https://github.com/kalakris/zmk) | `~/src/zmk` | `raw-touch` | Fork of `moergo-sc/zmk` (base `go60-zmk0.3.0`) carrying the 219-line ZMK core patch: vendor HID plumbing, `app/src/pointing/touch_stream.c`, `input_processor_touch_stream_scroll.c`, a listener-config routing iterator, and zero-mouse-report suppression (`cfc4b3e6`). ⚠️ **Dead — safe to delete.** The module replaces all of it, `main` builds from stock MoErgo ZMK, and the one PR-worthy commit (`cfc4b3e6`) is salvaged as `patches/zmk-skip-empty-mouse-report-syncs.patch`. |
 | [kalakris/cirque-input-module](https://github.com/kalakris/cirque-input-module) | `~/src/cirque-input-module` | `raw-touch` / `intree-driver` | `raw-touch` is the fork of petejohanson/cirque-input-module: `abs-mode` absolute reporting, 3 Z-idle packets on lift-off (redundancy), and the now-removed `stream-tap-*` binding properties. `intree-driver` is Zephyr **main**'s `input_pinnacle.c` vendored pristine from `27150c9d` (`7d6f543`) plus three labelled patches — 0xFF/SW_DR guard (`66897c3`), per-axis ERA edge sensitivity (`995e9e0`), force-recalibrate-on-init (`b5c2365`); SW-reset-on-init was already upstream. ⚠️ **The fork is transitional.** Zephyr's in-tree `input_pinnacle` driver already has absolute mode (since 2024) and reached ZMK main via the Zephyr 4.1 bump; pete's module is EOL. Plan is to drop this fork and migrate — see [docs/pinnacle-driver-landscape.md](pinnacle-driver-landscape.md). |
 
 ## Status: validated vs pending
 
-**As of 2026-08-26 the system is complete and in daily use.** Working and
-hardware-validated: raw-touch scrolling with ballistics, real lift-off
-momentum and touch-to-catch; firmware tap-to-click; the "Raw Touch"
-scrolling mode in LinearMouse with live-responding settings; dual-mode
-wheel fallback; direction semantics unified with the system Natural
-Scrolling preference.
+**As of 2026-08-27 the module architecture is the daily driver, on
+protocol v3, with both pads streaming.** Working and hardware-validated:
+raw-touch scrolling with ballistics, real lift-off momentum and
+touch-to-catch, on **both pads** (first-touch-wins arbitration on the
+host); firmware tap-to-click; the "Raw Touch" scrolling mode in
+LinearMouse with live-responding settings; dual-mode wheel fallback;
+direction semantics unified with the system Natural Scrolling preference;
+BLE (verified — including v3 device-time reconstruction fixing the
+BLE-batching velocity distortion).
+
+Also landed 2026-08-27: the firmware half of the /simplify review pass
+(K_NO_WAIT USB send, `scroll-layers` escape hatch removed from module and
+binding, fixed usage-pair `#define`s, simplified slot fill). The **host**
+half of the same review (`a204c40`, seven cleanup items) was **reverted**
+(`29a8f88`): within a minute of deploy the trackpad regressed — first
+touch dead, then added latency — and the root cause was never isolated;
+the archive building clean proved nothing. Re-land item-by-item with a
+scroll test between deploys.
 
 Fixed after the initial validation (all deployed):
 - Firmware taps were swallowed by `&zip_button_behaviors` on the right
@@ -162,20 +196,18 @@ Fixed after the initial validation (all deployed):
   direction control, applied once at the engine, XOR'd with the system
   Natural Scrolling preference — so it means the same thing in every mode.
 
-Still pending (user tests, not known bugs):
+Still pending (see [next-steps.md](next-steps.md) for the full list):
 - **Sofle + Go60 simultaneously**: confirm the Sofle's encoder scroll works
   while the Go60 stream is open (physical-identity suppression exists
   precisely for this).
-- **A dedicated BLE session**: the BLE HOG transport is implemented but a
-  focused Bluetooth-only test hasn't been run — **on any build, ever**. Keep
-  that in mind when benching the module: a BLE failure there is a first
-  test, not a regression.
-- **The module port**: `module-port` is built and CI-green but has never
-  been flashed. Bench it against the checklist in
-  [module-publish-brief.md](module-publish-brief.md) — scroll, momentum,
-  catch, tap-to-click, ÷8 fallback, pointer speed, then BLE. Only the right
-  half needs flashing (the left half's binary is byte-identical to what is
-  running).
+- **LH pointer choppiness** (open, minor): left-pad pointer motion is
+  slightly choppy — the split relay delivers frames in bursts. Scroll is
+  immune (v3 timestamps let the host reconstruct the cadence); pointer is
+  not (mouse reports are arrival-timed).
+- **Dead-pad boot race** (open, real bug, hit once on LH): the in-tree
+  driver's force-recalibrate-on-init patch can leave SW_CC stuck on some
+  boots, so DR never fires and the pad is dead while keys work fine.
+  Power-cycle fixes it. Must-fix before upstreaming the patch.
 
 ### Strategic decisions taken (2026-08-26)
 
@@ -191,10 +223,14 @@ Research settled several questions; each has a dedicated doc:
 | Prior art / claims to avoid | vendor HID justified; never claim abs-mode novelty; rename before publishing | [prior-art-survey.md](prior-art-survey.md) |
 | Two BLE HIDS instances on one peripheral | **Works, medium-high confidence** — HOGP 1.0 §2.5/§4.5.1 permit and require it; two ZMK modules and Mooltipass Mini BLE ship it. macOS mis-binds report maps on the *first* pairing only | [module-publish-brief.md](module-publish-brief.md) |
 
-**The module rewrite is done** (2026-08-26) — the device side no longer
-needs a ZMK fork. See [module-publish-brief.md](module-publish-brief.md) for
-the shape as built, the CI evidence, the temporary vendoring workaround, and
-what is left before anything can go public.
+**The module rewrite is done, benched, and promoted to `main`**
+(2026-08-27) — the device side no longer needs a ZMK fork. Two more
+decisions closed the same day: the name is final (**`zmk-raw-touch`**) and
+the usage page **stays 0xFF00/0x01** (fixed `#define`s, not Kconfig — the
+kext scan showed it free on macOS while Apple squats QMK's 0xFF60/0x07).
+See [module-publish-brief.md](module-publish-brief.md) for the shape as
+built, the temporary vendoring workaround, and what is left before
+anything can go public.
 
 ## Tuning: current values and where every knob lives
 
@@ -228,46 +264,49 @@ step 512 counts, etc.).
 
 ### Firmware — devicetree + Kconfig
 
-Same knobs on both firmware branches; the names moved when the code did.
+All on `main` now; the old `raw-touch`-fork names (`stream-tap-*`,
+`CONFIG_ZMK_TOUCH_STREAM`, `&zip_touch_stream_scroll`) exist only on the
+historical branches.
 
-| Knob | `raw-touch` (running) | `module-port` | Current |
-|---|---|---|---|
-| Absolute mode | `abs-mode` on `&glidepoint` | same (`data-mode = "absolute"` on `-intree`) | on |
-| `sensitivity` | `&glidepoint` | same | "2x" (baseline-drift fix, see MEMORY) |
-| Tap-to-click | `stream-tap-click` / `stream-tap-max-ms` / `stream-tap-max-movement` on `&glidepoint` | `tap-click` / `tap-max-ms` / `tap-max-movement` on the `raw_touch_rh` node | on (defaults: 180 ms, 30 counts) |
-| Pad geometry / orientation | driver's `rotate-90`, `y-invert` | same names, on `raw_touch_rh`, plus `x-max` / `y-max` / `resolution` / `pad-id` | rotate-90, y-invert |
-| Enable | `CONFIG_ZMK_TOUCH_STREAM=y` | `CONFIG_ZMK_RAW_TOUCH=y` **plus `CONFIG_USB_HID_DEVICE_COUNT=2`** — mandatory, and it fails at *runtime*, not build time: without it `device_get_binding("HID_1")` returns NULL and the stream silently does not exist | on |
-| Scroll context | `&zip_touch_stream_scroll` in the `nav_scroll` overlay | `&zip_raw_touch_scroll`, same place | Nav layer (2) |
-| Zero-report suppression | patched into ZMK core | `&zip_raw_touch_idle_filter`, **last** in every chain (base and overlay) | on |
-| Pointer scale | `&zip_xy_scaler 1 1` (right pad; abs-derived deltas run larger than relative-mode, so not the old 3:1) | same | 1:1 |
+| Knob | Where | Current |
+|---|---|---|
+| Absolute mode | `data-mode = "absolute"` on `&glidepoint`, both halves, with `idle-packets-count = <3>` (**mandatory** — upstream defaults to 0: no lift-off packet means no release frame, no momentum, no tap) | on |
+| `sensitivity` | `&glidepoint`, per half — **deliberately asymmetric**: ADC gain is per-pad hardware; "2x" tames the RH pad's baseline-drift jitter (see MEMORY), but on the LH pad it caused light-touch dropouts, so LH stays at stock "1x" | RH "2x", LH "1x" |
+| Tap-to-click | `tap-click` / `tap-max-ms` / `tap-max-movement` on the `raw_touch_rh` / `raw_touch_lh` nodes | on (defaults: 180 ms, 30 counts) |
+| Pad geometry / orientation | `rotate-90` / `y-invert` / `x-max` / `y-max` / `resolution` / `pad-id` on the `raw_touch_*` nodes (LH: `device = &cirque_split`) | rotate-90, y-invert; RH `pad-id` 0, LH `pad-id` 1 |
+| Enable | `CONFIG_ZMK_RAW_TOUCH=y` **plus `CONFIG_USB_HID_DEVICE_COUNT=2`** — mandatory, and it fails at *runtime*, not build time: without it `device_get_binding("HID_1")` returns NULL and the stream silently does not exist | on |
+| Scroll context | `&zip_raw_touch_scroll` in each pad's `nav_scroll` overlay | Nav layer (2) |
+| Zero-report suppression | `&zip_raw_touch_idle_filter` (RH) / `&zip_raw_touch_idle_filter_lh` (LH), **last** in every chain (base and overlay); one instance per listener — the filter's state is per devicetree node | on |
+| Pointer scale | `&zip_xy_scaler 1 1` (abs-derived deltas run larger than relative-mode, so not the old 3:1) | 1:1 |
+| Input subsystem headroom | `go60.conf`: `CONFIG_INPUT_QUEUE_MAX_MSGS=64`, `CONFIG_INPUT_THREAD_STACK_SIZE=2048` — the 16-deep / 512-byte defaults silently dropped K_NO_WAIT-injected events (deltas, taps) under dual-pad ~100 Hz load | set |
 
 ## Operational loops
 
 ### Firmware loop (build → download → flash)
 
 ```bash
-cd ~/zmk-config
-git checkout raw-touch          # or module-port / module-port-intree
+cd ~/zmk-config                 # main is the daily branch — no checkout dance
 # ...edit, commit...
 git push                        # triggers "Build and Draw" (~2 min)
 ./scripts/download-firmware.sh  # matches the branch-tip SHA and waits
                                 # for THAT run (a stale-download race
                                 # previously served the prior build)
-./scripts/flash-go60.sh firmware/raw-touch/firmware   # or firmware/module-port/firmware
-git checkout main               # ALWAYS return to main (see gotchas)
+./scripts/flash-go60.sh firmware/main/firmware
 ```
 
 - Bootloader entry: hold **RH T3 + `/`**. Only the right half (central)
-  needs reflashing for scroll/stream changes.
+  needs reflashing for scroll/stream changes — but Cirque-driver or
+  left-pad-config changes touch the left half too; flash both.
 - `flash-go60.sh` is glob + fast-retry hardened (bouncy mounts,
-  "GO60RHBOOT 1" stale-mountpoint remounts). **Beware stray watchers**
-  from old sessions racing the flash with the wrong firmware — check
-  `pgrep -fl flash-go60` whenever a flash behaves oddly.
-- On `raw-touch`, ZMK-core changes go in `~/src/zmk` (push to
-  `kalakris/zmk@raw-touch`). On the module branches there is no ZMK fork:
-  stream changes go in `~/src/zmk-raw-touch`, and because that repo is
-  private (CI's `west update` authenticates anonymously) they must be
-  re-vendored — `./scripts/sync-raw-touch-module.sh`, then commit
+  "GO60RHBOOT 1" stale-mountpoint remounts). **Exactly ONE flash watcher
+  at a time — even within the same session.** Stray watchers (old
+  sessions or a second launch) race the flash with the wrong firmware;
+  check `pgrep -fl flash-go60` before starting one and whenever a flash
+  behaves oddly.
+- Stream changes go in `~/src/zmk-raw-touch` — there is no ZMK fork.
+  Because that repo is private (CI's `west update` authenticates
+  anonymously) they must be re-vendored:
+  `./scripts/sync-raw-touch-module.sh`, then commit
   `vendor/zmk-raw-touch/`. **Pushing the module repo alone changes
   nothing**; CI builds the vendored copy.
 - Cirque-driver changes go in `~/src/cirque-input-module` (push to
@@ -290,6 +329,9 @@ cd ~/src/linearmouse            # branch go60-inputscale
 - `~/.config/linearmouse/linearmouse.json` **live-reloads** — tune by
   editing it directly. After tuning, snapshot it back to
   `~/zmk-config/linearmouse/linearmouse.json` and commit.
+- **Announce every deploy.** A silent mid-session host deploy has already
+  cost a misdiagnosis (the behavior change got attributed to the wrong
+  layer). Say what was deployed and when, before judging any symptom.
 - **GUI mode switches can wipe mode-specific config sections** (the UI
   keeps only an in-memory cache of the section you switched away from) —
   restore from the snapshot if a section disappears.
@@ -314,24 +356,25 @@ cd ~/src/linearmouse            # branch go60-inputscale
 
 ### Cross-cutting gotchas
 
-- The `~/zmk-config` working tree gets switched between `main` and the
-  firmware branches for CI triggers and downloads, and the branches have
-  **diverged copies of `scripts/` and `linearmouse/`** — `main`'s are
-  newest, and `raw-touch`'s `linearmouse.json` is a stale v0 snapshot.
-  `module-port*` took `main`'s `scripts/` (plus
-  `sync-raw-touch-module.sh`) but still carry `raw-touch`'s stale
-  `linearmouse/`. Run scripts from a `main` checkout when possible, and
-  always return the working tree to `main`.
+- Daily work happens on `main` now, but the historical branches
+  (`raw-touch`, `module-port*`) have **diverged copies of `scripts/` and
+  `linearmouse/`** — `main`'s are newest, and `raw-touch`'s
+  `linearmouse.json` is a stale v0 snapshot. If the working tree gets
+  switched for a rollback build, run scripts from a `main` checkout when
+  possible and always return the tree to `main`.
 - The Build and Draw workflow auto-commits `[Draw]` keymap SVGs — `git
   pull --rebase` before pushing again.
-- **BLE, second HIDS instance** (module branches only). The module adds a
-  second HID-over-GATT service, so the GATT database changes and Zephyr's
-  `CONFIG_BT_GATT_ENFORCE_SUBSCRIPTION` (`default y`) means the host's CCC
-  subscription for the new input characteristic is *not* inherited from an
-  existing bond. **Expect to re-pair after the first flash that carries it**
-  — if the host does not re-discover and subscribe, `bt_gatt_notify_cb()`
-  refuses to send and the stream is silently dead, with everything else
-  working normally.
+- **macOS caches the HOGP report map — ANY report-layout change needs a
+  forget + re-pair on BLE.** Proven the hard way with the v2→v3 frame
+  change: the failure is deceptively partial — keys work, USB works, even
+  the feature report reads fine (it is live-read), and only BLE frame
+  parsing is dead, because the host parses notifications against the
+  cached, stale descriptor. Same treatment for GATT-database changes (the
+  second HIDS instance): Zephyr's `CONFIG_BT_GATT_ENFORCE_SUBSCRIPTION`
+  (`default y`) means the CCC subscription for a new characteristic is not
+  inherited from an old bond, and `bt_gatt_notify_cb()` silently refuses
+  to send. When in doubt after a report-shape flash: forget the device,
+  re-pair.
 - **On macOS, disconnect and reconnect once before judging a fresh
   pairing.** macOS enumerates both HIDS instances but mis-binds their report
   maps on the very first pairing — a known, still-open macOS bug
@@ -339,16 +382,26 @@ cd ~/src/linearmouse            # branch go60-inputscale
   one reconnect corrects it. If BLE turns out to be unworkable anyway, set
   `CONFIG_ZMK_RAW_TOUCH_BLE=n`: the stream becomes USB-only and the
   relative-delta wheel fallback still works over BLE.
+- **Dead-pad boot race** (hit once, on the LH pad): the in-tree driver's
+  force-recalibrate-on-init patch (patch 3/3 on
+  `cirque-input-module@intree-driver`) can leave SW_CC stuck on some
+  boots — DR then never fires, the pad is dead, and the keys work fine,
+  which makes it look like a config or transport bug. It is not:
+  power-cycle the half and it comes back. Real fix (clear SW_CC and
+  re-verify DR in the patch) is queued in
+  [next-steps.md](next-steps.md) and is a must-fix before upstreaming.
 
 ## Rollback recipes
 
 Four levels, mildest first:
 
-0. **Back out the module port**: flash the `raw-touch` build
+0. **Back out to the fork build**: flash the `raw-touch` build
    (`./scripts/download-firmware.sh` on `raw-touch`, then
-   `./scripts/flash-go60.sh firmware/raw-touch/firmware`). Same wire format,
-   same host software, no host-side change needed. Right half only — the
-   left half's binary is identical between `raw-touch` and `module-port`.
+   `./scripts/flash-go60.sh firmware/raw-touch/firmware`). It speaks
+   protocol v2, which the current host still accepts; no host-side change
+   needed. Flash **both halves** (the left half's driver and config have
+   since diverged from that build), and expect a BLE forget + re-pair in
+   each direction (the report map changes — see gotchas).
 1. **Re-flash a known-good stream build**: the `v0-prototype` binaries are
    kept in `firmware/raw-touch-v0-prototype/` —
    `./scripts/flash-go60.sh firmware/raw-touch-v0-prototype/firmware`.
@@ -357,15 +410,16 @@ Four levels, mildest first:
    Note v0 predates dual-mode/feature-report/firmware-taps; pair it with a
    v0-era host build (`git checkout v0-prototype` in `~/src/linearmouse`,
    then `build-and-install.sh`).
-2. **Full firmware revert (stream off)**: flash `main`'s firmware
-   (`./scripts/download-firmware.sh` on `main`, then
-   `./scripts/flash-go60.sh` — its default dir is `firmware/main/firmware`).
-   `main` builds from moergo upstream: relative mode, hardware taps,
-   Nav-layer ÷8 wheel scrolling, no vendor report. Then disable the host
-   side: set `scrolling.touchStream.enabled` to `false` (or pick a
-   non-Raw-Touch scrolling mode) so LinearMouse stops expecting a stream
-   and stops suppressing wheel events.
+2. **Full firmware revert (stream off)**: since the promotion, no branch
+   tip builds the stream-free config any more — it is `main`'s last
+   pre-promotion commit, `c036948` (moergo upstream: relative mode,
+   hardware taps, Nav-layer ÷8 wheel scrolling, no vendor report). Check
+   it out onto a branch, push to trigger a build, download, flash both
+   halves. Then disable the host side: set
+   `scrolling.touchStream.enabled` to `false` (or pick a non-Raw-Touch
+   scrolling mode) so LinearMouse stops expecting a stream and stops
+   suppressing wheel events.
 3. **Host-only revert**: reinstall stock LinearMouse (or `git checkout
    v0.11.4 && build-and-install.sh`) — firmware keeps streaming harmlessly
    (frames are ignored by hosts that don't open the vendor device) and the
-   ÷8 wheel fallback provides scrolling.
+   ÷24 wheel fallback provides scrolling.

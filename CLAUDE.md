@@ -4,7 +4,7 @@
 
 ZMK firmware configuration for two split keyboards — the **Eyelash Sofle** and the **MoErgo Go60** — sharing a single keymap via C preprocessor macros. The actual ZMK firmware source is pulled in via West (Zephyr's package manager). Branch map for the Go60 (see "Raw touch scrolling" below):
 
-- `main` — **what the user's Go60 runs.** Stock MoErgo ZMK (pinned SHA, no ZMK fork) + the out-of-tree `zmk-raw-touch` module (vendored under `vendor/` while its repo is private) + Zephyr main's in-tree Pinnacle driver via `cirque-input-module@intree-driver`. Hardware-verified 2026-08-27 over USB and BLE (promoted from `module-port-intree`).
+- `main` — **what the user's Go60 runs.** Stock MoErgo ZMK (pinned SHA, no ZMK fork) + the out-of-tree `zmk-raw-touch` module (vendored under `vendor/` while its repo is private) + Zephyr main's in-tree Pinnacle driver via `cirque-input-module@intree-driver`. Hardware-verified 2026-08-27 over USB and BLE (promoted from `module-port-intree`). Both trackpads stream (protocol v3): RH = pad-id 0, LH = pad-id 1 via the `raw_touch_lh` node; sensitivity is deliberately asymmetric — "1x" LH / "2x" RH (gain is per-pad; 2x tames RH baseline-drift jitter but caused light-touch dropouts on LH).
 - `raw-touch`, `module-port`, `module-port-intree` — historical stages of the module port; superseded by `main`. `raw-touch` still points at the deletable `kalakris/zmk` fork (its one PR-worthy commit is salvaged in `patches/`).
 
 ## Key Files
@@ -17,8 +17,8 @@ ZMK firmware configuration for two split keyboards — the **Eyelash Sofle** and
 - `config/eyelash_sofle.conf` — Sofle Kconfig (RGB, sleep, Bluetooth, mouse, encoder, etc.)
 - `config/go60.conf` — Go60 Kconfig (RGB, sleep, trackpad, full consumer HID)
 - `config/west.yml` — West manifest: stock moergo (SHA-pinned) + Cirque driver override + the touch module (commented-out west entry; vendored until the repo is public)
-- `build.yaml` — Build targets: 3 Sofle (left+studio, right, settings_reset) + 2 Go60 (lh, rh). On `module-port*` the two Go60 targets carry `-DZMK_EXTRA_MODULES` cmake-args
-- `vendor/zmk-raw-touch/` + `scripts/sync-raw-touch-module.sh` — **`module-port*` only.** Vendored copy of the (private) module repo, because CI's `west update` can't clone it. Temporary; see the brief
+- `build.yaml` — Build targets: 3 Sofle (left+studio, right, settings_reset) + 2 Go60 (lh, rh). The two Go60 targets carry `-DZMK_EXTRA_MODULES` cmake-args for the vendored module
+- `vendor/zmk-raw-touch/` + `scripts/sync-raw-touch-module.sh` — Vendored copy of the (private) module repo, because CI's `west update` can't clone it. Temporary until the repo goes public; see the brief
 - `boards/` — Custom board definitions for the Eyelash Sofle
 - `config/go60-layouts.dtsi` — Go60 physical layout, for keymap-drawer only (not the firmware build)
 - `ubersicht-widget/` — macOS desktop overlay showing the current keymap drawing
@@ -74,7 +74,7 @@ The keymap is shared between Sofle and Go60 using preprocessor macros that handl
 ### Layers
 0. **Base** — QWERTY with home-row mods (urob timerless HRM pattern)
 1. **Graphite** — Graphite alpha overlay on Base
-2. **Nav** — Navigation, function keys, mouse keys. While held, the Go60's right trackpad becomes a scroller: the `nav_scroll` listener overlay carries the scroll-context marker (`&zip_touch_stream_scroll` on `raw-touch`, `&zip_raw_touch_scroll` on `module-port*`) plus a ÷8 wheel fallback chain; on `main` it is the plain ÷8 wheel chain
+2. **Nav** — Navigation, function keys, mouse keys. While held, the Go60's trackpads become scrollers: each pad's `nav_scroll` listener overlay carries the `&zip_raw_touch_scroll` scroll-context marker plus a ÷24 wheel fallback chain (the LH overlay uses its own `zip_raw_touch_idle_filter_lh` — one filter instance per listener)
 3. **System** — Bluetooth, system controls, bootloader
 4. **Numpad** — Number pad layout, RGB controls
 5. **Tmux** — Tmux tab switching via `tmux_tab` macro (Ctrl+A then number)
@@ -99,38 +99,48 @@ The keymap is shared between Sofle and Go60 using preprocessor macros that handl
 
 ## Raw Touch Scrolling (LinearMouse fork)
 
-Magic-Trackpad-quality scrolling for the Go60's right Cirque pad on macOS.
-The firmware puts the pad in absolute mode and streams raw touch frames over
-a vendor HID report (usage page 0xFF00, report ID 0x04, 7-byte frames at
-~100 Hz, plus an 8-byte self-describing feature report, protocol v2); a
-patched LinearMouse fork consumes them and synthesizes scroll events with
-real gesture phases, lift-off momentum, and a ballistics curve. Dual-mode:
-standard pointer + Nav-layer ÷8 wheel events remain as a driverless
-fallback; the host suppresses the wheel events per physical device identity
-(the Sofle shares ZMK's default VID/PID). Tap-to-click is firmware-side; the
-right pad's chain must NOT contain `&zip_button_behaviors`, which would eat
-the injected BTN_0.
+Magic-Trackpad-quality scrolling for the Go60's Cirque pads on macOS —
+**both pads**. The firmware puts the pads in absolute mode and streams raw
+touch frames over a vendor HID report (usage page 0xFF00/0x01 — decided,
+fixed defines; report ID 0x04; **protocol v3**: 11-byte frames with
+pad_id/contact_id/seq/100 µs timestamp at ~100 Hz, 20-byte feature report
+with per-pad geometry slots; spec = the module README's appendix,
+authoritative); a patched LinearMouse fork consumes them (accepts v2+v3)
+and synthesizes scroll events with real gesture phases, lift-off momentum,
+a ballistics curve, device-time reconstruction (`TouchStreamDeviceClock`,
+fixes BLE-batching velocity distortion), and first-touch-wins pad
+arbitration. Dual-mode: standard pointer + Nav-layer ÷24 wheel events
+remain as a driverless fallback; the host suppresses the wheel events per
+physical device identity (the Sofle shares ZMK's default VID/PID).
+Tap-to-click is firmware-side; the pads' chains must NOT contain
+`&zip_button_behaviors`, which would eat the injected BTN_0.
 
-The device side moved into an out-of-tree ZMK module on 2026-08-26 —
-byte-identical wire format, so the host is unchanged. `module-port` is
-CI-green but **not yet flashed**; `raw-touch` is what is running.
+Two gotchas that have each cost real debugging time: (1) macOS caches the
+BLE HOGP report map — ANY report-layout change needs forget + re-pair, and
+the failure is deceptively partial (keys/USB/feature report fine, only BLE
+frame parsing dead); (2) the in-tree driver's force-recalibrate patch has
+a boot race that can leave a pad dead (SW_CC stuck, DR never fires) while
+keys work — power-cycle the half. Also: announce every host deploy, and
+run exactly ONE flash watcher at a time.
 
 Repos (`v0-prototype` tag on the older four = validated prototype; binaries
 in `firmware/raw-touch-v0-prototype/`):
-- this repo — `raw-touch` (running) and `module-port*` (next); both carry `docs/raw-touch-protocol.md` (wire spec)
-- `~/src/zmk-raw-touch` (`kalakris/zmk-raw-touch@main`) — **the module**: private HID report descriptor, second USB HID interface + second BLE HIDS instance, frame handler, `zip_raw_touch_scroll` marker, `zip_raw_touch_idle_filter`. Private; name provisional and must not contain "touchstream"
-- `~/src/zmk` (`kalakris/zmk@raw-touch`) — the old ZMK core patch. **No longer load-bearing; delete after the bench pass** — but first rescue the upstream-shaped zero-report-suppression commit (`cfc4b3e6`), which exists nowhere else
-- `~/src/cirque-input-module` — `@raw-touch` (fork with `abs-mode`) and `@intree-driver` (Zephyr main's driver vendored + 3 patches). **Transitional**; never PR abs-mode anywhere — see [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md)
-- `~/src/linearmouse` (`kalakris/linearmouse@go60-inputscale`) — host consumer; first two commits are a generic `inputScale` upstream-PR candidate
+- this repo, `main` — the daily driver (module architecture, v3, both pads)
+- `~/src/zmk-raw-touch` (`kalakris/zmk-raw-touch@main`) — **the module**: private HID report descriptor, second USB HID interface + second BLE HIDS instance, frame handler, `zip_raw_touch_scroll` marker, `zip_raw_touch_idle_filter`. Name final (renamed from `-wip`); still **private** — vendored into `vendor/` for CI
+- `~/src/zmk` (`kalakris/zmk@raw-touch`) — the old ZMK core patch. **Dead; safe to delete** — `cfc4b3e6` is salvaged as `patches/zmk-skip-empty-mouse-report-syncs.patch`
+- `~/src/cirque-input-module` — `@intree-driver` (Zephyr main's driver vendored + 3 patches; patch 3/3 carries the dead-pad boot race, must-fix before upstreaming) and the historical `@raw-touch` fork. Never PR abs-mode anywhere — see [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md)
+- `~/src/linearmouse` (`kalakris/linearmouse@go60-inputscale`) — host consumer; first two commits are a generic `inputScale` upstream-PR candidate. Note: the review-pass cleanup batch `a204c40` is reverted (`29a8f88`, live regression); re-land item-by-item
 
 Build loops:
-- **Firmware**: `git checkout raw-touch` (or `module-port`) → push → `./scripts/download-firmware.sh` (waits for the branch-tip run) → `./scripts/flash-go60.sh firmware/<branch>/firmware` (bootloader: RH T3 + `/`; only the right half needs reflashing for scroll changes — on `module-port` the left half's binary is byte-identical to `raw-touch`'s) → **return to `main`** (scripts differ between branches; `main`'s are newest).
-- **Module edits** (`module-port*` only): the module repo is private, so CI cannot fetch it — edit `~/src/zmk-raw-touch`, then `./scripts/sync-raw-touch-module.sh` and commit `vendor/zmk-raw-touch/`. Pushing the module repo alone changes nothing.
+- **Firmware**: edit on `main` → push → `./scripts/download-firmware.sh` (waits for the branch-tip run) → `./scripts/flash-go60.sh firmware/main/firmware` (bootloader: RH T3 + `/`; right half only for scroll/stream changes, both halves for driver or left-pad-config changes).
+- **Module edits**: the module repo is private, so CI cannot fetch it — edit `~/src/zmk-raw-touch`, then `./scripts/sync-raw-touch-module.sh` and commit `vendor/zmk-raw-touch/`. Pushing the module repo alone changes nothing.
 - **Host**: edit fork → `./linearmouse/build-and-install.sh` (signed, TCC grant persists). Config at `~/.config/linearmouse/linearmouse.json` live-reloads; snapshot to `linearmouse/linearmouse.json` after tuning.
 - **TCC rule**: the user must NEVER grant Accessibility prompts raised during `xcodebuild test` runs (they bind to the DerivedData test-host copy and lock the real app out — the "accessibility loop"). Grant only right after a deploy. Recovery recipe: docs/raw-touch.md → "THE ACCESSIBILITY-LOOP TRAP".
 
 Full state doc (architecture, tuning knobs, gotchas, rollback):
-[docs/raw-touch.md](docs/raw-touch.md). Pre-upstreaming punch list:
+[docs/raw-touch.md](docs/raw-touch.md). **Resumable next-steps list
+(start here in a fresh session):** [docs/next-steps.md](docs/next-steps.md).
+Pre-upstreaming punch list:
 [docs/upstreaming-todo.md](docs/upstreaming-todo.md). Multi-finger successor
 evaluation — Azoteq TPS43 on a Sofle bench rig, researched but **not started**,
 electrical design closed: [docs/tps43-bench.md](docs/tps43-bench.md). Prior art and the
@@ -138,9 +148,10 @@ claims to avoid making publicly: [docs/prior-art-survey.md](docs/prior-art-surve
 Driver-ecosystem state: [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md).
 Zephyr 4.1 / ZMK 0.4 migration decision (currently: **wait**, with named
 triggers): [docs/zephyr-41-migration.md](docs/zephyr-41-migration.md).
-**The module port — what was built, the CI evidence, the temporary
-vendoring workaround, the bench checklist, and the blockers that keep it
-private:** [docs/module-publish-brief.md](docs/module-publish-brief.md).
+**The module — what was built, the temporary vendoring workaround, and
+what remains before flipping the repo public (host cleanup re-land, demo
+video, un-vendor):**
+[docs/module-publish-brief.md](docs/module-publish-brief.md).
 
 ## Go60 Layout Editor Export
 

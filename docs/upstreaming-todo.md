@@ -15,16 +15,18 @@ adversarial cross-review of the v2 implementation.
 
 ## LinearMouse fork (`kalakris/linearmouse`, branch `go60-inputscale`)
 
-- [ ] **Delete the deprecated host tap-to-click path** (~560 lines:
-  `TouchTapRecognizer`, `TouchStreamClickPoster`, `TapToClick` config,
-  manager wiring, tests, docs). Blocked on: firmware tap-to-click passing
-  hardware validation. Both enabled at once = double-click, so the host
-  path must not survive into an upstream PR.
-- [ ] **Device-agnostic discovery**: drop the hardcoded ZMK VID/PID
-  (0x16C0/0x27D9) from the IOHIDManager matching dictionary in
-  `TouchStreamManager`. The usage-pair match (0xFF00/0x01) plus the
-  feature-report version handshake already reject non-streaming devices;
-  VID/PID filtering makes the feature ZMK-specific for no benefit.
+- [x] **Delete the deprecated host tap-to-click path** — DONE (`f5e8a33`),
+  after firmware tap-to-click passed hardware validation. The double-click
+  hazard is gone.
+- [x] **Device-agnostic discovery** — DONE (`7e5dfb9`): the hardcoded ZMK
+  VID/PID is out of `TouchStreamManager`'s matching dictionary. The
+  usage-pair match (0xFF00/0x01) plus the feature-report version handshake
+  reject non-streaming devices.
+- [ ] **Re-land the reverted review-pass cleanup** (`a204c40`, reverted by
+  `29a8f88` after a live regression — first touch dead, added latency —
+  whose root cause was never isolated). Item-by-item, with a scroll test
+  between deploys; the revert commit lists the seven items. Must happen
+  before the branch is PR-ready.
 - [ ] **Split the branch into two PRs**: (a) `scrolling.smoothed.inputScale`
   + GUI slider + docs (first two commits, self-contained, generic);
   (b) the touch-stream feature. They are interleaved on one branch today.
@@ -33,7 +35,7 @@ adversarial cross-review of the v2 implementation.
   upstream's line was deliberately left alone in the fork).
 - [ ] Config hygiene when the dust settles: the Go60 scheme still carries
   v0 smoothed-wheel tuning (`inputScale 0.03`) that is dead while the
-  stream is active and mistuned for the ÷8 fallback; retune or remove.
+  stream is active and mistuned for the ÷24 fallback; retune or remove.
   Also refresh/delete the stale v0 `linearmouse/linearmouse.json`
   snapshot on the zmk-config `raw-touch` branch when merging.
 
@@ -51,9 +53,11 @@ the stream now lives in an out-of-tree module built against stock
   `x-invert`, `y-invert`, `x-max`, `y-max`, `resolution`, `pad-id`). The
   module consumes standard `INPUT_ABS_X/Y/Z` and knows nothing about any
   ASIC, so it works against Zephyr's in-tree driver unmodified.
-- [ ] **BEFORE deleting `kalakris/zmk`**: that fork is the only place the **SALVAGED 2026-08-27**: preserved as `patches/zmk-skip-empty-mouse-report-syncs.patch` on main; the fork is now safe to delete.
-  two upstream-shaped bugfix commits exist. Cherry-pick or export them
-  first — see the next item.
+- [x] **BEFORE deleting `kalakris/zmk`** — **SALVAGED 2026-08-27**: the
+  fork was the only place the upstream-shaped zero-report-suppression
+  commit existed; it is preserved as
+  `patches/zmk-skip-empty-mouse-report-syncs.patch` on `main`, so the fork
+  is now safe to delete.
 - [ ] **Submit the ungated zero-report suppression as a standalone bugfix
   PR** (commit `cfc4b3e6`, deliberately written upstream-shaped: any sync
   accumulating no nonzero motion and no button transitions skips the mouse
@@ -96,6 +100,14 @@ effectively EOL (abs-mode PRs from others already rotting there). Revised:
   landed after v4.1.0 was cut), as did `idle-packets-count` — which is
   **mandatory**, since upstream defaults it to 0 and no lift-off packets
   means no release frame, no momentum, no tap. Not yet benched.
+- [ ] **MUST-FIX before upstreaming the ERA/recalibrate patches to
+  Zephyr: the dead-pad boot race.** The force-recalibrate-on-init patch
+  (patch 3/3 on `@intree-driver`) can leave SW_CC stuck on some boots —
+  DR then never fires and the pad is dead while the keys work fine;
+  power-cycling the half recovers it. Hit once in the wild (LH pad,
+  2026-08-27). Fix in the patch itself: clear SW_CC and re-verify DR
+  after the recalibrate, then reflash both halves. Do not ship the patch
+  upstream with this race in it.
 - [ ] Driver-work upstream target is now **Zephyr**, not the module:
   0xFF guard / ERA Z-min / secondary-tap control as small PRs; plus a
   trivial ZMK docs PR (pointing.mdx still shows old module props).
@@ -103,18 +115,26 @@ effectively EOL (abs-mode PRs from others already rotting there). Revised:
 ## Protocol / design decisions to settle (not code cleanups)
 
 - [ ] **Gate frame streaming on scroll context?** Today frames stream
-  during all touches; pointer-context frames are consumed only by the
-  deprecated host tap path. Gating would ~halve BLE airtime while
-  pointing (battery win) but forecloses future host-side pointer-context
-  features (drag-lock, gestures, host taps). Decide after the host tap
-  path is deleted; if gated, keep it firmware-configurable.
-- [ ] Publish `docs/raw-touch-protocol.md` as a standalone versioned spec
-  so other keyboards (Charybdis, Svalboard, other Cirque boards) and
-  other hosts (Linux uinput, Windows RawInput) can implement it.
+  during all touches. Gating would ~halve BLE airtime while pointing
+  (battery win) but forecloses future host-side pointer-context features
+  (drag-lock, gestures — and the host-synthesized-pointer idea for the LH
+  choppiness would *require* ungated frames). The host tap path is now
+  deleted; v3 reserves a mode-gate flag but deliberately does not
+  implement it. If ever gated, keep it firmware-configurable.
+- [ ] The authoritative spec is now the module README's wire-format
+  appendix (v3). When publishing, decide whether that appendix or a
+  standalone versioned spec doc is the citable artifact for other
+  keyboards (Charybdis, Svalboard, other Cirque boards) and other hosts
+  (Linux uinput, Windows RawInput). `docs/raw-touch-protocol.md` on the
+  `raw-touch` branch stays as the historical v2 spec.
 
 ## Roadmap (post-upstream, not blockers)
 
-- Left pad streaming (`pad_id 1` reserved; needs split-transport work)
+- ~~Left pad streaming~~ — DONE 2026-08-27, ahead of schedule: the LH pad
+  streams as `pad_id` 1 over the split transport, with host-side
+  first-touch-wins arbitration. Remaining wrinkle: LH *pointer* motion is
+  slightly choppy (split relay bursts; scroll is immune thanks to v3
+  timestamps) — see docs/next-steps.md
 - 2D panning / horizontal scroll (frames already carry both axes)
 - Tap-and-drag / drag-lock; palm rejection; edge zones
 - Battery impact measurement for the 100 Hz stream (for the README)
@@ -142,15 +162,20 @@ effectively EOL (abs-mode PRs from others already rotting there). Revised:
 
 ## From the prior-art survey (docs/prior-art-survey.md, 2026-08-26)
 
-Protocol v3 candidates (do before publishing the spec):
-- [ ] Per-frame device timestamp (HID Scan Time, 100 µs units) — momentum
-  quality over jittery BLE depends on it; every Apple touch report has one
-- [ ] Explicit contact-state bits in flags (incl. contact-without-motion →
-  host can emit kCGScrollPhaseMayBegin for rubber-band pre-arm)
-- [ ] Move geometry to the report descriptor (Logical/Physical Max + Unit,
-  0.01 mm) — feature report shrinks to version + orientation + pads
-- [ ] Device-side mode gate so vendor frames and relative reports never
-  emit concurrently (PTP's one-collection rule; kills double-count risk)
+Protocol v3 candidates — **v3 shipped and bench-verified 2026-08-27**
+(spec = the module README's wire-format appendix, authoritative):
+- [x] Per-frame device timestamp (100 µs units, u16LE) — shipped; drives
+  host-side device-time reconstruction (`TouchStreamDeviceClock`), which
+  fixed the BLE-batching velocity distortion
+- [x] Explicit contact-state bits in flags, plus `contact_id` and `seq`
+  (the host logs seq gaps and synthesizes lift-off after 150 ms of
+  mid-touch silence)
+- [x] Real Logical ranges in the report descriptor (macOS-verified). The
+  feature report *grew* rather than shrank: 20 bytes, with two per-pad
+  geometry slots — per-pad geometry beat the descriptor-only idea once the
+  left pad streamed
+- [ ] Device-side mode gate — **reserved in v3, deliberately not
+  implemented** (the spec says so); revisit if double-count ever bites
 - [ ] Mode re-assert watchdog after sleep/BLE reconnect (hid-magicmouse
   and bcm5974 both learned this the hard way)
 - [ ] Serial-number-prefix device matching as the normative spec rule
@@ -166,10 +191,10 @@ Host-side tests before release:
   Chromium, Adobe palettes) — verify our events carry them
 
 Spec authoring:
-- [ ] Rename: "touch stream" collides catastrophically with FingerWorks
-  TouchStream (the ur-keyboard-touchpad, acquired by Apple). Survey
-  recommends "PadWire" (clean) or "ZipTouch" (ZMK-flavored); unit noun
-  "touch frame"
+- [x] Rename — DONE 2026-08-27: **`zmk-raw-touch`**, final (repo renamed
+  from `-wip`). "Touch stream" stays banned in public materials
+  (FingerWorks TouchStream, the ur-keyboard-touchpad, acquired by Apple);
+  unit noun "touch frame"
 - [ ] Standalone spec repo when publishing; cite Tier-1/Tier-2 prior art
   and include the pre-emption paragraphs from survey §6 (VoodooInput,
   PTP gates, halfdane, badjeff/zmk-hid-io, upstream LinearMouse deltas)

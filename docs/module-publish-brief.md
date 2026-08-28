@@ -1,14 +1,16 @@
 # Brief: republish the raw touch stream as a standalone ZMK module
 
-Status: **built and CI-green; not flashed, not public** (2026-08-26). The
-module exists at
+Status: **shipped and daily-driven; not yet public** (2026-08-27). The
+module at
 [`kalakris/zmk-raw-touch`](https://github.com/kalakris/zmk-raw-touch)
-(private, branch `main`, HEAD `5199d34`, 22 files / ~1450 lines of C), and
-two `zmk-config` branches build against it — `module-port` and
-`module-port-intree`, both green on all 5 targets, first try. **The 219-line
-ZMK core patch is gone: `kalakris/zmk` is no longer load-bearing and can be
-deleted.** What remains is a hardware bench pass and the blockers at the
-bottom of this file.
+(private, branch `main`) is what zmk-config `main` builds and what the
+keyboard runs — benched over USB and BLE, promoted from
+`module-port-intree`, now on **protocol v3** with **both pads streaming**.
+The name is final (`zmk-raw-touch`, renamed from `-wip`) and the usage
+page is decided (0xFF00/0x01 stays). **The 219-line ZMK core patch is
+gone: `kalakris/zmk` is no longer load-bearing and can be deleted** (its
+one PR-worthy commit is salvaged in zmk-config `patches/`). What remains
+before going public is the short list at the bottom of this file.
 
 Prerequisite reading: [publish-strategy.md](publish-strategy.md) (why a
 module, why now, what else to publish first), [raw-touch.md](raw-touch.md)
@@ -46,11 +48,14 @@ carry" below). The result needs no ZMK fork at all.
 
 ## Shape as built
 
-`kalakris/zmk-raw-touch` — private, branch `main`, HEAD `5199d34`. The
-name is deliberately provisional and neutral, and **must not contain
-"TouchStream"** (see the rename blocker). Every identifier prefix renames
-together, once, when the real name is chosen: Kconfig `ZMK_RAW_TOUCH_`,
-devicetree compatibles `zmk,raw-touch-*`, C symbols `zmk_raw_touch_*`.
+`kalakris/zmk-raw-touch` — private, branch `main`. The name is **final**
+(see the rename blocker, now closed), and the identifier prefixes match
+it: Kconfig `ZMK_RAW_TOUCH_`, devicetree compatibles `zmk,raw-touch-*`,
+C symbols `zmk_raw_touch_*`. Since the original port the module has
+gained protocol v3 (per-frame timestamps, contact/seq bytes, per-pad
+feature-report geometry slots, real logical ranges in the descriptor),
+left-pad streaming, a user-facing README with the wire spec as an
+appendix (the authoritative protocol doc), and the review-pass cleanups.
 
 ```
 zmk-raw-touch/
@@ -77,11 +82,13 @@ Three things to know before touching it:
   `<zmk/keymap.h>` or `<drivers/input_processor.h>`. This is what
   `cirque-input-module` does too. (Both reference modules instead add a
   global `zephyr_include_directories(${APPLICATION_SOURCE_DIR}/include)`.)
-- **The wire format is byte-identical to the fork's** — same usage page
-  0xFF00, usage 0x01, report ID 0x04, same 7-byte input report, same 8-byte
-  feature report. **The LinearMouse fork needs no changes**: it matches on
-  VID/PID + usage page + report ID, none of which moved. Deliberate, to keep
-  the bench pass down to one variable.
+- **The port kept the wire format byte-identical to the fork's** (v2) so
+  the bench pass had one variable; **protocol v3 then shipped on top**
+  (2026-08-27): 11-byte frames, 20-byte feature report, same usage page
+  0xFF00/0x01 and report ID 0x04. The LinearMouse fork accepts v2 and v3,
+  so the old fork build remains a valid rollback. Gotcha: on BLE, macOS
+  caches the HOGP report map — a report-layout change needs forget +
+  re-pair (in the README's known issues).
 - **`stream-tap-*` and pad geometry moved off the Cirque driver binding**
   onto `zmk,raw-touch-pad` (`tap-click`, `tap-max-ms`, `tap-max-movement`,
   plus `rotate-90` / `x-invert` / `y-invert` / `x-max` / `y-max` /
@@ -103,9 +110,10 @@ Three things to know before touching it:
    construction rather than reimplemented. The latch is taken on every ABS
    event of a frame and discarded on the frame's first event, so it is
    correct under either input-callback ordering (the order between the
-   listener's callback and the module's is link-order defined). Escape hatch
-   if it ever misbehaves: `scroll-layers = <2>;` on the pad node switches to
-   plain layer-state evaluation — no logic to rewrite.
+   listener's callback and the module's is link-order defined). A
+   `scroll-layers` escape hatch (plain layer-state evaluation) existed as
+   insurance; the latch proved itself on hardware and the hatch was removed
+   in the 2026-08-27 review pass.
 2. **Zero-report suppression** (fork commits `32a13a5b` and `cfc4b3e6`) is
    now the `zip_raw_touch_idle_filter` input processor: it drops sync events
    that accumulated no host-visible change. Not cosmetic — an absolute pad
@@ -168,6 +176,9 @@ Caveats to prove in stage 1 — **all proven by CI, 2026-08-26**:
 | `module-port` (`13a68eb`) | stock `moergo-sc/zmk` @ `57a7b8e0` | existing `kalakris` fork | *Only* the module change — same driver, same deltas, same report bytes as today |
 | `module-port-intree` (`b2bf28c`) | same | `kalakris/cirque-input-module@intree-driver` | The full end state |
 
+(Historical since 2026-08-27: `module-port-intree` was promoted to `main`
+after the bench pass and both staging branches are frozen.)
+
 Both green on all 5 targets, first try. Verified from the CI logs rather
 than "it compiled": `CONFIG_ZMK_RAW_TOUCH=y`, `_USB=y`, `_BLE=y`,
 `CONFIG_USB_HID_DEVICE_COUNT=2`, report ID 0x04, usage page 0xFF00/0x01,
@@ -226,23 +237,35 @@ uncomment it, delete `vendor/`, drop the two `cmake-args`.
 - [x] **Move `stream-tap-*` off the Cirque driver binding** onto our own
   node. Done as `tap-click` / `tap-max-ms` / `tap-max-movement` on
   `zmk,raw-touch-pad`, along with the pad geometry.
-- [ ] **Bench pass on hardware.** Flash `module-port` (right half only) and
-  check parity: scroll, momentum, catch, tap-to-click, ÷8 wheel fallback,
-  pointer speed, then a BLE session (see the BLE section for what to expect
-  on first pairing). Then `module-port-intree` (both halves).
-- [ ] **Delete the ZMK core patch** — i.e. delete `kalakris/zmk` — once the
-  bench pass confirms parity. Nothing depends on it any more.
-- [ ] **Host side**: delete the deprecated host tap-to-click path (~560
-  lines — both paths enabled = double-click), and drop the hardcoded ZMK
-  VID/PID from `TouchStreamManager`'s matching dictionary so the feature is
-  *keyboards-with-touchpads*, not *Go60*. Neither is needed for parity; both
-  are needed before publishing.
+- [x] **Bench pass on hardware** — DONE. Parity confirmed (scroll,
+  momentum, catch, tap-to-click, wheel fallback, pointer speed), then USB
+  *and* BLE verified; `module-port-intree` was promoted to `main`
+  (2026-08-27) and is the daily driver.
+- [ ] **Delete the ZMK core patch** — i.e. delete `kalakris/zmk`. Nothing
+  depends on it any more, and `cfc4b3e6` is salvaged as
+  `patches/zmk-skip-empty-mouse-report-syncs.patch` on zmk-config `main`.
+  Just do it.
+- [x] **Host side**: the deprecated host tap-to-click path is deleted
+  (`f5e8a33`) and the hardcoded ZMK VID/PID is out of
+  `TouchStreamManager`'s matching dictionary (`7e5dfb9`) — the feature is
+  *keyboards-with-touchpads*, not *Go60*. Still open: re-land the reverted
+  review-pass cleanup (see the blockers below).
 - [ ] **Video.** The README is written demo-first with the protocol as an
   appendix, but the 30-second clip of the gesture working is still missing.
-  Never present this as "a vendor HID protocol specification" — in this
-  community that reads as XAP.
+  Shot list agreed: 30 s cut, cold-open on the catch, a contrast cut with
+  LinearMouse quit (÷24 wheel vs stream), hands cam tight on the right
+  half. Never present this as "a vendor HID protocol specification" — in
+  this community that reads as XAP.
 
-## The BLE question — settled by research, not by hardware
+## The BLE question — settled by research, then confirmed on hardware
+
+**Confirmed on hardware 2026-08-27**: the second HIDS instance works on
+macOS, and the stream runs over BLE — with one addition the research
+missed: **macOS caches the HOGP report map, so any report-layout change
+(e.g. v2→v3) needs a forget + re-pair**, and the failure is deceptively
+partial (keys, USB, and the live-read feature report all keep working;
+only BLE frame parsing dies). That is in the module README's known
+issues. The research record:
 
 Two HIDS instances on one peripheral **work; confidence medium-high.** HOGP
 1.0 §2.5 explicitly permits multiple HID Service instances, and §4.5.1
@@ -257,7 +280,7 @@ macOS bug is still open. There is no report anywhere of macOS failing to
 enumerate a second HIDS. Android before ~9 may not tolerate two HID
 services.
 
-Two gotchas for the bench pass:
+Two gotchas, both confirmed live:
 
 - **Expect to re-pair after the first flash carrying the second HIDS.** The
   GATT database changes, and Zephyr's
@@ -268,9 +291,7 @@ Two gotchas for the bench pass:
 - **On macOS, disconnect and reconnect once before judging a fresh
   pairing** (the minible mis-binding).
 
-Keep a BLE failure in proportion: raw-touch.md already records that the BLE
-HOG path for the vendor report **has never been tested on any build**, so a
-failure now is not a regression. Fallback is
+If BLE ever needs to be taken out of the equation, the fallback is
 `CONFIG_ZMK_RAW_TOUCH_BLE=n` — USB-only stream, with the relative-delta
 wheel fallback still working over BLE.
 
@@ -291,8 +312,7 @@ blocker into a contribution opportunity.
 
 ## Blockers before anything goes public
 
-Unchanged by the port — all still open, and the reason the module repo is
-private.
+The original decision blockers are all closed:
 
 - [x] **Rename: DONE 2026-08-27.** Final name **`zmk-raw-touch`** — the
   working title, kept. Collision-checked (GitHub clean; no tech products
@@ -301,18 +321,39 @@ private.
   nothing. Repo renamed from `zmk-raw-touch-wip`; GitHub redirects the old
   URL. "Touch stream" stays banned (FingerWorks); "touch frame" is the
   unit noun.
-- [ ] **Protocol v3 or an explicit "provisional" label.** Breaking the wire
-  format under early adopters costs more than a two-week delay. The v3
-  items: per-frame device timestamp (HID Scan Time, 100 µs units),
-  contact-state bits, geometry in the report descriptor, device-side mode
-  gate, serial-prefix matching. See upstreaming-todo.md.
+- [x] **Protocol v3: DONE 2026-08-27** — shipped and bench-verified
+  end-to-end. Per-frame device timestamp (100 µs units, u16LE, drives
+  host-side device-time reconstruction that fixes BLE-batching velocity
+  distortion), `contact_id` + flags + `seq`, per-pad geometry slots in the
+  20-byte feature report, real logical ranges in the report descriptor
+  (macOS-verified). The device-side mode gate is *reserved, not
+  implemented* — the spec says so explicitly. Spec = the module README's
+  wire-format appendix, authoritative.
 - [x] **LICENSE** on whatever repo ships — MIT, in the module repo. Still to
   do: state in the spec that the descriptor and report layout are
   unencumbered, and give `zmk-config` a LICENSE too.
-- [ ] Decide **0xFF00/0x01 vs QMK's 0xFF60/0x61** deliberately. ZMK's
-  vendor-HID ecosystem has converged on QMK's page; our kext scan showed
-  0xFF00/0x01 is free on macOS while Apple's `MTUserDevice` squats
-  0xFF60/0x07. Not a slam dunk — decide, don't drift.
+- [x] **Usage page: DONE 2026-08-27** — **0xFF00/0x01 stays** (fixed
+  `#define`s now, not Kconfig). Our kext scan showed it free on macOS
+  while Apple's `MTUserDevice` squats QMK's 0xFF60/0x07. Decided, not
+  drifted.
+
+### Remaining before flipping the repo public
+
+- [ ] **Re-land the host cleanup.** The review-pass cleanup batch
+  (`a204c40`, seven items) caused a live regression within a minute of
+  deploy (first touch dead, added latency) and was reverted wholesale
+  (`29a8f88`); the root cause was never isolated. Re-land item-by-item
+  with a scroll test between deploys — the revert commit lists the seven
+  items.
+- [ ] **Demo video** (shot list above) — the release leads with it.
+- [ ] *(Optional)* **Notarized releases.** The LinearMouse fork inherits
+  upstream's release pipeline; making it produce installable signed builds
+  needs a paid Apple Developer Program membership, ~7 repo secrets
+  (signing cert, notarization credentials, etc.), and a tag push. Optional
+  extra: build provenance via `actions/attest-build-provenance`.
+- [ ] **Flip the repo public and un-vendor**: uncomment the `zmk-raw-touch`
+  entry in `config/west.yml`, delete `vendor/`, drop the two `cmake-args`
+  from `build.yaml`.
 
 ## Recommended order (from publish-strategy.md)
 
