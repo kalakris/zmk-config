@@ -17,8 +17,8 @@ Companion documents:
   is the historical v2 spec, kept for the still-flashable `raw-touch`
   fork build; the host accepts both versions.
 - **Next steps** — [`docs/next-steps.md`](next-steps.md): the
-  resumable-from-zero work list (dead-pad boot race fix, host-cleanup
-  re-land, LH pointer choppiness, demo video, release train).
+  resumable-from-zero work list (host-cleanup re-land, wired-split
+  batching fix, demo video, release train).
 - **Pre-upstreaming punch list** —
   [`docs/upstreaming-todo.md`](upstreaming-todo.md) (on `main`): everything
   that must happen before PRing the pieces upstream, plus the post-upstream
@@ -139,10 +139,76 @@ Key design points:
 - **Known limits**: the Pinnacle is single-touch, so two-finger gestures
   are impossible, ever. Driverless hosts get pointer, click, typing, and
   ÷24-wheel fallback scrolling; firmware taps work everywhere. LH
-  *pointer* motion is slightly choppy (split relay delivers frames in
-  bursts; scroll is immune because v3 timestamps reconstruct the cadence,
-  but pointer reports are arrival-timed) — open item, see
-  [next-steps.md](next-steps.md).
+  *pointer* motion is choppy **when the halves are wired** — the wired
+  split transport delivers frames in ~22.5 ms bursts (root-caused
+  2026-08-28, see "Split-link timing" below). And a correction to an
+  earlier claim: v3 device timestamps are sample-true for the **RH pad
+  only**. Both `seq` and `timestamp` are stamped on the central in
+  `raw_touch_process_frame()` (module `src/raw_touch.c`), so LH
+  timestamps are split-relay-*arrival* times — over the wire, every
+  frame in a burst carries the same timestamp, and scroll is **not**
+  immune to the batching for that pad. Over the radio the arrival error
+  is small (±4 ms) and both scroll and pointer feel right — open item,
+  see [next-steps.md](next-steps.md).
+
+### Split-link timing (measured 2026-08-28)
+
+The halves can be joined by the wire (data only — each half charges
+independently) or by the split radio when unplugged. LH frame cadence at
+the host, 2×2 matrix (the RH pad is a clean 10 ms metronome, σ<0.5 ms,
+in **every** configuration):
+
+| Split link | Host link | Dropped frames | Cadence at host |
+|---|---|---|---|
+| Wire  | USB | **45%** | 2–3-frame bursts every ~22.5 ms |
+| Wire  | BLE | 0% | same 22.5 ms bursts, re-batched by the ~15 ms host BLE conn interval |
+| Radio | BLE | 0% | ~7.5/15 ms alternation, small batches |
+| Radio | USB | 0% | ~7.5/15 ms alternation, no batching — **cleanest** |
+
+**The wired split transport is the root cause of LH choppiness.** The
+Go60's `zmk,wired-split` node sets `half-duplex` (one data line,
+`dir-gpios` direction gate; `go60.dtsi`, UART0 at 921600 baud), and
+MoErgo/upstream ZMK's half-duplex wired transport is *polled*: the
+peripheral never initiates TX (`app/src/split/wired/peripheral.c`,
+`begin_tx()` is compiled out of `report_event` under
+`IS_HALF_DUPLEX_MODE`) — events queue in a 16-envelope ring until the
+central sends a `POLL_EVENTS` command. The central schedules the next
+poll only `CONFIG_ZMK_SPLIT_WIRED_HALF_DUPLEX_RX_COMPLETE_TIMEOUT`
+(default 20, applied as **milliseconds** in `publish_events_work`,
+`app/src/split/wired/central.c` — the Kconfig says "ticks", a units
+inconsistency) after the previous response arrives. 20 ms + ~2.5 ms of
+poll/turnaround = the measured 22.5 ms burst period, with 2–3 of the
+pad's ~10 ms frames queued per poll. (Quirk: the idle poll rate,
+`..._HALF_DUPLEX_RX_TIMEOUT` = 15 ms, is *faster* than the
+under-load rate.) Both Kconfigs are central-side and tunable from
+`config/go60_rh.conf` without forking — plan and risks in
+[next-steps.md](next-steps.md) item (c). Also relevant: the wire
+prioritizes nothing — key, pointer, sensor, and battery events share
+one FIFO ring, so LH *keystrokes* eat the same up-to-~22 ms latency.
+
+Two knock-on effects of the bursts:
+
+- **The 45% wire+USB drop is in the module, not the wire**: the
+  module's USB send path (`src/usb_hid.c`,
+  `zmk_raw_touch_usb_send_report()`) has a single in-flight report slot
+  guarded by `hid_sem`, released only by the host's interrupt-IN poll —
+  frames 2..n of a back-to-back burst hit a busy slot and drop
+  (`-EAGAIN`, by design). The BLE path has a
+  `CONFIG_ZMK_RAW_TOUCH_BLE_QUEUE_SIZE`-deep queue and drops nothing.
+- **LH device timestamps are relay-arrival times**: `seq` and the v3
+  `timestamp` are stamped on the central in `raw_touch_process_frame()`
+  (`src/raw_touch.c`) — measured 0 ms device-ts deltas within wired
+  bursts. The device-clock reconstruction that makes RH velocity immune
+  to host-link batching cannot help the LH pad over the wire; over the
+  radio the residual error is ±4 ms and it feels fine.
+
+Tooling (both new 2026-08-28, in `scripts/`): `raw-touch-monitor.swift`
+is a **passive, read-only** HID monitor for the vendor collection — it
+coexists with a running LinearMouse, but must run **unsandboxed** (IOKit
+HID access). `analyze-touch-timing.py` chews its CSV into per-pad
+cadence/drop stats. Parsing gotcha baked into the monitor: macOS
+**prepends the report-ID byte to USB HID callback buffers but not BLE
+ones** — account for the offset or every USB frame misparses.
 
 ## Repo / branch / tag map
 
@@ -200,14 +266,22 @@ Still pending (see [next-steps.md](next-steps.md) for the full list):
 - **Sofle + Go60 simultaneously**: confirm the Sofle's encoder scroll works
   while the Go60 stream is open (physical-identity suppression exists
   precisely for this).
-- **LH pointer choppiness** (open, minor): left-pad pointer motion is
-  slightly choppy — the split relay delivers frames in bursts. Scroll is
-  immune (v3 timestamps let the host reconstruct the cadence); pointer is
-  not (mouse reports are arrival-timed).
-- **Dead-pad boot race** (open, real bug, hit once on LH): the in-tree
-  driver's force-recalibrate-on-init patch can leave SW_CC stuck on some
-  boots, so DR never fires and the pad is dead while keys work fine.
-  Power-cycle fixes it. Must-fix before upstreaming the patch.
+- **LH pointer choppiness** (root-caused 2026-08-28, mitigated): the
+  **wired** split transport delivers LH frames in 2–3-frame bursts every
+  ~22.5 ms (see "Split-link timing" under Architecture). Not just
+  pointer: LH timestamps are stamped at split-relay arrival on the
+  central, so for that pad scroll is *not* immune to the batching
+  either (v3 timestamps are sample-true for the RH pad only).
+  Mitigation: unplug the wire — over the split radio both pads are
+  clean. Wired-transport tuning and the follow-on hardening are queued
+  in [next-steps.md](next-steps.md) item (c).
+- **Dead-pad boot race** (fix pushed 2026-08-28, hardware verification
+  pending): the in-tree driver's force-recalibrate-on-init patch could
+  leave SW_CC stuck on some boots, so DR never fired and the pad was
+  dead while keys worked fine. The amended patch 3/3 (clear SW_CC and
+  re-verify DR) is on `cirque-input-module@intree-driver-fix`
+  (`89a08962`), pinned in `config/west.yml`; verify after reflashing
+  both halves.
 
 ### Strategic decisions taken (2026-08-26)
 
@@ -387,9 +461,11 @@ cd ~/src/linearmouse            # branch go60-inputscale
   `cirque-input-module@intree-driver`) can leave SW_CC stuck on some
   boots — DR then never fires, the pad is dead, and the keys work fine,
   which makes it look like a config or transport bug. It is not:
-  power-cycle the half and it comes back. Real fix (clear SW_CC and
-  re-verify DR in the patch) is queued in
-  [next-steps.md](next-steps.md) and is a must-fix before upstreaming.
+  power-cycle the half and it comes back. The fix (clear SW_CC and
+  re-verify DR in the patch) shipped 2026-08-28 on
+  `cirque-input-module@intree-driver-fix` (`89a08962`, pinned in
+  `config/west.yml`) — hardware verification pending; if a pad boots
+  dead on older firmware, this is still the first suspect.
 
 ## Rollback recipes
 
