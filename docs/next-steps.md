@@ -1,11 +1,28 @@
 # Raw touch stream — next steps
 
-Resumable-from-zero work list, in rough priority order, as of 2026-08-28.
+Resumable-from-zero work list, in rough priority order, as of 2026-08-28
+(end of day — items a, b, c, i all closed today).
 Context: the module architecture is the daily driver on `main` (protocol
 v3, both pads streaming, USB + BLE verified) — see
 [raw-touch.md](raw-touch.md) for the full state and
 [module-publish-brief.md](module-publish-brief.md) for the publish plan.
 Each item below is self-contained enough to start cold.
+
+**In flight / housekeeping (check these first in a fresh session):**
+
+- **Flash pending?** The `hold-while-undecided` keymap fix (`e631ce8`;
+  fast Nav-held flicks streamed as pointer because trackpad input events
+  cannot resolve a hold-tap — capture 7 showed frames flipping p→S
+  mid-touch at the 280 ms term boundary) built green; both halves need
+  it, LH first. Validate: hold Nav + immediately fast-flick, repeatedly —
+  every flick must scroll (re-run `scripts/raw-touch-monitor.swift` and
+  check flags=3 from frame one if unsure).
+- **cirque-input-module branch names**: the boot-race fix lives on
+  `intree-driver-fix` (89a08962, pinned in west.yml) because the agent
+  can't force-push; the stale `intree-driver` (b5c23650) is still on
+  GitHub. From a human terminal: fast-forward `intree-driver` to
+  89a08962 (`git push origin +89a08962:refs/heads/intree-driver`),
+  repoint west.yml's comment if desired, delete `intree-driver-fix`.
 
 ## a. Fix the dead-pad boot race (firmware, real bug) — DONE 2026-08-28
 

@@ -92,7 +92,7 @@ unused). The former trackpad-activated Mouse layer (layer 9) and its
 
 ### Behaviors
 - `hml` / `hmr` — Left/right home-row mods using positional hold-tap with `require-prior-idle-ms`
-- `lth` — Layer-tap for thumb keys. Like HRMs but uses `hold-trigger-key-positions` (all keys) and `hold-trigger-on-release` instead of `require-prior-idle-ms`, so layer-hold works reliably after quick keypresses
+- `lth` — Layer-tap for thumb keys. Like HRMs but uses `hold-trigger-key-positions` (all keys) and `hold-trigger-on-release` instead of `require-prior-idle-ms`, so layer-hold works reliably after quick keypresses. Also `hold-while-undecided` (2026-08-28): trackpad input events can't resolve a hold-tap, so without it a Nav-held flick starting inside the 280 ms tapping term streams in pointer context — the layer must be live during the undecided window for the pad listeners
 - `z_tmux` — Hold Z for Tmux layer, tap for Z
 - `v_vim` — Hold V for Vim layer, tap for V
 - `esc_grave_tilde` — Tap for Esc, Shift for ~, other mods for `
