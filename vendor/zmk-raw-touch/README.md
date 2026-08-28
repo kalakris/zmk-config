@@ -24,7 +24,7 @@ before. On a host without the consumer, the keyboard is just a normal
 trackpad — including a wheel-scroll fallback.
 
 **The host consumer for macOS is a
-[LinearMouse fork](https://github.com/kalakris/linearmouse/tree/go60-inputscale)**
+[LinearMouse fork](https://github.com/kalakris/linearmouse)**
 — see [Host setup](#2-host-setup-macos). Firmware alone only gets you the
 fallback wheel.
 
@@ -83,7 +83,7 @@ Push, let the standard ZMK build workflow produce your firmware, flash.
 Stock LinearMouse does not consume the stream — you need the fork:
 
 ```sh
-git clone -b go60-inputscale https://github.com/kalakris/linearmouse
+git clone https://github.com/kalakris/linearmouse
 cd linearmouse
 Scripts/configure-code-signing   # auto-discovers your Apple Development cert
 xcodebuild -scheme LinearMouse archive -archivePath build/LinearMouse.xcarchive
@@ -172,6 +172,15 @@ tap-to-click tuning) are documented in
 - **Expect to re-pair Bluetooth after first flashing this.** The second
   HID service changes the GATT database; hosts with a cached copy will
   not see it.
+- **Re-pair after any firmware update that changes the report layout,
+  too** (e.g. a protocol version bump). macOS caches the HOGP report map
+  at pairing time, and a change to the map's *contents* does not move any
+  GATT handles, so no Service Changed indication fires and the host never
+  re-reads it. The failure is deceptively partial: keyboard, USB, and the
+  (live-read) feature report all keep working — only BLE frame parsing
+  breaks, and with it both smooth scrolling and the suppressed wheel
+  fallback. Symptom: scrolling dead over BLE, fine over USB. Fix: forget
+  the device on the host, `&bt BT_CLR` on the keyboard, pair fresh.
 - **macOS can mis-bind report maps on the very first pairing** of a
   device with two HID services. Disconnect and reconnect once and it
   corrects itself (open macOS bug, not specific to this module).

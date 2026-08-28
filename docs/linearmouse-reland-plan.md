@@ -60,7 +60,9 @@ batches. Note: this build predates arbitration, so LH scroll being dead is
 
 Do **not** `git revert 29a8f88` — it re-lands all eight at once, restores
 the obsolete item 7, and conflicts with `d4c9403`. Instead hand-apply per
-item on `go60-inputscale`, one commit per item, using the batch as the
+item on `main` (post-restructure 2026-08-28: `main` = upstream +
+touch-stream, no inputScale; rebase `inputscale` on top after each
+landing), one commit per item, using the batch as the
 reference diff: `git show a204c40 -- <file>`. Only
 `TouchStreamFrame.swift` could take a file checkout
 (`git checkout a204c40 -- …`), but that lands items 3+4 together plus the

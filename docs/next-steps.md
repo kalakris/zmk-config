@@ -20,7 +20,10 @@ ERA/recalibrate patches to Zephyr (see
 
 ## b. Re-land the LinearMouse cleanup, item by item
 
-`~/src/linearmouse@go60-inputscale`: the review-pass cleanup batch
+`~/src/linearmouse` (on `main` since the 2026-08-28 restructure —
+touch-stream now lives there; `inputscale` carries the 2-commit
+inputScale feature on top and is what gets deployed): the review-pass
+cleanup batch
 `a204c40` caused a live regression (first touch dead, then added
 latency) within a minute of deploy and was reverted wholesale in
 `29a8f88` — root cause never isolated; the archive building clean proved

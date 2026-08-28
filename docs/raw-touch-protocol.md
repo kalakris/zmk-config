@@ -13,8 +13,8 @@ lift-off momentum. Firmware lives on branch `raw-touch` of
 [kalakris/zmk](https://github.com/kalakris/zmk) (fork of
 `moergo-sc/zmk:go60-zmk0.3.0`); the reference host consumer is the patched
 LinearMouse fork at
-[kalakris/linearmouse](https://github.com/kalakris/linearmouse) branch
-`go60-inputscale`. In this repo, the Go60's right-hand pad streams.
+[kalakris/linearmouse](https://github.com/kalakris/linearmouse) (branch
+`main` since 2026-08-28). In this repo, the Go60's right-hand pad streams.
 
 ## Transport
 

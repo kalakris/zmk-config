@@ -13,7 +13,7 @@ Deferred findings from the v2 cleanup reviews (2026-08-25), to implement
 before (or as part of) upstreaming. Sources: 4-angle /simplify review +
 adversarial cross-review of the v2 implementation.
 
-## LinearMouse fork (`kalakris/linearmouse`, branch `go60-inputscale`)
+## LinearMouse fork (`kalakris/linearmouse` — since 2026-08-28: `main` = upstream + touch-stream, `inputscale` = main + the 2-commit inputScale PR candidate)
 
 - [x] **Delete the deprecated host tap-to-click path** — DONE (`f5e8a33`),
   after firmware tap-to-click passed hardware validation. The double-click
