@@ -108,7 +108,7 @@ touch frames over a vendor HID report (usage page 0xFF00/0x01 — decided,
 fixed defines; report ID 0x04; **protocol v3**: 11-byte frames with
 pad_id/contact_id/seq/100 µs timestamp at ~100 Hz, 20-byte feature report
 with per-pad geometry slots; spec = the module README's appendix,
-authoritative); a patched LinearMouse fork consumes them (accepts v2+v3)
+authoritative); a patched LinearMouse fork consumes them (v3 only since 2026-08-28)
 and synthesizes scroll events with real gesture phases, lift-off momentum,
 a ballistics curve, device-time reconstruction (`TouchStreamDeviceClock`,
 fixes BLE-batching velocity distortion), and first-touch-wins pad

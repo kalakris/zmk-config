@@ -271,4 +271,5 @@ geometry without parsing the feature report.
 ### v2 (legacy)
 
 v2 frames were 7 bytes with an 8-byte feature report, `protocol_version` = 2.
-The reference host still accepts both; new firmware ships v3 only.
+Dead: the firmware ships v3 only, and the reference host dropped v2
+acceptance 2026-08-28 (it never existed outside pre-release prototypes).
