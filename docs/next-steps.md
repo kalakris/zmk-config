@@ -140,14 +140,29 @@ test passed. **Standing caveat**: the `v0-prototype` rollback binaries
 (and the historical `raw-touch` branch build) speak v2 — rolling back
 to them now gets wheel-fallback scrolling only.
 
-## j. Device-side mode gate (firmware + spec) — IMPLEMENTED 2026-08-28, bench pending
+## j. Device-side mode gate (firmware + spec) — USB BENCH PASSED 2026-08-29
 
-**Code in place, hardware bench NOT run** (blocked behind the pending
-`hold-while-undecided` flash). Wire contract + branch map:
+**On hardware (RH), USB half of the bench PASSED** (sections 0–2 of
+`BENCH-mode-gate.md`): claim/refresh/release, both SET framings, all
+six malformed writes rejected, wheel suppression + instant reversion
+felt live, timeout-1 clamped to ~4.7 s and expired mid-gesture (flags
+7→3, 9 ms frame gap). §2's first run caught a real bug — the expiry
+callback used `k_work_delayable_is_pending()`, which counts
+`K_WORK_RUNNING`, so claims never expired; fixed in module `20c84e5`.
+Free findings: endpoint scoping verified (BLE-endpoint claim while USB
+selected does not engage); BLE claim writes work against the PRE-gate
+pairing (only a permission changed, not the report map — §6's premise
+may not reproduce); macOS returns USB feature-report GETs
+ID-prefixed, BLE bare (tools + host agent must normalize). Bench tool:
+`scripts/gate-claim.swift` (claim/release/hold/raw, usb|ble pin).
+**Remaining**: high clamp (200→120 s), BLE/§3, endpoint switching §4,
+sleep/wake §5, stale-cache §6, regression sweep §7 — then the agent's
+first live run and merging `mode-gate` into both `main`s.
+Wire contract + branch map:
 [mode-gate-plan.md](mode-gate-plan.md). Module repo branch `mode-gate`
-@ `e6b27c1` (pushed; repo left checked out on `main`); zmk-config
-branch `mode-gate` @ `9b2213b` (vendored sync, pushed, **CI green
-first attempt**, all 5 targets). Gate state is one claim slot per
+@ `b2fe08e` (pushed; repo checked out on `main`); zmk-config
+branch `mode-gate` @ `4235d7c` (vendored sync, pushed, CI green;
+**RH currently runs this build** — LH still on the `main` build). Gate state is one claim slot per
 endpoint instance (`src/gate.c`); wheel suppression sits at the REL
 delta injection point in `raw_touch.c` (`gate_engaged && scroll_mode`
 skips `input_report_rel` — zero keymap changes, bit 2 and suppression
