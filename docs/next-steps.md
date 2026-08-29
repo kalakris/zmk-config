@@ -149,3 +149,123 @@ direction table assertions unchanged). Unit suite green, live scroll
 test passed. **Standing caveat**: the `v0-prototype` rollback binaries
 (and the historical `raw-touch` branch build) speak v2 — rolling back
 to them now gets wheel-fallback scrolling only.
+
+## j. Device-side mode gate (firmware + spec)
+
+The v3 spec **reserves** a mode gate but does not implement it: the host
+claims the stream by writing a SET feature report, and while claimed the
+firmware suppresses the ÷24 fallback wheel events for scroll-context
+frames (pointer reports keep flowing — only the wheel duplicates the
+stream). Today the duplicate wheel is suppressed **host-side** by
+`TouchStreamWheelSuppressionTransformer`, which is the single reason the
+host code must live inside something that owns a CGEventTap. Implementing
+the gate:
+
+- removes the last structural coupling to LinearMouse (unblocks item k);
+- fixes the dual-emit hygiene concern (prior-art survey §6.8 — PTP
+  forbids emitting two collections at once);
+- helps every host, including ones we don't write (Scroll Reverser / Mos
+  misclassification landmines, survey §6.9).
+
+Design notes for a cold start (issues surveyed 2026-08-28):
+
+- **The host→device path does not exist yet, at all** (verified in
+  source): USB explicitly declines SET_REPORT
+  (`vendor/zmk-raw-touch/src/usb_hid.c:120` — "the raw touch protocol
+  has no host-to-device path"), and the BLE feature characteristic is
+  read-only (`hog.c:150`). The gate is the module's first writable
+  surface: a USB `set_report` handler plus `BT_GATT_PERM_WRITE` on the
+  feature characteristic. Changing GATT characteristic properties
+  changes the DB → **the macOS HOGP-cache gotcha fires: forget +
+  re-pair required**, with the deceptively-partial failure mode (keys
+  and USB fine, BLE stream silently dead). Budget a bench flash for it.
+- **Claim scoping**: the stream and the wheel both follow
+  `zmk_endpoints_selected()` (`endpoints.c:50`). The claim must be
+  scoped to the **endpoint instance** (transport + BLE profile),
+  suppress the wheel only while the claiming endpoint is the selected
+  one, and clear on disconnect / profile switch. A global boolean is a
+  latent multi-host bug (host A over USB muting host B's fallback on a
+  BLE profile) that single-host bench testing will never catch.
+- **"Gate engaged" bit in the frame flags** — the anti-double-scroll
+  fix. After sleep/reboot the claim is gone; if the user scrolls before
+  the host's re-assert watchdog fires, firmware emits wheel *and* the
+  host consumes the stream → double scroll (the exact bug the host-side
+  suppression transformer existed to kill). One flag bit makes firmware
+  the single source of truth: the host synthesizes scroll **only when
+  the bit says the wheel is suppressed**, so wheel and stream are
+  mutually exclusive by construction, no host-side racing.
+- **Liveness**: clear the claim on USB disconnect / BLE unbond, and
+  expire it on a timeout the host refreshes (a dead host must not leave
+  the wheel fallback dead). Host re-asserts after resume/reconnect and
+  on device (re)enumeration — the mode re-assert watchdog pattern,
+  survey §3.4; `hid-magicmouse` and `bcm5974` both do this because
+  devices silently revert. Watch BLE battery: each refresh write wakes
+  the radio; pick a lazy interval.
+- Spec change goes in the module README's wire-format appendix; bump
+  the feature-report minor rather than the protocol version if the
+  frame layout is untouched (the flag bit lives in the existing flags
+  byte). **Scheduling**: even though the implementation is post-v1,
+  consider landing the gate in the *spec* (flag bit, claim layout,
+  capability bit) **before the public flip** — spec churn is free now
+  and versioned pain once the README is public.
+
+## k. Standalone host agent (post-v1)
+
+Decision 2026-08-28: **ship v1 as the LinearMouse fork** (built, tested,
+deployed), then extract the host pipeline into a small standalone
+menubar/LaunchAgent daemon as the second release. The fork is a poor
+long-term vehicle: ~5% upstreamable as one PR (publish-strategy #9),
+permanent rebase against a moving app, and "replace your LinearMouse
+with my unsigned fork" is high adoption friction versus "run this 3 MB
+agent alongside whatever you already use."
+
+Key architectural finding (verified in the fork's source): the stream
+pipeline and LinearMouse are **parallel, not serial** — even in-process
+today. `TouchStreamScrollPoster` posts at `.cgSessionEventTap`
+(`TouchStreamScrollPoster.swift:28`), *downstream* of LinearMouse's own
+tap at `.cghidEventTap` (`EventTap.swift:86`), so the transformer chain
+never sees the synthesized gestures. A standalone agent posting at the
+session tap therefore composes with **stock** LinearMouse (or no
+LinearMouse) with zero cooperation. Do NOT post at the HID tap: synthetic
+events would be resolved via `deviceFromCGEvent`'s last-active-device
+fallback and inherit the *mouse's* scheme (e.g. its reverse-scrolling).
+
+Extraction inventory: `TouchStreamFrame`, `TouchStreamDeviceClock`,
+`TouchStreamCapabilities`, `TouchStreamScrollPoster`,
+`GestureScrollSeriesPoster` import only Foundation/IOKit — portable
+as-is. `TouchScrollEngine` needs its `Scheme`-derived config struct made
+plain; `TouchStreamManager` needs its
+`ConfigurationState`/`DeviceManager` references replaced (a JSON config
+file + its own IOHIDManager device bookkeeping). The wheel-suppression
+transformer is **not** ported — item j replaces it. Until extraction:
+keep the fork's `TouchStream/` free of new LinearMouse types so the port
+stays a day's work.
+
+Known issues to design around (surveyed 2026-08-28):
+
+- **Version-compat matrix.** New agent + gateless firmware → double
+  scroll: the agent must require the gate capability bit in the feature
+  report and refuse to run without it. Fork build + agent both running
+  → double scroll: document mutual exclusion, and have the agent refuse
+  to start while the fork's bundle is running.
+- **TCC/signing stops being optional.** The agent needs Accessibility
+  for `CGEventPost` (no host design escapes that); grants bind to code
+  signature, and ad-hoc-signed rebuilds invalidate them — the
+  accessibility-loop trap (raw-touch.md) applies to the agent with full
+  force, and an unsigned background agent demanding Accessibility is a
+  scary install for other users. **Item f (Developer ID + notarization)
+  is a prerequisite for the agent's public release**, not optional
+  polish.
+- **Session-tap posting only kills half the interop landmine.** The
+  gate removes the HID-level wheel that Scroll Reverser/Mos could
+  misclassify, but the synthesized gestures still flow past *their*
+  session-level taps. Prior-art survey §6.9's bench checklist (Scroll
+  Reverser inversion, zeroed point-delta fields in Calendar/WebKit)
+  survives the architecture change untouched — run it before release.
+- **Squatter validation stays.** Post-gate the agent no longer needs
+  `HIDPhysicalDeviceIdentity` wheel suppression, but 0xFF00/0x01 is the
+  most-squatted vendor pair in the industry — keep the normative
+  feature-report validation before treating a matching collection as
+  this protocol.
+- The fork's settings pane is not ported; the agent is configured by a
+  JSON file. Fine for us; note it in the release story.
