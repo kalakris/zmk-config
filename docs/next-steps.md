@@ -8,30 +8,20 @@ v3, both pads streaming, USB + BLE verified) — see
 [module-publish-brief.md](module-publish-brief.md) for the publish plan.
 Each item below is self-contained enough to start cold.
 
-**In flight / housekeeping (check these first in a fresh session):**
-
-- **Flash pending?** The `hold-while-undecided` keymap fix (`e631ce8`;
-  fast Nav-held flicks streamed as pointer because trackpad input events
-  cannot resolve a hold-tap — capture 7 showed frames flipping p→S
-  mid-touch at the 280 ms term boundary) built green; both halves need
-  it, LH first. Validate: hold Nav + immediately fast-flick, repeatedly —
-  every flick must scroll (re-run `scripts/raw-touch-monitor.swift` and
-  check flags=3 from frame one if unsure).
-- **cirque-input-module branch names**: the boot-race fix lives on
-  `intree-driver-fix` (89a08962, pinned in west.yml) because the agent
-  can't force-push; the stale `intree-driver` (b5c23650) is still on
-  GitHub. From a human terminal: fast-forward `intree-driver` to
-  89a08962 (`git push origin +89a08962:refs/heads/intree-driver`),
-  repoint west.yml's comment if desired, delete `intree-driver-fix`.
+Nothing in flight: the 2026-08-28 flashes (boot-race fix, wired-split
+poll tuning, click keymap, `hold-while-undecided`) are all on both
+halves and live-validated, and `cirque-input-module@intree-driver` is
+force-updated to the amended `89a08962` (the temporary
+`intree-driver-fix` branch is deleted).
 
 ## a. Fix the dead-pad boot race (firmware, real bug) — DONE 2026-08-28
 
 **Fixed 2026-08-28.** The amended patch 3/3 (clear SW_CC and re-verify
-DR after the recalibrate) is pushed as `cirque-input-module` branch
-`intree-driver-fix` (SHA `89a08962`); the pinned revision in
-`config/west.yml` is bumped and pushed on zmk-config `main`. **Hardware
-verification pending**: reflash **both halves** and watch a few
-boots. Fixing this was the MUST-FIX gate before upstreaming the
+DR after the recalibrate) is the tip of `cirque-input-module@
+intree-driver` (SHA `89a08962`); the pinned revision in
+`config/west.yml` is bumped and pushed on zmk-config `main`, and both
+halves are flashed. **Hardware verification ongoing**: any dead pad on
+a future boot is now a real bug, not the known race. Fixing this was the MUST-FIX gate before upstreaming the
 ERA/recalibrate patches to Zephyr (see
 [upstreaming-todo.md](upstreaming-todo.md)).
 

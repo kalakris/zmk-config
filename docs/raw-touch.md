@@ -287,7 +287,7 @@ Still pending (see [next-steps.md](next-steps.md) for the full list):
   pending): the in-tree driver's force-recalibrate-on-init patch could
   leave SW_CC stuck on some boots, so DR never fired and the pad was
   dead while keys worked fine. The amended patch 3/3 (clear SW_CC and
-  re-verify DR) is on `cirque-input-module@intree-driver-fix`
+  re-verify DR) is on `cirque-input-module@intree-driver`
   (`89a08962`), pinned in `config/west.yml`; verify after reflashing
   both halves.
 
@@ -471,7 +471,7 @@ cd ~/src/linearmouse            # branch inputscale (touch-stream edits → main
   which makes it look like a config or transport bug. It is not:
   power-cycle the half and it comes back. The fix (clear SW_CC and
   re-verify DR in the patch) shipped 2026-08-28 on
-  `cirque-input-module@intree-driver-fix` (`89a08962`, pinned in
+  `cirque-input-module@intree-driver` (`89a08962`, pinned in
   `config/west.yml`) — hardware verification pending; if a pad boots
   dead on older firmware, this is still the first suspect.
 
