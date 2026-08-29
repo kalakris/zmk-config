@@ -96,8 +96,14 @@ static void gate_expiry_cb(struct k_work *work) {
 
     K_SPINLOCK(&gate_lock) {
         /* A refresh racing this expiry re-armed the delayable before we
-         * took the lock; the claim it refreshed must survive. */
-        if (!k_work_delayable_is_pending(dwork) && claim->engaged) {
+         * took the lock; the claim it refreshed must survive. Do NOT use
+         * k_work_delayable_is_pending() here: it counts K_WORK_RUNNING --
+         * i.e. this very handler -- as pending, so it is always true from
+         * inside the callback and the claim would never expire (caught on
+         * hardware, BENCH-mode-gate.md section 2). Test the re-arm flags
+         * alone. */
+        if (!(k_work_delayable_busy_get(dwork) & (K_WORK_DELAYED | K_WORK_QUEUED)) &&
+            claim->engaged) {
             claim->engaged = false;
             cleared = true;
         }
