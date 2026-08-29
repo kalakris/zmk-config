@@ -1,8 +1,17 @@
 # Mode gate — hardware bench checklist
 
-Written 2026-08-28 alongside the `mode-gate` branch. **Not yet run** —
-blocked behind the pending keymap-fix flash queue; run in a dedicated
-later session. Follow zmk-config's standing rules: announce every host
+Written 2026-08-28 alongside the `mode-gate` branch. **USB half run
+2026-08-29 (sections 0–2 PASS)** — and §2 caught a real bug on its
+first run: `k_work_delayable_is_pending()` counts `K_WORK_RUNNING`, so
+the expiry callback always saw itself as a racing refresh and claims
+never expired. Fixed in `20c84e5` (guard on `K_WORK_DELAYED |
+K_WORK_QUEUED`), reflashed, re-verified: a timeout-1 claim clamped to
+5 s and expired mid-gesture with a 9 ms frame gap (flags 7 → 3 on
+consecutive frames). Tooling: `scripts/gate-claim.swift` in zmk-config
+(claim/release/hold/raw, usb|ble pin). Note for §3: over USB, macOS
+`IOHIDDeviceGetReport` returns the feature report WITH the report-ID
+byte prefixed; over BLE it comes bare — normalize before parsing.
+BLE/endpoint/sleep sections remain. Follow zmk-config's standing rules: announce every host
 deploy, ONE flash watcher at a time, and grant Accessibility only right
 after a deploy (never during `xcodebuild test`).
 
@@ -21,9 +30,10 @@ by", "claim refreshed by" (DBG), "cleared (released by host)", "cleared
 
 ## 0. Baseline / fork compatibility (no claim writer running)
 
-- [ ] Feature report reads `protocol_version = 3`, `capabilities` bit 0
+- [x] Feature report reads `protocol_version = 3`, `capabilities` bit 0
       = 1, over USB GET_REPORT **and** the BLE characteristic.
-- [ ] With the v1 LinearMouse fork (which never claims): frames show
+      (2026-08-29, dual-connected: USB ID-prefixed, BLE bare.)
+- [x] With the v1 LinearMouse fork (which never claims): frames show
       flags bit 2 = **0** at all times — touch, scroll (flags=3), and
       release frames. Wheel fallback works with LinearMouse quit;
       host-side wheel suppression works with it running. Nothing about
@@ -31,34 +41,44 @@ by", "claim refreshed by" (DBG), "cleared (released by host)", "cleared
 
 ## 1. Claim / refresh / release over USB
 
-- [ ] Claim (30 s) accepted; log shows the USB endpoint label.
-- [ ] While claimed + Nav held: frames carry flags bit 2 = 1 and **zero
+- [x] Claim (30 s) accepted; log shows the USB endpoint label.
+      (Log not inspected — engagement verified on the wire instead.)
+- [x] While claimed + Nav held: frames carry flags bit 2 = 1 and **zero
       wheel events** reach the host (monitor + `hidutil`/event viewer).
-- [ ] Pointer motion, tap-to-click, and typing all unaffected while
+- [x] Pointer motion, tap-to-click, and typing all unaffected while
       claimed (suppression touches scroll-context deltas only).
-- [ ] Refresh at 15 s intervals: claim holds indefinitely; bit 2 stays 1
+- [x] Refresh at 15 s intervals: claim holds indefinitely; bit 2 stays 1
       across refreshes (no flicker at the refresh instant).
-- [ ] Explicit release: bit 2 → 0 and wheel fallback returns on the
+- [x] Explicit release: bit 2 → 0 and wheel fallback returns on the
       immediately-next Nav-scroll gesture (no timeout wait).
-- [ ] Malformed writes rejected AND state unchanged: wrong length,
+- [x] Malformed writes rejected AND state unchanged: wrong length,
       command ≠ 0x01, op ≠ 0x00/0x01, timeout 0, reserved ≠ 0.
-- [ ] Clamp: claim with timeout 1 expires at ~5 s; with 200, at ~120 s.
+      (All six probes stalled with 0xE0005000; ID-prefixed valid form
+      accepted — both framings behave per spec.)
+- [x] Clamp low: timeout 1 expired at ~4.7 s measured on the wire.
+- [ ] Clamp high: timeout 200 expires at ~120 s (not yet run).
 
 ## 2. Expiry (dead-host simulation)
 
-- [ ] Claim 30 s, kill the claim writer (no release): "expired without a
-      host refresh" at ~30 s, wheel fallback restored on the next
-      gesture. Repeat over BLE.
+- [x] USB: one-shot claim with no refresher expired on schedule; wheel
+      restored mid-gesture (flags 7 → 3, 9 ms frame gap). First run
+      caught the is_pending bug (see header); fixed in `20c84e5`.
+- [ ] Repeat over BLE.
 
 ## 3. Claim over BLE
 
 - [ ] Forget + re-pair FIRST (the writable characteristic changed the
       GATT DB — §6 verifies the stale-cache failure deliberately).
+      **Early finding 2026-08-29:** claim writes over BLE succeeded
+      against the PRE-gate pairing (only a permission changed, not the
+      report map) — §6's premise may not reproduce; re-check there.
 - [ ] GATT write of the 4-byte body claims; log names the BLE profile.
 - [ ] Bit 2 = 1 on BLE-delivered frames while claimed; wheel suppressed;
       pointer/taps/keys unaffected. Release restores instantly.
-- [ ] A claim written on profile N does NOT suppress the wheel while a
-      different profile (or USB) is selected.
+- [x] A claim written on profile N does NOT suppress the wheel while a
+      different profile (or USB) is selected. (Verified accidentally
+      2026-08-29: BLE-endpoint claim while USB selected — bit 2 stayed
+      0, wheel unaffected. Deliberate re-run still worthwhile.)
 
 ## 4. Endpoint switching mid-claim
 
