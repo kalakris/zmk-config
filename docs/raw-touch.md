@@ -14,8 +14,8 @@ Companion documents:
 - **Protocol spec** — the **authoritative spec is now the wire-format
   appendix of the module README** (`~/src/zmk-raw-touch/README.md`,
   protocol **v3**). [`docs/raw-touch-protocol.md`](raw-touch-protocol.md)
-  is the historical v2 spec, kept for the still-flashable `raw-touch`
-  fork build; the host accepts both versions.
+  is the historical v2 spec; since 2026-08-28 the host accepts v3 only,
+  so the old `raw-touch` fork build scrolls via wheel fallback alone.
 - **Next steps** — [`docs/next-steps.md`](next-steps.md): the
   resumable-from-zero work list (host-cleanup re-land, wired-split
   batching fix, demo video, release train).
