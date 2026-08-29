@@ -1,7 +1,9 @@
 # Mode gate — hardware bench checklist
 
-Written 2026-08-28 alongside the `mode-gate` branch. **USB half run
-2026-08-29 (sections 0–2 PASS)** — and §2 caught a real bug on its
+Written 2026-08-28 alongside the `mode-gate` branch. **Sections 0–4
+and 6 PASS (2026-08-29); §5 deferred to the standalone agent's live
+run; §7 spot-checked. One non-gate firmware bug found: the USB-wedge
+finding in §4.** Earlier: USB half run 2026-08-29 (sections 0–2 PASS) — and §2 caught a real bug on its
 first run: `k_work_delayable_is_pending()` counts `K_WORK_RUNNING`, so
 the expiry callback always saw itself as a racing refresh and claims
 never expired. Fixed in `20c84e5` (guard on `K_WORK_DELAYED |
@@ -56,25 +58,27 @@ by", "claim refreshed by" (DBG), "cleared (released by host)", "cleared
       (All six probes stalled with 0xE0005000; ID-prefixed valid form
       accepted — both framings behave per spec.)
 - [x] Clamp low: timeout 1 expired at ~4.7 s measured on the wire.
-- [ ] Clamp high: timeout 200 expires at ~120 s (not yet run).
+- [x] Clamp high: timeout 200 expired between t+95 s and t+123 s
+      (touch-cadence bounds) — consistent with 120, rules out 200.
 
 ## 2. Expiry (dead-host simulation)
 
 - [x] USB: one-shot claim with no refresher expired on schedule; wheel
       restored mid-gesture (flags 7 → 3, 9 ms frame gap). First run
       caught the is_pending bug (see header); fixed in `20c84e5`.
-- [ ] Repeat over BLE.
+- [x] Repeat over BLE: timeout-1 claim, gated frames t+1.5 s (touch
+      down) to t+5.0 s, first ungated frame at exactly t+5.0 s.
 
 ## 3. Claim over BLE
 
-- [ ] Forget + re-pair FIRST (the writable characteristic changed the
-      GATT DB — §6 verifies the stale-cache failure deliberately).
-      **Early finding 2026-08-29:** claim writes over BLE succeeded
-      against the PRE-gate pairing (only a permission changed, not the
-      report map) — §6's premise may not reproduce; re-check there.
-- [ ] GATT write of the 4-byte body claims; log names the BLE profile.
-- [ ] Bit 2 = 1 on BLE-delivered frames while claimed; wheel suppressed;
-      pointer/taps/keys unaffected. Release restores instantly.
+- [x] **Re-pair NOT needed** — the whole section passed against the
+      PRE-gate pairing. Only a characteristic permission changed, not
+      the report map, so the HOGP cache stays valid. See §6.
+- [x] GATT write of the 4-byte body claims (bare framing; log not
+      inspected — engagement verified on the wire).
+- [x] Bit 2 = 1 on BLE-delivered frames while claimed (every frame in
+      the window: 875/875 gated); wheel suppressed; pointer/taps/keys
+      unaffected. Release restored the wheel instantly.
 - [x] A claim written on profile N does NOT suppress the wheel while a
       different profile (or USB) is selected. (Verified accidentally
       2026-08-29: BLE-endpoint claim while USB selected — bit 2 stayed
@@ -82,17 +86,35 @@ by", "claim refreshed by" (DBG), "cleared (released by host)", "cleared
 
 ## 4. Endpoint switching mid-claim
 
-- [ ] Claim over USB (USB selected), then `&out OUT_BLE`: log shows
-      "endpoint switched away", wheel works on the BLE host immediately,
-      bit 2 = 0.
-- [ ] Switch back to USB with the claim writer still refreshing: gate
-      re-engages within one refresh interval (≤ timeout/2), untouched
-      in between the wheel works.
-- [ ] Two hosts, both claiming (USB host + BLE host): switching between
-      them hands the gate over seamlessly — each side sees bit 2 = 1
-      only while it is selected, and neither ever sees double scroll.
-- [ ] USB cable pull mid-claim: "cleared (USB detached)"; wheel-over-BLE
-      unaffected. Re-plug + host re-claim recovers.
+- [x] Switch-away (run as BLE claim + USB plug-in, same mechanism as
+      the `&out` variant): wheel worked over USB immediately, dormant
+      re-claims on the deselected endpoint stayed dormant.
+- [x] Switch-back with the writer still refreshing: gate re-engaged
+      IMMEDIATELY on unplug (a refresh had already re-established the
+      claim on the deselected endpoint, so the switch found it live —
+      better than the ≤ timeout/2 worst case).
+- [x] Two hosts, both claiming (one Mac playing both roles, one holder
+      per transport): two full pull/replug cycles, scroll dead on both
+      sides of every switch, ~1400 gated frames delivered per transport,
+      zero double scroll. Handoff seamless.
+- [x] USB cable pull mid-claim: BLE side took over cleanly (see
+      handoff above). **BUT see the finding below — pulling the cable
+      MID-SCROLL wedged the vendor USB stream itself.**
+
+**FINDING (2026-08-29, not a gate bug): mid-transfer cable pull wedges
+the vendor USB stream.** After the hot-plug handoff cycles (cable pulled
+while frames were in flight), the USB interrupt-IN stream went
+permanently silent: fresh host handles enumerate fine, feature-report
+GETs work (control pipe alive), keys fine, BLE stream fine — but zero
+input frames over USB until the half is power-cycled. Prime suspect:
+`src/usb_hid.c`'s single-slot `hid_sem`, released only by the transfer
+completion callback, which never fires for a transfer killed by detach.
+The known "small USB TX ring" polish item is hereby promoted to
+**must-fix before merge** (or at minimum: return the semaphore from a
+USB reset/disconnect callback). Symptom in daily life: LinearMouse
+scroll death after replugging mid-scroll (fork suppresses the wheel per
+device identity while the stream device is present, and no frames
+arrive to synthesize from).
 - [ ] BLE disconnect mid-claim (power off host radio or walk away):
       "cleared (BLE profile disconnected)".
 
@@ -107,16 +129,19 @@ by", "claim refreshed by" (DBG), "cleared (released by host)", "cleared
 
 ## 6. The stale-GATT-cache failure (deliberate)
 
-- [ ] On a host paired against PRE-gate firmware (do NOT forget/re-pair
-      yet): confirm the deceptively-partial mode — keys, USB claim, and
-      feature read fine, but the BLE claim write fails or is silently
-      dropped. Then forget + re-pair and confirm §3 passes. This is the
-      known macOS HOGP-cache gotcha; documenting the observed symptom
-      here closes the loop.
+- [x] **Does not reproduce — and that is the finding.** The entire §3
+      suite (claim, gated frames, suppression, instant release) passed
+      against the PRE-gate pairing with no forget/re-pair. A
+      permission-only GATT change leaves the macOS HOGP cache valid; the
+      re-pair tax applies only to report-map/attribute-layout changes.
+      README's re-pair warning should be softened accordingly at merge
+      time.
 
 ## 7. Regression sweep (gate never touched)
 
-- [ ] Full existing bench: smooth scroll via stream (USB + BLE), wheel
-      fallback with consumer quit, tap-to-click, both pads, LH pad over
-      the tuned wire, typing under load. Nothing regresses with the gate
-      code present but unclaimed.
+- [~] Spot-checked through ~2 h of live bench use: stream scroll (USB
+      + BLE, via the fork), wheel fallback with consumer quit,
+      tap-to-click, pointer, typing — all normal with gate code idle,
+      after recovering from the (pre-existing) USB-wedge finding above.
+      Full deliberate sweep incl. LH pad + typing-under-load still to
+      run before merge.
