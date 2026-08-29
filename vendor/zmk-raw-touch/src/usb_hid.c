@@ -23,6 +23,7 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
 #include <zmk/usb.h>
 
+#include <zmk/raw_touch/gate.h>
 #include <zmk/raw_touch/hid.h>
 #include <zmk/raw_touch/transport.h>
 
@@ -117,14 +118,51 @@ static int get_report_cb(const struct device *dev, struct usb_setup_packet *setu
     return 0;
 }
 
-/* No .set_report: the raw touch protocol has no host-to-device path, and
- * Zephyr's default handler already answers SET_REPORT with -ENOTSUP.
- * CONFIG_ENABLE_HID_INT_OUT_EP is deliberately left alone too -- it is a
- * global symbol that would add an interrupt OUT endpoint to ZMK's keyboard
- * interface as well. */
+/* SET_REPORT(FEATURE) carries the protocol's single host-to-device path:
+ * the mode-gate claim (see src/gate.c). Everything else is still rejected
+ * with -ENOTSUP, exactly as Zephyr's default handler would.
+ *
+ * Per HID 1.11 a control-pipe report on a device using report IDs is
+ * ID-prefixed, matching what get_report_cb returns; but host stacks are
+ * not uniform about the prefix on Set_Report, so a bare 4-byte body is
+ * accepted too. The two forms cannot collide: the command byte 0x01 is
+ * fixed and distinct from the report ID (0x04 by default; hid.c
+ * BUILD_ASSERTs the ID is nonzero, and a Kconfig override of 0x01 would
+ * be rejected below anyway because a 5-byte payload is only parsed
+ * ID-prefixed).
+ *
+ * CONFIG_ENABLE_HID_INT_OUT_EP stays untouched -- it is a global symbol
+ * that would add an interrupt OUT endpoint to ZMK's keyboard interface as
+ * well, and the control pipe is plenty for a ~0.03 Hz claim refresh. */
+static int set_report_cb(const struct device *dev, struct usb_setup_packet *setup, int32_t *len,
+                         uint8_t **data) {
+    if ((setup->wValue & HID_GET_REPORT_TYPE_MASK) != HID_REPORT_TYPE_FEATURE) {
+        LOG_DBG("Unsupported report type 0x%x written", setup->wValue & HID_GET_REPORT_TYPE_MASK);
+        return -ENOTSUP;
+    }
+
+    if ((setup->wValue & HID_GET_REPORT_ID_MASK) != ZMK_RAW_TOUCH_REPORT_ID) {
+        LOG_DBG("Unsupported feature report ID %d written", setup->wValue & HID_GET_REPORT_ID_MASK);
+        return -ENOTSUP;
+    }
+
+    const uint8_t *body = *data;
+    size_t body_len = *len;
+
+    if (body_len == ZMK_RAW_TOUCH_GATE_CMD_LEN + 1 && body[0] == ZMK_RAW_TOUCH_REPORT_ID) {
+        body++;
+        body_len--;
+    }
+
+    struct zmk_endpoint_instance source = {.transport = ZMK_TRANSPORT_USB};
+
+    return zmk_raw_touch_gate_handle_command(source, body, body_len);
+}
+
 static const struct hid_ops ops = {
     .int_in_ready = in_ready_cb,
     .get_report = get_report_cb,
+    .set_report = set_report_cb,
 };
 
 int zmk_raw_touch_usb_send_report(void) {

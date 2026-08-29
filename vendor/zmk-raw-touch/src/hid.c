@@ -165,7 +165,15 @@ struct zmk_raw_touch_report *zmk_raw_touch_hid_get_report(void) { return &touch_
 
 static struct zmk_raw_touch_feature_report touch_feature_report = {
     .report_id = ZMK_RAW_TOUCH_REPORT_ID,
-    .body = {.protocol_version = ZMK_RAW_TOUCH_PROTOCOL_VERSION},
+    .body = {.protocol_version = ZMK_RAW_TOUCH_PROTOCOL_VERSION,
+             /* The mode gate needs a host-facing transport for its claim
+              * writes; without one the capability must not be advertised.
+              * (Moot in practice: with no transport there is no host to
+              * read this report either.) */
+             .capabilities = (IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB) ||
+                              IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE))
+                                 ? ZMK_RAW_TOUCH_CAP_MODE_GATE
+                                 : 0},
 };
 
 void zmk_raw_touch_hid_set_feature_header(uint8_t pads_present) {

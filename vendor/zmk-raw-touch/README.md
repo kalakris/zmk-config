@@ -172,15 +172,18 @@ tap-to-click tuning) are documented in
 - **Expect to re-pair Bluetooth after first flashing this.** The second
   HID service changes the GATT database; hosts with a cached copy will
   not see it.
-- **Re-pair after any firmware update that changes the report layout,
-  too** (e.g. a protocol version bump). macOS caches the HOGP report map
-  at pairing time, and a change to the map's *contents* does not move any
-  GATT handles, so no Service Changed indication fires and the host never
-  re-reads it. The failure is deceptively partial: keyboard, USB, and the
-  (live-read) feature report all keep working — only BLE frame parsing
-  breaks, and with it both smooth scrolling and the suppressed wheel
-  fallback. Symptom: scrolling dead over BLE, fine over USB. Fix: forget
-  the device on the host, `&bt BT_CLR` on the keyboard, pair fresh.
+- **Re-pair after any firmware update that changes the report layout or
+  the GATT database, too** (e.g. a protocol version bump — or the mode
+  gate's arrival, which made the feature-report characteristic writable).
+  macOS caches the HOGP report map and GATT structure at pairing time,
+  and a change to the map's *contents* does not move any GATT handles, so
+  no Service Changed indication fires and the host never re-reads it. The
+  failure is deceptively partial: keyboard, USB, and the (live-read)
+  feature report all keep working — only BLE frame parsing (or, for the
+  gate, the BLE claim write) breaks, and with it both smooth scrolling
+  and the suppressed wheel fallback. Symptom: scrolling dead over BLE,
+  fine over USB. Fix: forget the device on the host, `&bt BT_CLR` on the
+  keyboard, pair fresh.
 - **macOS can mis-bind report maps on the very first pairing** of a
   device with two HID services. Disconnect and reconnect once and it
   corrects itself (open macOS bug, not specific to this module).
@@ -220,8 +223,18 @@ plus one release report on lift-off.
 | 8 | 1 | `seq` — per-pad counter, +1 per emitted report, wraps |
 | 9 | 2 | `timestamp`, little-endian, 100 µs units, wraps at 6.5536 s |
 
-`flags`: bit 0 = touched, bit 1 = scroll mode, bit 2 = *reserved* for the
-mode gate (always 0), bits 3–7 reserved (0).
+`flags`: bit 0 = touched, bit 1 = scroll mode, bit 2 = gate engaged
+(see [Mode gate](#mode-gate) — 0 unless a host has claimed the stream),
+bits 3–7 reserved (0).
+
+Bit 2 is computed per frame against the endpoint the frame is sent to:
+it is set iff that endpoint holds a live gate claim, which is also
+exactly when the firmware suppresses its wheel fallback. **Hosts MUST
+synthesize scroll only from frames with bits 1 and 2 both set.** Firmware
+is thereby the single source of truth — wheel and synthesized scroll are
+mutually exclusive by construction, with no host-side racing after
+sleep, reboot or re-pair (a host that has not yet re-claimed sees bit 2
+clear and stays silent while the wheel works).
 
 The `touched` bit is normative for contact state — release is `touched`
 clear, not "coordinates are zero" (release reports do also carry zeroed
@@ -247,7 +260,7 @@ that vendor pair is widely squatted.
 |---|---|---|
 | 0 | 1 | `protocol_version` = 3 |
 | 1 | 1 | `pads_present` bitmask, bit *N* = `pad_id` *N* |
-| 2 | 1 | `capabilities` — bit 0 *reserved* for the mode gate (0); rest 0 |
+| 2 | 1 | `capabilities` — bit 0 = mode gate supported; rest reserved (0) |
 | 3 | 1 | reserved (0) |
 | 4 | 8 | pad slot 0 |
 | 12 | 8 | pad slot 1 |
@@ -267,6 +280,65 @@ Coordinates stream raw and untransformed; `orientation` tells the host
 what to apply. The report descriptor also declares the primary pad's real
 logical ranges on the x/y fields, so generic HID tooling sees true
 geometry without parsing the feature report.
+
+### Mode gate
+
+The protocol's only host→device path (still protocol v3 — the gate is
+advertised by `capabilities` bit 0, not a version bump). A host that
+consumes the stream **claims** it by writing the feature report — USB
+`SET_REPORT(FEATURE)` or a GATT write to the BLE feature-report
+characteristic — with a 4-byte command body:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 1 | command — `0x01` = gate claim |
+| 1 | 1 | `0x01` = claim/refresh, `0x00` = release |
+| 2 | 1 | timeout in seconds; firmware clamps to [5, 120]; `0` rejected (ignored on release) |
+| 3 | 1 | reserved, must be 0 |
+
+Any other command byte, length, or nonzero reserved byte is rejected
+(USB: request stalled; BLE: ATT error). Over USB the control payload may
+carry the leading report-ID byte (5 bytes total) or the bare body; over
+BLE the write carries the body alone, as usual. Hosts MUST check
+`capabilities` bit 0 before claiming.
+
+**Effect.** While the claim is live and its endpoint is the one the
+keyboard is sending to, the firmware stops injecting the relative deltas
+for scroll-context frames, which silences any wheel-fallback processor
+chain downstream — and sets frame flags bit 2 to say so. Pointer-context
+deltas, tap-to-click and all key reports are unaffected, and everything
+reverts on the very next frame after the claim clears. Hosts that never
+claim (including the v1 LinearMouse fork) see bit 2 = 0 and the wheel
+fallback keeps working unchanged.
+
+**Endpoint scoping.** A claim is scoped to the endpoint *instance* the
+write arrived on: the USB connection, or the specific BLE profile that
+wrote it. Claims on different endpoints are independent — one host's
+claim never mutes the fallback of a host on another transport or
+profile. Suppression (and bit 2) applies only while the claiming
+endpoint is the selected one.
+
+**Liveness.** The host MUST refresh the claim (re-write it) at intervals
+of no more than **half** the timeout it wrote, and SHOULD release
+(`0x00`) on clean exit. It MUST re-assert after resume, reconnect and
+device re-enumeration — claims do not survive on their own: firmware
+clears a claim on
+
+- timeout expiry (no refresh arrived in time);
+- explicit release from the same endpoint;
+- USB detach/reset (for a USB claim);
+- disconnect of the claiming BLE profile's connection;
+- any endpoint switch away from the claiming endpoint (a switch back
+  does not restore it — the host's next refresh does, at most half a
+  timeout later).
+
+A dead host can therefore never leave the wheel fallback disabled for
+longer than its own stated timeout.
+
+**BLE cache warning.** Making the feature characteristic writable
+changed the GATT database. Hosts that paired with an earlier firmware
+have a stale cache: **forget + re-pair after flashing across this
+change** (see Known issues — the failure mode is deceptively partial).
 
 ### v2 (legacy)
 

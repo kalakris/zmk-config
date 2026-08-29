@@ -24,8 +24,11 @@
 
 #define ZMK_RAW_TOUCH_FLAGS_TOUCHED BIT(0)
 #define ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE BIT(1)
-/* Reserved for the mode gate. Firmware always sends 0 here today; the
- * define exists so the bit stays claimed in the flags namespace. */
+/* Gate engaged: set iff the endpoint this frame is being sent to holds a
+ * live mode-gate claim, i.e. the scroll-context wheel fallback is
+ * suppressed for it. Hosts synthesize scroll only when this and
+ * SCROLL_MODE are both set, making wheel and synthesized scroll mutually
+ * exclusive by construction (see zmk/raw_touch/gate.h). */
 #define ZMK_RAW_TOUCH_FLAGS_MODE_GATE BIT(2)
 
 struct zmk_raw_touch_report_body {
@@ -58,8 +61,10 @@ struct zmk_raw_touch_report {
 #define ZMK_RAW_TOUCH_USAGE_PAGE 0xFF00
 #define ZMK_RAW_TOUCH_USAGE 0x01
 
-/* Capabilities bit 0 is reserved for the mode gate; firmware always sends
- * 0 here today. */
+/* Capabilities bit 0: the mode gate is supported - the host may claim the
+ * stream by writing the feature report (see zmk/raw_touch/gate.h).
+ * Advertised whenever a host-facing transport is built; hosts MUST check
+ * this bit before attempting a claim. */
 #define ZMK_RAW_TOUCH_CAP_MODE_GATE BIT(0)
 
 #define ZMK_RAW_TOUCH_ORIENT_ROTATE_90 BIT(0)

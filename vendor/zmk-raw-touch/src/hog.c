@@ -28,6 +28,9 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
 #include <zmk/ble.h>
 
+#include <zmk/endpoints_types.h>
+
+#include <zmk/raw_touch/gate.h>
 #include <zmk/raw_touch/hid.h>
 #include <zmk/raw_touch/transport.h>
 
@@ -116,6 +119,48 @@ static void input_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value) {
             (value == BT_GATT_CCC_NOTIFY) ? "subscribed" : "unsubscribed");
 }
 
+/* Mode-gate claim: the feature report's write path (HOGP report
+ * characteristics of type Feature are read/write per HIDS 1.0 §2.5.2).
+ * The GATT write carries the 4-byte body alone - the report ID lives in
+ * the report reference descriptor, as on the input report's notify path.
+ *
+ * The connection identifies the claimant: its peer address maps to the
+ * ZMK BLE profile, and the claim is scoped to that profile's endpoint
+ * instance. Writes from a peer that is not a bonded host profile (e.g. a
+ * split peripheral's connection) are refused. */
+static ssize_t write_hids_touch_feature_report(struct bt_conn *conn,
+                                               const struct bt_gatt_attr *attr, const void *buf,
+                                               uint16_t len, uint16_t offset, uint8_t flags) {
+    ARG_UNUSED(attr);
+    ARG_UNUSED(flags);
+
+    if (offset != 0) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
+    }
+
+    int profile = zmk_ble_profile_index(bt_conn_get_dst(conn));
+
+    if (profile < 0) {
+        return BT_GATT_ERR(BT_ATT_ERR_WRITE_NOT_PERMITTED);
+    }
+
+    struct zmk_endpoint_instance source = {
+        .transport = ZMK_TRANSPORT_BLE,
+        .ble = {.profile_index = profile},
+    };
+
+    int err = zmk_raw_touch_gate_handle_command(source, buf, len);
+
+    switch (err) {
+    case 0:
+        return len;
+    case -EMSGSIZE:
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    default:
+        return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
+    }
+}
+
 static ssize_t write_ctrl_point(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                                 const void *buf, uint16_t len, uint16_t offset, uint8_t flags) {
     uint8_t *value = attr->user_data;
@@ -144,11 +189,20 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_DESCRIPTOR(BT_UUID_HIDS_REPORT_REF, BT_GATT_PERM_READ_ENCRYPT, read_hids_report_ref,
                        NULL, &touch_input),
 
-    /* Feature report: read-only pad capabilities, so no CCC. This is the
-     * BLE counterpart of the USB GET_REPORT(FEATURE) path; hosts must read
-     * and validate it before treating the collection as raw touch. */
-    BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT, BT_GATT_CHRC_READ, BT_GATT_PERM_READ_ENCRYPT,
-                           read_hids_touch_feature_report, NULL, NULL),
+    /* Feature report: pad capabilities on read, mode-gate claim on write;
+     * no CCC (feature reports are never notified). This is the BLE
+     * counterpart of the USB GET_REPORT/SET_REPORT(FEATURE) paths; hosts
+     * must read and validate it before treating the collection as raw
+     * touch.
+     *
+     * NOTE: adding the write property/permission changed the GATT
+     * database. Hosts with a cached copy (macOS caches aggressively) must
+     * forget + re-pair after flashing across this change, with the usual
+     * deceptively-partial failure mode if skipped - see the README's
+     * known issues. */
+    BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT, BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_READ_ENCRYPT | BT_GATT_PERM_WRITE_ENCRYPT,
+                           read_hids_touch_feature_report, write_hids_touch_feature_report, NULL),
     BT_GATT_DESCRIPTOR(BT_UUID_HIDS_REPORT_REF, BT_GATT_PERM_READ_ENCRYPT, read_hids_report_ref,
                        NULL, &touch_feature),
 
