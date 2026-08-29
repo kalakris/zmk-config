@@ -150,7 +150,23 @@ test passed. **Standing caveat**: the `v0-prototype` rollback binaries
 (and the historical `raw-touch` branch build) speak v2 — rolling back
 to them now gets wheel-fallback scrolling only.
 
-## j. Device-side mode gate (firmware + spec)
+## j. Device-side mode gate (firmware + spec) — IMPLEMENTED 2026-08-28, bench pending
+
+**Code in place, hardware bench NOT run** (blocked behind the pending
+`hold-while-undecided` flash). Wire contract + branch map:
+[mode-gate-plan.md](mode-gate-plan.md). Module repo branch `mode-gate`
+@ `e6b27c1` (pushed; repo left checked out on `main`); zmk-config
+branch `mode-gate` @ `9b2213b` (vendored sync, pushed, **CI green
+first attempt**, all 5 targets). Gate state is one claim slot per
+endpoint instance (`src/gate.c`); wheel suppression sits at the REL
+delta injection point in `raw_touch.c` (`gate_engaged && scroll_mode`
+skips `input_report_rel` — zero keymap changes, bit 2 and suppression
+driven by the same per-frame value). USB set_report accepts bare and
+ID-prefixed claim payloads; BLE feature char is now write-enabled
+(GATT DB changed → **flashing this build requires forget + re-pair**).
+Bench checklist: `BENCH-mode-gate.md` in the module repo (8 sections,
+incl. fork-compat bit-2-stays-0 and two-host handoff). Run it before
+merging `mode-gate` into either `main`.
 
 The v3 spec **reserves** a mode gate but does not implement it: the host
 claims the stream by writing a SET feature report, and while claimed the
@@ -209,7 +225,29 @@ Design notes for a cold start (issues surveyed 2026-08-28):
   capability bit) **before the public flip** — spec churn is free now
   and versioned pain once the README is public.
 
-## k. Standalone host agent (post-v1)
+## k. Standalone host agent (post-v1) — IMPLEMENTED 2026-08-28, never run live
+
+**Built and green, daemon never executed** (needs an Accessibility
+grant + gate firmware on hardware). New local repo
+`~/src/raw-touch-agent` @ `ef2ff6f` (no remote; name is a placeholder
+pending the PadWire decision). SwiftPM: thin `raw-touch-agent`
+executable over a `RawTouchAgentCore` library + a small C SPI target
+for `CGEventCopyIOHIDEvent`. `swift build` (debug+release) and
+`swift test` pass: **87 tests** (48 ported from the fork — engine
+physics pinned byte-identical — 39 new: gate contract, pipeline,
+config). Key shapes: `TouchStreamManager` split into an injectable
+`TouchScrollPipeline` + slim IOHID/claim manager; gate filter keys on
+flags **bit 2 alone** (gated pointer-mode frames still close out
+gestures); gate lapse mid-gesture resolved by the 150 ms stale-touch
+watchdog; per-pad config overrides (`pads.<id>`), each pad using its
+own reported orientation; claim writes try bare then ID-prefixed
+(firmware accepts both — confirm which lands at the bench). The
+fork-detection check was deliberately dropped (fork and stock
+LinearMouse share a bundle id); README documents mutual exclusion
+instead. Config: `~/.config/raw-touch-agent/config.json`
+(load-at-start; live-reload not yet). First live run: after the gate
+bench passes, grant Accessibility right after installing — the
+accessibility-loop trap applies.
 
 Decision 2026-08-28: **ship v1 as the LinearMouse fork** (built, tested,
 deployed), then extract the host pipeline into a small standalone
