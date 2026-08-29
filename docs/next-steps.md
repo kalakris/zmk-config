@@ -155,14 +155,33 @@ pairing (only a permission changed, not the report map — §6's premise
 may not reproduce); macOS returns USB feature-report GETs
 ID-prefixed, BLE bare (tools + host agent must normalize). Bench tool:
 `scripts/gate-claim.swift` (claim/release/hold/raw, usb|ble pin).
-**Remaining**: high clamp (200→120 s), BLE/§3, endpoint switching §4,
-sleep/wake §5, stale-cache §6, regression sweep §7 — then the agent's
-first live run and merging `mode-gate` into both `main`s.
+**2026-08-29 session 2: §§3, 4, 6 PASSED too** (see `BENCH-mode-gate.md`
+for measurements): high clamp confirmed (~120 s); BLE claim/expiry/
+release all pass **against the pre-gate pairing — §6 does not
+reproduce**, a permission-only GATT change leaves the HOGP cache valid
+(soften the README re-pair warning at merge); endpoint switch-away/
+switch-back/two-host handoff seamless (~1400 gated frames per
+transport, zero double scroll). **One real non-gate bug found**:
+pulling the USB cable mid-scroll wedges the vendor USB interrupt-IN
+stream (feature GETs/keys/BLE fine, zero frames until the half is
+power-cycled) — prime suspect is `src/usb_hid.c`'s single-slot
+`hid_sem`, never returned when detach kills an in-flight transfer.
+The item-c "USB TX ring" polish is hereby **promoted to must-fix
+before merging `mode-gate`** (or minimally: release the sem from a USB
+reset/disconnect callback). Daily-life symptom: LinearMouse scroll
+death after a mid-scroll replug (fork suppresses the wheel while the
+stream device exists but gets no frames).
+**Remaining**: hid_sem fix → §5 sleep/wake + the standalone agent's
+first live run (agent's re-assert logic is the real §5 subject) →
+deliberate §7 sweep (incl. LH pad) → merge `mode-gate` into both
+`main`s.
 Wire contract + branch map:
 [mode-gate-plan.md](mode-gate-plan.md). Module repo branch `mode-gate`
-@ `b2fe08e` (pushed; repo checked out on `main`); zmk-config
-branch `mode-gate` @ `4235d7c` (vendored sync, pushed, CI green;
-**RH currently runs this build** — LH still on the `main` build). Gate state is one claim slot per
+@ `2c63f94` (pushed; repo checked out on `main`); zmk-config
+branch `mode-gate` @ `9ff313a` (vendored sync, pushed;
+**RH currently runs the `4235d7c`-era build** — LH still on the
+`main` build). Bench tool: `scripts/gate-claim.swift` (on the
+`mode-gate` branch). Gate state is one claim slot per
 endpoint instance (`src/gate.c`); wheel suppression sits at the REL
 delta injection point in `raw_touch.c` (`gate_engaged && scroll_mode`
 skips `input_report_rel` — zero keymap changes, bit 2 and suppression
