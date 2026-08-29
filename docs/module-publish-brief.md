@@ -85,8 +85,9 @@ Three things to know before touching it:
 - **The port kept the wire format byte-identical to the fork's** (v2) so
   the bench pass had one variable; **protocol v3 then shipped on top**
   (2026-08-27): 11-byte frames, 20-byte feature report, same usage page
-  0xFF00/0x01 and report ID 0x04. The LinearMouse fork accepts v2 and v3,
-  so the old fork build remains a valid rollback. Gotcha: on BLE, macOS
+  0xFF00/0x01 and report ID 0x04. (The fork accepted v2+v3 until
+  2026-08-28; it is v3-only now, so the old fork build rolls back to
+  wheel-fallback scrolling.) Gotcha: on BLE, macOS
   caches the HOGP report map — a report-layout change needs forget +
   re-pair (in the README's known issues).
 - **`stream-tap-*` and pad geometry moved off the Cirque driver binding**

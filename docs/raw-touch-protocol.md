@@ -4,7 +4,8 @@
 > authoritative spec is the wire-format appendix of the `zmk-raw-touch`
 > module README (`~/src/zmk-raw-touch/README.md`). This document is kept
 > as the historical v2 spec, matching the still-flashable `raw-touch`
-> fork build; the reference host accepts both versions.
+> fork build. Since 2026-08-28 the reference host accepts v3 only —
+> flashing that build gets wheel-fallback scrolling, not the stream.
 
 A Cirque Pinnacle trackpad running ZMK streams absolute touch frames
 (position + touch strength) to the host over a vendor-defined HID report,
