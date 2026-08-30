@@ -130,8 +130,8 @@ still armed to DMA from (reasoning in the `usb_conn_state_listener`
 comment). The "small USB TX ring" stays a separate polish item -- it is
 no longer needed for correctness here.
 
-- [ ] RETEST: pull cable mid-scroll → replug → stream resumes without
-      power-cycle; repeat ×3.
+- [x] RETEST PASSED 2026-08-29 (fix `72a26f7` on hardware): three
+      mid-scroll cable pulls, three clean recoveries, no power-cycle.
 - [ ] BLE disconnect mid-claim (power off host radio or walk away):
       "cleared (BLE profile disconnected)".
 
