@@ -53,6 +53,7 @@
 
 LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
+#include <zmk/raw_touch/gate.h>
 #include <zmk/raw_touch/hid.h>
 #include <zmk/raw_touch/scroll.h>
 #include <zmk/raw_touch/transport.h>
@@ -125,8 +126,17 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
         return;
     }
 
+    /* Mode gate, evaluated fresh on every frame: engaged iff the endpoint
+     * this frame is about to go to (zmk_raw_touch_send_report() dispatches
+     * on zmk_endpoints_selected() a few lines below) holds a live claim.
+     * Deliberately NOT latched across frames - the flag and the wheel
+     * suppression below must both revert on the very next frame after a
+     * claim clears or the endpoint switches away. */
+    bool gate_engaged = zmk_raw_touch_gate_engaged_for_selected();
+
     uint8_t flags = (touched ? ZMK_RAW_TOUCH_FLAGS_TOUCHED : 0) |
-                    (scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0);
+                    (scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0) |
+                    (gate_engaged ? ZMK_RAW_TOUCH_FLAGS_MODE_GATE : 0);
 
     /* Device-side sample time (HID Scan Time convention, 100 us units):
      * hosts derive finger velocity from this rather than from arrival
@@ -158,11 +168,24 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
         }
     }
 
-    /* Dual mode: always derive relative deltas for the normal pointer
-     * pipeline, even in scroll mode - an existing wheel-mapping overlay
-     * then provides standard wheel scrolling as a fallback. Hosts that
-     * consume the raw stream suppress those events themselves. */
-    if (touched && data->have_prev_pos) {
+    /* Dual mode: derive relative deltas for the normal pointer pipeline,
+     * even in scroll mode - an existing wheel-mapping overlay then
+     * provides standard wheel scrolling as a fallback for hosts without a
+     * stream consumer.
+     *
+     * The mode gate suppresses exactly that fallback: while the selected
+     * endpoint holds a claim, scroll-context deltas are not injected at
+     * all, so the wheel-mapping overlay downstream has nothing to emit
+     * and the claiming host (which is synthesizing scroll from the
+     * frames) never sees doubled scrolling. This is the narrowest
+     * possible cut - pointer-context deltas (scroll_mode false), tap
+     * clicks and every key path are untouched, and prev_x/prev_y keep
+     * tracking below so the first delta after the gate clears is an
+     * ordinary one-frame step, not a jump. Ungated hosts are unaffected:
+     * bit 2 stays 0 and the wheel keeps working. */
+    bool suppress_fallback = gate_engaged && scroll_mode;
+
+    if (touched && data->have_prev_pos && !suppress_fallback) {
         int32_t raw_dx = (int32_t)data->cur_x - (int32_t)data->prev_x;
         int32_t raw_dy = (int32_t)data->cur_y - (int32_t)data->prev_y;
 
