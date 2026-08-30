@@ -340,18 +340,20 @@ The original decision blockers are all closed:
 
 ### Remaining before flipping the repo public
 
-- [ ] **Re-land the host cleanup.** The review-pass cleanup batch
-  (`a204c40`, seven items) caused a live regression within a minute of
-  deploy (first touch dead, added latency) and was reverted wholesale
-  (`29a8f88`); the root cause was never isolated. Re-land item-by-item
-  with a scroll test between deploys — the revert commit lists the seven
-  items.
+**Host-plan change 2026-08-30: the public host is RawTouch**
+(`~/src/rawtouch`), not the LinearMouse fork — the fork stays private
+and unreleased (decision recorded in next-steps item k). The README's
+host instructions must point at RawTouch before the flip.
+
+- [x] ~~Re-land the host cleanup~~ — DONE 2026-08-28 (batch exonerated,
+  re-landed on the fork's main; next-steps item b). Moot for the release
+  anyway now that the fork is not the shipped host.
+- [ ] **RawTouch public repo + menubar app** (next-steps item k) — the
+  release's host artifact.
 - [ ] **Demo video** (shot list above) — the release leads with it.
-- [ ] *(Optional)* **Notarized releases.** The LinearMouse fork inherits
-  upstream's release pipeline; making it produce installable signed builds
-  needs a paid Apple Developer Program membership, ~7 repo secrets
-  (signing cert, notarization credentials, etc.), and a tag push. Optional
-  extra: build provenance via `actions/attest-build-provenance`.
+- [ ] **Notarized RawTouch releases** (next-steps item f — now a
+  prerequisite, not optional: a background tool demanding Accessibility
+  needs Developer ID + notarization to be installable).
 - [ ] **Flip the repo public and un-vendor**: uncomment the `zmk-raw-touch`
   entry in `config/west.yml`, delete `vendor/`, drop the two `cmake-args`
   from `build.yaml`.

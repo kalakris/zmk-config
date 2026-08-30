@@ -104,20 +104,28 @@ cut with LinearMouse quit** (÷24 wheel fallback vs the stream), **hands
 cam tight on the right half**. The module README is written demo-first;
 the release leads with this clip.
 
-## e. Public release train
+## e. Public release train — REROUTED through RawTouch (2026-08-30)
 
-In order: host cleanup re-landed (b) → video (d) → flip
-`kalakris/zmk-raw-touch` public → un-vendor (uncomment the west entry in
-`config/west.yml`, delete `vendor/`, drop the two `cmake-args` from
-`build.yaml`) → announce.
+**The host artifact is RawTouch, not the LinearMouse fork** (the fork
+will never be released — see item k). Revised order: RawTouch menubar
+app (item k #1) → demo video (d) → RawTouch GitHub repo + notarized
+release (f) → flip `kalakris/zmk-raw-touch` public → un-vendor
+(uncomment the west entry in `config/west.yml`, delete `vendor/`, drop
+the two `cmake-args` from `build.yaml`) → announce. The old
+prerequisite "host cleanup re-landed (b)" is DONE (2026-08-28) and was
+a fork-era concern anyway.
 
-## f. Notarized releases (optional)
+## f. Notarized releases — now a RawTouch prerequisite
 
-The LinearMouse fork inherits upstream's release pipeline; making it
-produce installable signed builds needs a paid Apple Developer Program
-membership, ~7 repo secrets (signing cert, notarization credentials,
-etc.), and a tag push. Optional extra: build provenance via
-`actions/attest-build-provenance`.
+Applies to **RawTouch** (the fork's inherited pipeline is irrelevant —
+it stays private). A publicly-distributed background tool that demands
+an Accessibility grant effectively requires Developer ID signing +
+notarization: paid Apple Developer Program membership, signing cert +
+notarization credentials as repo secrets, a release workflow in the
+future RawTouch GitHub repo. Optional: provenance via
+`actions/attest-build-provenance`. Promoted from optional-polish to
+release prerequisite when the standalone-host decision landed
+(next-steps k, 2026-08-28/30).
 
 ## g. Upstream patches
 
