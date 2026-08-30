@@ -2,10 +2,21 @@
 
 Magic-Trackpad-quality scrolling for the MoErgo Go60's Cirque Pinnacle
 trackpads on macOS — **both pads since 2026-08-27**. The firmware streams
-raw absolute touch frames to the host over a vendor HID report; a patched
-LinearMouse fork consumes them and synthesizes continuous scroll events
-with real gesture phases, measured lift-off momentum, touch-to-catch, and
-a velocity-gain ballistics curve. This document is the full project state:
+raw absolute touch frames to the host over a vendor HID report; a host
+program consumes them and synthesizes continuous scroll events with real
+gesture phases, measured lift-off momentum, touch-to-catch, and a
+velocity-gain ballistics curve.
+
+**Since 2026-08-30 the host is RawTouch** (`~/src/rawtouch`, local
+SwiftPM daemon extracted from the fork) running against the firmware's
+**mode gate**: RawTouch claims the stream via a SET feature report, the
+firmware suppresses the ÷24 wheel fallback while claimed (frame flags
+bit 2 advertises it), and RawTouch synthesizes scroll only on gated
+frames — wheel and synthesized scroll are mutually exclusive by
+construction. The patched LinearMouse fork is the frozen fallback
+(quit rawtouch → launch LinearMouse); it will not be released publicly.
+Current operational state: next-steps.md items j/k. Gate spec: the
+module README appendix. Bench: module `BENCH-mode-gate.md`. This document is the full project state:
 architecture, repo map, what's validated, where every knob lives, the
 operational loops, and how to roll back. It assumes no prior context.
 

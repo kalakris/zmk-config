@@ -1,5 +1,13 @@
 # Mode gate (j) + standalone host agent (k) — implementation plan
 
+**HISTORICAL (2026-08-30): both items shipped.** The gate is merged to
+both mains and fully bench-verified; the host program is RawTouch
+(`~/src/rawtouch`), live as the daily driver. Kept for the wire
+contract's rationale; current state lives in next-steps items j/k and
+the module's `BENCH-mode-gate.md`. One contract deviation discovered at
+the bench: USB feature-report GETs arrive report-ID-prefixed on macOS
+(BLE bare), and the SET path accepts both framings.
+
 Written 2026-08-28. Companion to [next-steps.md](next-steps.md) items j/k,
 which carry the full issue survey. This doc pins the wire contract and the
 branch/repo map so the two implementations can proceed independently.
