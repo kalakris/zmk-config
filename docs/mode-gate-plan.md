@@ -55,7 +55,7 @@ working unchanged.
 |---|---|---|
 | `~/src/zmk-raw-touch` | `mode-gate` (new, from `main`) | Gate state, USB set_report, BLE writable feature char, flag bit, wheel suppression, README spec appendix |
 | this repo | `mode-gate` (new, from `main`) | Vendored module sync + any keymap/config change; pushed so CI validates the build |
-| `~/src/raw-touch-agent` | new local repo (`main`) | Standalone SwiftPM agent (item k). Name is a placeholder — naming (PadWire etc., prior-art survey §5) decided at publish time |
+| `~/src/rawtouch` | new local repo (`main`) | **RawTouch**, the standalone SwiftPM host program (item k). Name decision landed on RawTouch — pairs with zmk-raw-touch and retires PadWire, one brand for module + protocol + host |
 | `~/src/linearmouse` | untouched | v1 ships as-is |
 
 `~/src/zmk-raw-touch` is left checked out on `main` after the work, so a

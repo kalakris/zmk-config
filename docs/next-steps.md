@@ -171,8 +171,8 @@ before merging `mode-gate`** (or minimally: release the sem from a USB
 reset/disconnect callback). Daily-life symptom: LinearMouse scroll
 death after a mid-scroll replug (fork suppresses the wheel while the
 stream device exists but gets no frames).
-**Remaining**: hid_sem fix → §5 sleep/wake + the standalone agent's
-first live run (agent's re-assert logic is the real §5 subject) →
+**Remaining**: hid_sem fix → §5 sleep/wake + RawTouch's
+first live run (RawTouch's re-assert logic is the real §5 subject) →
 deliberate §7 sweep (incl. LH pad) → merge `mode-gate` into both
 `main`s.
 Wire contract + branch map:
@@ -249,13 +249,14 @@ Design notes for a cold start (issues surveyed 2026-08-28):
   capability bit) **before the public flip** — spec churn is free now
   and versioned pain once the README is public.
 
-## k. Standalone host agent (post-v1) — IMPLEMENTED 2026-08-28, never run live
+## k. RawTouch — the standalone host program (post-v1) — IMPLEMENTED 2026-08-28, never run live
 
 **Built and green, daemon never executed** (needs an Accessibility
 grant + gate firmware on hardware). New local repo
-`~/src/raw-touch-agent` @ `ef2ff6f` (no remote; name is a placeholder
-pending the PadWire decision). SwiftPM: thin `raw-touch-agent`
-executable over a `RawTouchAgentCore` library + a small C SPI target
+`~/src/rawtouch` @ `48c46fe` (no remote; the name decision landed on
+**RawTouch** — pairs with zmk-raw-touch and retires PadWire, one brand
+for module + protocol + host). SwiftPM: thin `rawtouch`
+executable over a `RawTouchCore` library + a small C SPI target
 for `CGEventCopyIOHIDEvent`. `swift build` (debug+release) and
 `swift test` pass: **87 tests** (48 ported from the fork — engine
 physics pinned byte-identical — 39 new: gate contract, pipeline,
@@ -268,7 +269,7 @@ own reported orientation; claim writes try bare then ID-prefixed
 (firmware accepts both — confirm which lands at the bench). The
 fork-detection check was deliberately dropped (fork and stock
 LinearMouse share a bundle id); README documents mutual exclusion
-instead. Config: `~/.config/raw-touch-agent/config.json`
+instead. Config: `~/.config/rawtouch/config.json`
 (load-at-start; live-reload not yet). First live run: after the gate
 bench passes, grant Accessibility right after installing — the
 accessibility-loop trap applies.
