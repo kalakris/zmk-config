@@ -21,6 +21,8 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
+#include <zmk/event_manager.h>
+#include <zmk/events/usb_conn_state_changed.h>
 #include <zmk/usb.h>
 
 #include <zmk/raw_touch/gate.h>
@@ -54,6 +56,55 @@ static K_SEM_DEFINE(hid_sem, 1, 1);
 
 static void in_ready_cb(const struct device *dev) { k_sem_give(&hid_sem); }
 
+/* Bus-state recovery for hid_sem -- the fix for the mid-transfer-detach
+ * wedge (BENCH-mode-gate.md section 4).
+ *
+ * An interrupt IN transfer that is in flight when the cable is pulled (or
+ * the bus resets) is simply abandoned by the controller: in_ready_cb never
+ * fires, so the semaphore taken for it is never returned. The bus-down
+ * branch in zmk_raw_touch_usb_send_report() cannot heal this on its own,
+ * because it only runs when something sends while the bus is down -- and
+ * the moment USB detaches, ZMK switches the selected endpoint to BLE, so
+ * the USB send path goes quiet until after replug, by which point
+ * zmk_usb_get_status() is healthy again and that branch is unreachable.
+ * Net effect without this listener: one frame in flight at unplug time
+ * wedged the vendor stream permanently (feature GETs and keys fine, zero
+ * input frames) until the half was power-cycled.
+ *
+ * So re-arm the semaphore whenever the USB connection state leaves
+ * ZMK_USB_CONN_HID (detach, bus reset, error -- every transition that
+ * kills an in-flight transfer; the same condition src/gate.c uses to drop
+ * the USB claim). Safe against a genuinely in-flight transfer by
+ * construction: leaving the HID state means the controller has abandoned
+ * any armed IN transfer, so nothing reads tx_report any more, and a late
+ * in_ready_cb -- were a driver ever to deliver one for an aborted
+ * transfer -- just saturates the semaphore at its limit of 1.
+ *
+ * Deliberately NOT added: a time-based force-reclaim in the send path
+ * ("sem held > 100 ms, take it anyway"). A pending interrupt IN transfer
+ * has no deadline in the legacy stack: with the interface configured but
+ * the host not polling the endpoint (no open handle, host-side
+ * scheduling), the transfer stays armed indefinitely with the endpoint
+ * still set up to DMA from tx_report, and a timed reclaim would overwrite
+ * that buffer while the host can still collect it -- corrupting a frame
+ * on the wire. (ZMK core's usb_hid.c does effectively that: it stomps its
+ * buffer after a 30 ms k_sem_take timeout whose result it never checks.
+ * We keep the checked non-blocking take instead.) A stalled-but-configured
+ * host needs no reclaim anyway: the moment it polls again, the pending
+ * transfer completes and in_ready_cb returns the semaphore. */
+static int usb_conn_state_listener(const zmk_event_t *eh) {
+    const struct zmk_usb_conn_state_changed *ev = as_zmk_usb_conn_state_changed(eh);
+
+    if (ev != NULL && ev->conn_state != ZMK_USB_CONN_HID) {
+        k_sem_give(&hid_sem);
+    }
+
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(zmk_raw_touch_usb_hid, usb_conn_state_listener);
+ZMK_SUBSCRIPTION(zmk_raw_touch_usb_hid, zmk_usb_conn_state_changed);
+
 #define HID_GET_REPORT_TYPE_MASK 0xff00
 #define HID_GET_REPORT_ID_MASK 0x00ff
 
@@ -68,9 +119,11 @@ static void in_ready_cb(const struct device *dev) { k_sem_give(&hid_sem); }
  * with a plausible header and whatever the stack holds by then -- typically
  * RAM pointers -- in the tail.
  *
- * Reuse of this buffer is gated by hid_sem, which is only given back from
- * in_ready_cb (transfer complete) or on a failed write, so at most one
- * in-flight transfer ever reads it.
+ * Reuse of this buffer is gated by hid_sem, given back only from
+ * in_ready_cb (transfer complete), on a failed write, or -- via
+ * usb_conn_state_listener above -- once the bus leaves the HID state and
+ * the controller has abandoned the transfer, so at most one in-flight
+ * transfer ever reads it.
  */
 static struct zmk_raw_touch_report tx_report;
 
@@ -177,14 +230,12 @@ int zmk_raw_touch_usb_send_report(void) {
     case USB_DC_RESET:
     case USB_DC_DISCONNECTED:
     case USB_DC_UNKNOWN:
-        /* Re-arm the semaphore while the bus is down. A transfer aborted by
-         * cable pull or bus reset never fires int_in_ready, so the give below
-         * is the only way hid_sem ever comes back -- without it, the first
-         * frame in flight at unplug time wedges the stream permanently
-         * (every later send times out and drops). Safe here and only here:
-         * with the bus in one of these states no transfer is running, so
-         * nothing can be reading tx_report. k_sem_give saturates at the
-         * limit of 1, so repeated calls are harmless. */
+        /* Defense in depth: the authoritative re-arm lives in
+         * usb_conn_state_listener(), but the event behind it is raised from
+         * a work item, so a send racing the status change can get here
+         * first. Giving twice is harmless -- k_sem_give saturates at the
+         * limit of 1 -- and with the bus in one of these states no transfer
+         * is running, so nothing can be reading tx_report. */
         k_sem_give(&hid_sem);
         return -ENODEV;
     default:

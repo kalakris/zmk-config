@@ -109,12 +109,29 @@ GETs work (control pipe alive), keys fine, BLE stream fine — but zero
 input frames over USB until the half is power-cycled. Prime suspect:
 `src/usb_hid.c`'s single-slot `hid_sem`, released only by the transfer
 completion callback, which never fires for a transfer killed by detach.
-The known "small USB TX ring" polish item is hereby promoted to
-**must-fix before merge** (or at minimum: return the semaphore from a
-USB reset/disconnect callback). Symptom in daily life: LinearMouse
-scroll death after replugging mid-scroll (fork suppresses the wheel per
-device identity while the stream device is present, and no frames
-arrive to synthesize from).
+Symptom in daily life: LinearMouse scroll death after replugging
+mid-scroll (fork suppresses the wheel per device identity while the
+stream device is present, and no frames arrive to synthesize from).
+
+**FIXED (2026-08-29, module `72a26f7`).** Suspect confirmed by
+inspection: the send path's existing bus-down `k_sem_give` could never
+fire in this repro, because a detach switches the selected endpoint to
+BLE (silencing the USB send path while the bus is down) and after
+replug `zmk_usb_get_status()` is healthy again, leaving that branch
+unreachable. `usb_hid.c` now subscribes to `zmk_usb_conn_state_changed`
+(the same event `src/gate.c` uses) and re-arms `hid_sem` whenever the
+connection state leaves `ZMK_USB_CONN_HID` -- exactly the transitions
+(detach, bus reset, error) that abandon an in-flight transfer, so the
+give cannot race a live transfer's DMA out of `tx_report`. A stale-sem
+force-reclaim in the send path was considered and REJECTED: a pending
+interrupt-IN transfer has no deadline when the host merely stops
+polling, and reclaiming would overwrite the buffer the endpoint is
+still armed to DMA from (reasoning in the `usb_conn_state_listener`
+comment). The "small USB TX ring" stays a separate polish item -- it is
+no longer needed for correctness here.
+
+- [ ] RETEST: pull cable mid-scroll → replug → stream resumes without
+      power-cycle; repeat ×3.
 - [ ] BLE disconnect mid-claim (power off host radio or walk away):
       "cleared (BLE profile disconnected)".
 
