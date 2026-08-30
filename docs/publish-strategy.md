@@ -1,5 +1,10 @@
 # Publish strategy — what to ship where, in what order (2026-08-26)
 
+> **2026-08-30 update:** the host ships as **RawTouch** (`~/src/rawtouch`,
+> a standalone daemon/menubar app) — NOT as the LinearMouse fork (row 9's
+> "ship as a fork" is superseded; the fork stays private, next-steps
+> item k). Row 3 (`inputScale` PR to LinearMouse) is unaffected.
+
 Landability research. Blunt version: **ZMK core is effectively closed to
 outside code; Zephyr and LinearMouse are open and fast; and the core ZMK
 work we thought was fork-forever is actually module-able.**
