@@ -137,12 +137,14 @@ no longer needed for correctness here.
 
 ## 5. Sleep / wake
 
-- [ ] Host sleep 2+ min with an active claim, then wake: claim expired
-      or cleared during sleep (no stuck suppression); the host's
-      re-assert (watchdog / re-enumeration callback) re-claims; bit 2
-      returns; NO double scroll in the gap (host must not synthesize
-      until it sees bit 2 = 1 again — the anti-double-scroll property).
-- [ ] Keyboard idle/sleep and wake mid-claim: same outcome.
+- [x] Host sleep with an active claim (2026-08-29, RawTouch live):
+      `pmset sleepnow`, 48 s in Deep Idle (pmset log), > the 30 s claim
+      timeout. Recovery instant on wake — RawTouch re-claimed before
+      the user cleared the lock screen; no stuck suppression, no double
+      scroll observed.
+- [ ] Keyboard idle/sleep and wake mid-claim: same outcome. WATCH-ITEM:
+      confirm the first time the keyboard's own idle-sleep happens
+      naturally with RawTouch running.
 
 ## 6. The stale-GATT-cache failure (deliberate)
 
@@ -156,9 +158,10 @@ no longer needed for correctness here.
 
 ## 7. Regression sweep (gate never touched)
 
-- [~] Spot-checked through ~2 h of live bench use: stream scroll (USB
-      + BLE, via the fork), wheel fallback with consumer quit,
-      tap-to-click, pointer, typing — all normal with gate code idle,
-      after recovering from the (pre-existing) USB-wedge finding above.
-      Full deliberate sweep incl. LH pad + typing-under-load still to
-      run before merge.
+- [x] Covered across two live sessions: stream scroll (USB + BLE, via
+      the fork AND via RawTouch's first live run), wheel fallback with
+      consumer quit, tap-to-click, pointer, typing, both pads incl.
+      rapid cross-pad alternation (which surfaced and then verified the
+      fix for the host-side momentum-lockout defect — RawTouch
+      `458d830`), sleep/wake. The pre-existing USB-wedge finding above
+      was fixed and retested 3/3 along the way.

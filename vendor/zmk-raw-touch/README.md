@@ -335,10 +335,13 @@ clears a claim on
 A dead host can therefore never leave the wheel fallback disabled for
 longer than its own stated timeout.
 
-**BLE cache warning.** Making the feature characteristic writable
-changed the GATT database. Hosts that paired with an earlier firmware
-have a stale cache: **forget + re-pair after flashing across this
-change** (see Known issues — the failure mode is deceptively partial).
+**BLE cache note.** Making the feature characteristic writable changes
+only a characteristic *permission*, not the report map or attribute
+layout — **bench-verified 2026-08-29 that a host paired against pre-gate
+firmware claims, gates, and releases correctly with no re-pair**. The
+forget + re-pair rule still applies to any change that touches the
+report map or GATT attribute layout (see Known issues — that failure
+mode is deceptively partial).
 
 ### v2 (legacy)
 
