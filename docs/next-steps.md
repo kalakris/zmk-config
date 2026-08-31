@@ -144,9 +144,13 @@ release prerequisite when the standalone-host decision landed
 - Cirque driver patches to **Zephyr** (0xFF/SW_DR guard, ERA edge
   sensitivity — after fixing (a)): **message Pete Johanson first**; the
   patches are his unfinished migration.
-- `inputScale` PR to **LinearMouse** (first two commits of the fork,
-  self-contained), framed as generalizing
-  `LogitechHighResolutionWheelNormalizer`.
+- `inputScale` PR to **LinearMouse**, framed as generalizing
+  `LogitechHighResolutionWheelNormalizer`. The PR-ready base now exists:
+  `stock-inputscale` (2026-08-31, upstream `9843332` + the 2 commits,
+  UI commit amended to drop the fork-only `fieldRange:` param). Same
+  branch is what's installed at /Applications/LinearMouse.app — pointer
+  processing + inputScale, no touch-stream code, runs alongside
+  RawTouch.
 
 ## h. Delete the `kalakris/zmk` fork
 

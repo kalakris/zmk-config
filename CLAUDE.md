@@ -124,9 +124,16 @@ claim clearing mid-touch gets one trailing bit-2-clear release frame;
 the host answers by canceling that pad's series WITHOUT momentum. The
 keyboard reverts to Standard mode whenever the claim lapses (timeout,
 release, endpoint switch, host death).
-The patched LinearMouse fork is the frozen private fallback (quit
-rawtouch → launch LinearMouse; never both — double scroll) and **will
-not be released publicly**; RawTouch is the release vehicle. macOS
+The scroll fallback is simply quitting RawTouch → Standard mode (no
+software needed). The old LinearMouse touch-stream fork is **obsolete
+as a fallback** since claim-gated emission (2026-08-31: it never
+claims, so it gets a silent stream while suppressing wheel events
+host-side = no scrolling at all) and **will not be released publicly**;
+RawTouch is the release vehicle. Since 2026-08-31,
+/Applications/LinearMouse.app is the **stock-inputscale** build
+(upstream + the 2 inputScale commits, NO touch-stream code) — it runs
+ALONGSIDE RawTouch for pointer processing; the never-run-both rule
+applied to the fork build only. macOS
 quirk: USB feature-report GETs arrive report-ID-prefixed, BLE bare.
 Tap-to-click is firmware-side; the pads' chains must NOT contain
 `&zip_button_behaviors`, which would eat the injected BTN_0.
@@ -146,7 +153,7 @@ in `firmware/raw-touch-v0-prototype/`):
 - `~/src/zmk` (`kalakris/zmk@raw-touch`) — the old ZMK core patch. **Dead; safe to delete** — `cfc4b3e6` is salvaged as `patches/zmk-skip-empty-mouse-report-syncs.patch`
 - `~/src/cirque-input-module` — `@intree-driver` (Zephyr main's driver vendored + 3 patches; patch 3/3 carries the dead-pad boot race, must-fix before upstreaming) and the historical `@raw-touch` fork. Never PR abs-mode anywhere — see [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md)
 - `~/src/rawtouch` — **RawTouch, the host** (local-only repo, no remote yet): menubar app + CLI daemon over shared `RawTouchCore`. **The menubar app IS the live host since 2026-08-30** (`~/Applications/RawTouch.app`; the iTerm-tab CLI arrangement is retired). Config `~/.config/rawtouch/config.json` live-reloads via file watcher; flock instance lock stops app/CLI double-runs; LaunchAgent plist in `resources/` for headless use. Extracted from the LinearMouse fork; 149 unit tests. TCC: the app bundle holds its OWN Accessibility grant (ad-hoc signing = re-grant per rebuild; `RAWTOUCH_SIGN_ID` = stable); CLI-under-terminal attributes to the terminal instead
-- `~/src/linearmouse` (`kalakris/linearmouse`) — the old host consumer, now the **frozen private fallback** (keeps the cross-pad momentum-lockout bug; will never be released). `inputscale` branch = main + the 2 generic `inputScale` commits, still the upstream-PR candidate (item g)
+- `~/src/linearmouse` (`kalakris/linearmouse`) — the old host consumer. `main` = the frozen touch-stream fork (never released; obsolete even as a fallback post-claim-gated-emission). **`stock-inputscale`** (2026-08-31) = upstream `9843332` + the 2 `inputScale` commits (UI commit amended: `fieldRange:` dropped — that param was fork-only plumbing) — this is what's INSTALLED at /Applications/LinearMouse.app (pointer processing + input scaling, coexists with RawTouch) and the cleanest upstream-PR base (item g). `inputscale` = the old fork-stacked variant, superseded
 
 Build loops:
 - **Firmware**: edit on `main` → push → `./scripts/download-firmware.sh` (waits for the branch-tip run) → `./scripts/flash-go60.sh firmware/main/firmware` (bootloader: RH T3 + `/`; right half only for scroll/stream changes, both halves for driver or left-pad-config changes).
