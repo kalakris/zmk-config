@@ -24,12 +24,15 @@
 
 #define ZMK_RAW_TOUCH_FLAGS_TOUCHED BIT(0)
 #define ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE BIT(1)
-/* Gate engaged: set iff the endpoint this frame is being sent to holds a
- * live mode-gate claim, i.e. the scroll-context wheel fallback is
- * suppressed for it. Hosts synthesize scroll only when this and
+/* Host claimed: set iff the endpoint this frame is being sent to held a
+ * live host claim when the frame was sampled, i.e. the scroll-context
+ * wheel fallback is suppressed for it. Since frames are only emitted
+ * while claimed, this is implied-set on ordinary frames; the one frame
+ * carrying it clear is the single synthetic release emitted when a claim
+ * clears mid-touch. Hosts synthesize scroll only when this and
  * SCROLL_MODE are both set, making wheel and synthesized scroll mutually
  * exclusive by construction (see zmk/raw_touch/gate.h). */
-#define ZMK_RAW_TOUCH_FLAGS_MODE_GATE BIT(2)
+#define ZMK_RAW_TOUCH_FLAGS_HOST_CLAIMED BIT(2)
 
 struct zmk_raw_touch_report_body {
     uint8_t pad_id;
@@ -61,11 +64,12 @@ struct zmk_raw_touch_report {
 #define ZMK_RAW_TOUCH_USAGE_PAGE 0xFF00
 #define ZMK_RAW_TOUCH_USAGE 0x01
 
-/* Capabilities bit 0: the mode gate is supported - the host may claim the
- * stream by writing the feature report (see zmk/raw_touch/gate.h).
- * Advertised whenever a host-facing transport is built; hosts MUST check
- * this bit before attempting a claim. */
-#define ZMK_RAW_TOUCH_CAP_MODE_GATE BIT(0)
+/* Capabilities bit 0: the host claim is supported - the host may claim
+ * the stream by writing the feature report (see zmk/raw_touch/gate.h),
+ * switching the pads from standard (firmware-driven) scrolling to
+ * host-driven scrolling. Advertised whenever a host-facing transport is
+ * built; hosts MUST check this bit before attempting a claim. */
+#define ZMK_RAW_TOUCH_CAP_HOST_CLAIM BIT(0)
 
 #define ZMK_RAW_TOUCH_ORIENT_ROTATE_90 BIT(0)
 #define ZMK_RAW_TOUCH_ORIENT_X_INVERT BIT(1)

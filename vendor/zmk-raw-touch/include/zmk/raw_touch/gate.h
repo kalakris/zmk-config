@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  *
- * Device-side mode gate (protocol v3, capability bit 0).
+ * Device-side host-claim state (protocol v3, capability bit 0).
  *
  * A host that consumes the raw touch stream CLAIMS it by writing a
  * 4-byte command to the feature report (USB SET_REPORT(FEATURE) or a
@@ -37,7 +37,7 @@
  * payload may additionally carry the leading report-ID byte). */
 #define ZMK_RAW_TOUCH_GATE_CMD_LEN 4
 
-/* body[0]: command. 0x01 = gate claim; everything else is rejected. */
+/* body[0]: command. 0x01 = host claim; everything else is rejected. */
 #define ZMK_RAW_TOUCH_GATE_CMD_CLAIM 0x01
 
 /* body[1]: operation. */

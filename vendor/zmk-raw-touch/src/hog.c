@@ -119,7 +119,7 @@ static void input_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value) {
             (value == BT_GATT_CCC_NOTIFY) ? "subscribed" : "unsubscribed");
 }
 
-/* Mode-gate claim: the feature report's write path (HOGP report
+/* Host claim: the feature report's write path (HOGP report
  * characteristics of type Feature are read/write per HIDS 1.0 §2.5.2).
  * The GATT write carries the 4-byte body alone - the report ID lives in
  * the report reference descriptor, as on the input report's notify path.
@@ -189,7 +189,7 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_DESCRIPTOR(BT_UUID_HIDS_REPORT_REF, BT_GATT_PERM_READ_ENCRYPT, read_hids_report_ref,
                        NULL, &touch_input),
 
-    /* Feature report: pad capabilities on read, mode-gate claim on write;
+    /* Feature report: pad capabilities on read, host claim on write;
      * no CCC (feature reports are never notified). This is the BLE
      * counterpart of the USB GET_REPORT/SET_REPORT(FEATURE) paths; hosts
      * must read and validate it before treating the collection as raw

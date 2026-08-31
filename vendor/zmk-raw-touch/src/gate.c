@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  *
- * Mode-gate state: per-endpoint-instance claims with timeout expiry.
+ * Host-claim state: per-endpoint-instance claims with timeout expiry.
  *
  * One claim slot per selectable endpoint instance, indexed by ZMK core's
  * own zmk_endpoint_instance_to_index(). A slot, not a single global
@@ -85,7 +85,7 @@ static void gate_clear_index(int idx, const char *reason) {
 
     if (cleared) {
         k_work_cancel_delayable(&gate_claims[idx].expiry_work);
-        LOG_INF("Raw touch mode gate claim for endpoint %d cleared (%s)", idx, reason);
+        LOG_INF("Raw touch host claim for endpoint %d cleared (%s)", idx, reason);
     }
 }
 
@@ -110,7 +110,7 @@ static void gate_expiry_cb(struct k_work *work) {
     }
 
     if (cleared) {
-        LOG_WRN("Raw touch mode gate claim for endpoint %d expired without a host refresh; "
+        LOG_WRN("Raw touch host claim for endpoint %d expired without a refresh; "
                 "wheel fallback restored",
                 (int)ARRAY_INDEX(gate_claims, claim));
     }
@@ -129,7 +129,7 @@ int zmk_raw_touch_gate_handle_command(struct zmk_endpoint_instance source, const
     }
 
     if (body[3] != 0) {
-        LOG_WRN("Rejected gate claim with nonzero reserved byte 0x%02x", body[3]);
+        LOG_WRN("Rejected claim with nonzero reserved byte 0x%02x", body[3]);
         return -EINVAL;
     }
 
@@ -148,7 +148,7 @@ int zmk_raw_touch_gate_handle_command(struct zmk_endpoint_instance source, const
         uint8_t timeout_s = body[2];
 
         if (timeout_s == 0) {
-            LOG_WRN("Rejected gate claim with zero timeout");
+            LOG_WRN("Rejected claim with zero timeout");
             return -EINVAL;
         }
 
@@ -168,11 +168,11 @@ int zmk_raw_touch_gate_handle_command(struct zmk_endpoint_instance source, const
         k_work_reschedule(&gate_claims[idx].expiry_work, K_SECONDS(timeout_s));
 
         if (!refresh) {
-            LOG_INF("Raw touch mode gate claimed by %s (timeout %us); wheel fallback suppressed "
+            LOG_INF("Raw touch stream claimed by %s (timeout %us); wheel fallback suppressed "
                     "while %s is selected",
                     label, timeout_s, label);
         } else {
-            LOG_DBG("Raw touch mode gate claim refreshed by %s (timeout %us)", label, timeout_s);
+            LOG_DBG("Raw touch claim refreshed by %s (timeout %us)", label, timeout_s);
         }
 
         return 0;

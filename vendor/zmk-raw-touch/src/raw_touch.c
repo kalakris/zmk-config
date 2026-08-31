@@ -7,9 +7,15 @@
  * (position + touch strength) from a trackpad running in absolute mode to
  * the host over a vendor-defined HID report (see zmk/raw_touch/hid.h).
  *
- * One report is emitted per pad sample while touched (~100 Hz), plus
- * exactly one release report (touched = 0, z = 0) on lift-off. Each frame
- * carries a per-pad sequence number (drop detection) and a device-side
+ * Reports are emitted only while the selected endpoint's host holds a
+ * live claim (see gate.c) - i.e. only in host-driven ("RawTouch") mode,
+ * never in standard mode: one report per pad sample while
+ * touched (~100 Hz), plus exactly one release report (touched = 0, z = 0)
+ * on lift-off. Unclaimed, the stream is silent - nobody is listening, and
+ * at ~100 Hz of 11-byte reports the wasted BLE airtime is real. If the
+ * claim clears mid-touch, one final synthetic release report (touched =
+ * 0, flags bit 2 clear) closes the host's gesture before the stream goes
+ * quiet. Each frame carries a per-pad sequence number (drop detection) and a device-side
  * timestamp in 100 us units (host-side velocity that BLE batching cannot
  * distort). A 20-byte feature report on the same report ID describes the
  * protocol version, the pads present and, per pad, its resolution,
@@ -99,6 +105,14 @@ struct raw_touch_pad_data {
     /* Streamed-frame sequence number, +1 per emitted report, wraps. */
     uint8_t seq;
 
+    /* Whether the last emitted report said touched, i.e. the stream's
+     * consumer currently believes a finger is down. Distinct from
+     * prev_touched (the pad's physical state, which keeps tracking while
+     * no report goes out): a mid-touch declaim must emit exactly one
+     * synthetic release report so the host is not left holding a phantom
+     * finger-down, and this is the state that says one is owed. */
+    bool stream_touched;
+
     /* Tap detection state for the current touch. */
     int64_t touch_down_ts;
     uint16_t touch_down_x, touch_down_y;
@@ -126,28 +140,50 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
         return;
     }
 
-    /* Mode gate, evaluated fresh on every frame: engaged iff the endpoint
+    /* Host claim, evaluated fresh on every frame: true iff the endpoint
      * this frame is about to go to (zmk_raw_touch_send_report() dispatches
      * on zmk_endpoints_selected() a few lines below) holds a live claim.
-     * Deliberately NOT latched across frames - the flag and the wheel
-     * suppression below must both revert on the very next frame after a
-     * claim clears or the endpoint switches away. */
-    bool gate_engaged = zmk_raw_touch_gate_engaged_for_selected();
-
-    uint8_t flags = (touched ? ZMK_RAW_TOUCH_FLAGS_TOUCHED : 0) |
-                    (scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0) |
-                    (gate_engaged ? ZMK_RAW_TOUCH_FLAGS_MODE_GATE : 0);
+     * Deliberately NOT latched across frames - frame emission, the flag
+     * and the wheel suppression below must all revert on the very next
+     * frame after a claim clears or the endpoint switches away. */
+    bool host_claimed = zmk_raw_touch_gate_engaged_for_selected();
 
     /* Device-side sample time (HID Scan Time convention, 100 us units):
      * hosts derive finger velocity from this rather than from arrival
      * time, which BLE connection-interval batching distorts. */
     uint16_t timestamp = (uint16_t)(k_ticks_to_us_floor64(k_uptime_ticks()) / 100);
 
-    /* !touched implies cur_x/y/z are all zero (that is how touched is
-     * derived above), so the release report's zeros need no special case. */
-    zmk_raw_touch_hid_set(cfg->pad_id, data->cur_x, data->cur_y, data->cur_z, flags, data->seq++,
-                          timestamp);
-    zmk_raw_touch_send_report();
+    if (host_claimed) {
+        uint8_t flags = (touched ? ZMK_RAW_TOUCH_FLAGS_TOUCHED : 0) |
+                        (scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0) |
+                        ZMK_RAW_TOUCH_FLAGS_HOST_CLAIMED;
+
+        /* !touched implies cur_x/y/z are all zero (that is how touched is
+         * derived above), so the release report's zeros need no special
+         * case. */
+        zmk_raw_touch_hid_set(cfg->pad_id, data->cur_x, data->cur_y, data->cur_z, flags,
+                              data->seq++, timestamp);
+        zmk_raw_touch_send_report();
+        data->stream_touched = touched;
+    } else if (data->stream_touched) {
+        /* The claim cleared mid-touch (timeout, host release, endpoint
+         * switch - see gate.c) and the last report the host saw said
+         * touched. Emit exactly one synthetic release report so the host
+         * closes its gesture instead of holding a phantom finger-down
+         * (runaway momentum), then go silent. Bit 2 is clear - its meaning
+         * stays exact: "a host claim was engaged when this frame was
+         * sampled" - which also tells the host the wheel fallback is live
+         * again, so it must not add lift-off momentum on top. */
+        zmk_raw_touch_hid_set(cfg->pad_id, 0, 0, 0,
+                              scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0, data->seq++,
+                              timestamp);
+        zmk_raw_touch_send_report();
+        data->stream_touched = false;
+    }
+    /* Unclaimed with nothing owed: emit nothing. Everything below - tap
+     * detection, relative-delta derivation, prev_x/prev_y tracking - keeps
+     * running regardless, because it IS the driverless standard-mode
+     * experience (cursor + tap + wheel fallback). */
 
     if (touched && !data->prev_touched) {
         /* Touch-down: start a tap candidacy. */
@@ -173,17 +209,17 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
      * provides standard wheel scrolling as a fallback for hosts without a
      * stream consumer.
      *
-     * The mode gate suppresses exactly that fallback: while the selected
+     * The host claim suppresses exactly that fallback: while the selected
      * endpoint holds a claim, scroll-context deltas are not injected at
      * all, so the wheel-mapping overlay downstream has nothing to emit
      * and the claiming host (which is synthesizing scroll from the
      * frames) never sees doubled scrolling. This is the narrowest
      * possible cut - pointer-context deltas (scroll_mode false), tap
      * clicks and every key path are untouched, and prev_x/prev_y keep
-     * tracking below so the first delta after the gate clears is an
-     * ordinary one-frame step, not a jump. Ungated hosts are unaffected:
-     * bit 2 stays 0 and the wheel keeps working. */
-    bool suppress_fallback = gate_engaged && scroll_mode;
+     * tracking below so the first delta after the claim clears is an
+     * ordinary one-frame step, not a jump. Hosts that never claim are
+     * unaffected: the wheel keeps working. */
+    bool suppress_fallback = host_claimed && scroll_mode;
 
     if (touched && data->have_prev_pos && !suppress_fallback) {
         int32_t raw_dx = (int32_t)data->cur_x - (int32_t)data->prev_x;

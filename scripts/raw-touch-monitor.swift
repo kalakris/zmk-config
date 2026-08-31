@@ -8,12 +8,28 @@
 // the device-side 100 µs sample clock (wraps at 6.5536 s). Device add /
 // removal / transport notes go to stderr so stdout stays clean CSV.
 //
-// Passive observer: opens the device non-seizing, so LinearMouse keeps
-// working while this runs. Feed the output to analyze-touch-timing.py.
+// Passive observer by default: opens the device non-seizing, so a running
+// stream consumer keeps working while this runs. Feed the output to
+// analyze-touch-timing.py.
+//
+// Since the firmware gates frame emission on the host claim (2026-08-31),
+// a passive monitor sees frames only while some OTHER consumer holds the
+// claim; with none running the stream is silent. For standalone captures
+// pass --claim: the monitor then writes the claim feature report itself
+// (4-byte gate-claim body, refreshed periodically, released on Ctrl-C —
+// same SET-report path as scripts/gate-claim.swift, including the USB
+// report-ID-prefix quirk).
+//
+// WARNING: --claim makes this monitor a stream consumer. Quit RawTouch
+// first — two consumers competing for the claim is exactly the
+// double-consumer trouble the docs warn about — and remember that while
+// the claim is held the firmware suppresses its wheel-scroll fallback, so
+// scroll gestures move nothing on screen until the claim is released.
 //
 // Build & run:
 //     swiftc -O scripts/raw-touch-monitor.swift -o /tmp/raw-touch-monitor
-//     /tmp/raw-touch-monitor > capture.csv    (Ctrl-C to stop)
+//     /tmp/raw-touch-monitor > capture.csv            (Ctrl-C to stop)
+//     /tmp/raw-touch-monitor --claim > capture.csv    (standalone capture)
 
 import Foundation
 import IOKit.hid
@@ -23,8 +39,13 @@ let usage = 0x01
 let frameReportID: UInt32 = 0x04
 let v3PayloadLength = 11
 
+let claimMode = CommandLine.arguments.contains("--claim")
+let claimTimeoutS: UInt8 = 30
+let claimRefreshInterval: TimeInterval = 10 // < timeoutS / 2
+
 var deviceIndex: [IOHIDDevice: Int] = [:]
 var nextDeviceIndex = 0
+var claimedDevices: Set<IOHIDDevice> = []
 
 func stringProperty(_ device: IOHIDDevice, _ key: String) -> String {
     (IOHIDDeviceGetProperty(device, key as CFString) as? String) ?? "?"
@@ -59,6 +80,35 @@ func describe(_ device: IOHIDDevice, index: Int) {
     }
 }
 
+// --- claim mode (--claim) ---------------------------------------------------
+// Lifted from scripts/gate-claim.swift. Validation and framing both handle
+// the macOS quirk: over USB, feature-report GETs arrive with the report-ID
+// byte prefixed (and some stacks want SETs prefixed too); over BLE both are
+// bare. Claim writes go bare-body first, then retry once with the prefix.
+
+func gateCapable(_ device: IOHIDDevice) -> Bool {
+    var buffer = [UInt8](repeating: 0, count: 64)
+    var length: CFIndex = buffer.count
+    guard IOHIDDeviceGetReport(device, kIOHIDReportTypeFeature, CFIndex(frameReportID),
+                               &buffer, &length) == kIOReturnSuccess, length >= 3 else { return false }
+    var body = Array(buffer[0..<length])
+    if body[0] == UInt8(frameReportID) { body.removeFirst() } // USB ID prefix
+    return body.count >= 3 && body[0] == 3 && body[2] & 0x01 != 0 // v3 + claim capability
+}
+
+@discardableResult
+func writeClaim(_ device: IOHIDDevice, claim: Bool) -> Bool {
+    let body: [UInt8] = [0x01, claim ? 0x01 : 0x00, claimTimeoutS, 0x00]
+    for payload in [body, [UInt8(frameReportID)] + body] {
+        let result = payload.withUnsafeBufferPointer {
+            IOHIDDeviceSetReport(device, kIOHIDReportTypeFeature, CFIndex(frameReportID),
+                                 $0.baseAddress!, payload.count)
+        }
+        if result == kIOReturnSuccess { return true }
+    }
+    return false
+}
+
 setvbuf(stdout, nil, _IOLBF, 0) // line-buffer CSV so captures survive Ctrl-C
 
 let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
@@ -73,9 +123,22 @@ IOHIDManagerRegisterDeviceMatchingCallback(manager, { _, _, _, device in
     nextDeviceIndex += 1
     deviceIndex[device] = index
     describe(device, index: index)
+    if claimMode {
+        if gateCapable(device) {
+            if writeClaim(device, claim: true) {
+                claimedDevices.insert(device)
+                note("# dev \(index): claim written (timeout \(claimTimeoutS)s); wheel fallback suppressed")
+            } else {
+                note("# dev \(index): CLAIM WRITE FAILED on both framings")
+            }
+        } else {
+            note("# dev \(index): not claim-capable (no v3 feature report or capability bit 0 clear)")
+        }
+    }
 }, nil)
 
 IOHIDManagerRegisterDeviceRemovalCallback(manager, { _, _, _, device in
+    claimedDevices.remove(device)
     if let index = deviceIndex.removeValue(forKey: device) {
         note("# dev \(index): removed")
     }
@@ -107,11 +170,30 @@ if openResult != kIOReturnSuccess {
 }
 
 print("host_ns,dev,pad,contact,x,y,z,flags,seq,ts_ticks")
+if claimMode {
+    note("# claim mode: this monitor is a stream consumer - do NOT run RawTouch at the same time")
+    Timer.scheduledTimer(withTimeInterval: claimRefreshInterval, repeats: true) { _ in
+        for device in claimedDevices {
+            writeClaim(device, claim: true)
+        }
+    }
+}
 note("# monitoring (Ctrl-C to stop)...")
 
-signal(SIGINT) { _ in
+// DispatchSource rather than signal(): releasing the claim does I/O, which
+// is not async-signal-safe. The main run loop services the main queue.
+signal(SIGINT, SIG_IGN)
+let sigintSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+sigintSource.setEventHandler {
+    for device in claimedDevices {
+        writeClaim(device, claim: false)
+    }
+    if !claimedDevices.isEmpty {
+        note("# claim(s) released")
+    }
     note("# stopped")
     exit(0)
 }
+sigintSource.resume()
 
 CFRunLoopRun()

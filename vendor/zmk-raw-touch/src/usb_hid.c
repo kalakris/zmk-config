@@ -172,7 +172,7 @@ static int get_report_cb(const struct device *dev, struct usb_setup_packet *setu
 }
 
 /* SET_REPORT(FEATURE) carries the protocol's single host-to-device path:
- * the mode-gate claim (see src/gate.c). Everything else is still rejected
+ * the host claim (see src/gate.c). Everything else is still rejected
  * with -ENOTSUP, exactly as Zephyr's default handler would.
  *
  * Per HID 1.11 a control-pipe report on a device using report IDs is
