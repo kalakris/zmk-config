@@ -17,8 +17,12 @@ current main — the pre-claim-build note is closed), the app rebuilt and
 relaunched, scrolling confirmed. The stable-signature TCC carry-over
 also proved out: the rebuild needed no Accessibility re-grant. Both
 halves now run the emission-gated firmware, so a quit app = Standard
-mode with a silent stream; debugging frames needs the monitor's
-`--claim` flag (quit the app first). The merged `mode-gate` branches
+mode with a silent stream. Monitoring: with the app running, run
+`raw-touch-monitor.swift` passively (the app's claim keeps frames
+flowing; HID reports fan out to all clients — preferred debug mode);
+`--claim` is only for capturing with no host running, and its caveat is
+the observer effect (wheel fallback stops while held), not double
+scroll. The merged `mode-gate` branches
 (both repos) are deletable. **The menubar app (item k #1) is LIVE** (the user
 switched over 2026-08-30 — settings work, both pads scroll, the
 enabled-toggle returns the keyboard to Standard mode, icons render

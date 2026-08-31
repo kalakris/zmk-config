@@ -13,18 +13,24 @@
 // analyze-touch-timing.py.
 //
 // Since the firmware gates frame emission on the host claim (2026-08-31),
-// a passive monitor sees frames only while some OTHER consumer holds the
-// claim; with none running the stream is silent. For standalone captures
-// pass --claim: the monitor then writes the claim feature report itself
-// (4-byte gate-claim body, refreshed periodically, released on Ctrl-C —
-// same SET-report path as scripts/gate-claim.swift, including the USB
-// report-ID-prefix quirk).
+// a passive monitor sees frames only while some claim is live. Two modes:
 //
-// WARNING: --claim makes this monitor a stream consumer. Quit RawTouch
-// first — two consumers competing for the claim is exactly the
-// double-consumer trouble the docs warn about — and remember that while
-// the claim is held the firmware suppresses its wheel-scroll fallback, so
-// scroll gestures move nothing on screen until the claim is released.
+// - RawTouch (or another host) running: just run passively — its claim
+//   keeps frames flowing, HID input reports fan out to every client, and
+//   you observe exactly what the host sees without perturbing anything.
+//   This is the preferred debug mode. Do NOT also pass --claim: it adds
+//   nothing (frames already flow) and muddies claim-refresh/expiry timing.
+// - No host running: the stream is silent by design (the frames are never
+//   transmitted), so pass --claim: the monitor writes the claim feature
+//   report itself (4-byte gate-claim body, refreshed periodically,
+//   released on Ctrl-C — same SET-report path as scripts/gate-claim.swift,
+//   including the USB report-ID-prefix quirk).
+//
+// Observer effect of --claim: holding the claim puts the keyboard in
+// RawTouch mode, so the wheel-scroll fallback you may be trying to debug
+// stops firing and scroll gestures move nothing on screen until release.
+// (A claiming monitor does NOT double-scroll — the two-consumers rule is
+// about two scroll synthesizers, and this tool synthesizes nothing.)
 //
 // Build & run:
 //     swiftc -O scripts/raw-touch-monitor.swift -o /tmp/raw-touch-monitor
