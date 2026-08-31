@@ -8,15 +8,23 @@ v3, both pads streaming, USB + BLE verified) — see
 [module-publish-brief.md](module-publish-brief.md) for the publish plan.
 Each item below is self-contained enough to start cold.
 
-In flight / current state (2026-08-30): **RawTouch is the live scroll
-host** (foreground iTerm tab — see item k for the full operational
-state; LinearMouse stays quit). **RH runs the gate build** (= merged
-main content); **LH is still on the pre-gate main build** — works fine
-(split protocol unchanged), but flash LH from current main whenever
-convenient for build consistency. The merged `mode-gate` branches
-(both repos) are deletable. Next session: RawTouch menubar app + config
-UI (item k). Previous round's flashes (boot-race fix, poll tuning,
-click keymap, `hold-while-undecided`) all validated.
+In flight / current state (2026-08-31): **RawTouch is the live scroll
+host** (menubar app — see item k for the full operational state;
+LinearMouse stays quit). Items l (claim-gated frame emission) and m
+(Standard mode / RawTouch mode naming) landed in all three repos but
+are **not yet deployed**: flash BOTH halves from current `main` (l is a
+frame-path change — this also supersedes the note that LH was still on
+the pre-claim build) and rebuild + redeploy the app (quit it first —
+quitting releases the claim — then `./scripts/make-app.sh`, relaunch).
+Deploy order is flexible: new firmware + the currently-running host
+works (it claims and gets frames as before), and the new host against
+old firmware is unchanged. The merged `mode-gate` branches (both repos)
+are deletable. **The menubar app (item k #1) is LIVE** (the user
+switched over 2026-08-30 — settings work, both pads scroll, the
+enabled-toggle returns the keyboard to Standard mode, icons render
+well). The iTerm-tab arrangement is retired. Previous round's flashes
+(boot-race fix, poll tuning, click keymap, `hold-while-undecided`) all
+validated.
 
 ## a. Fix the dead-pad boot race (firmware, real bug) — DONE 2026-08-28
 
@@ -218,13 +226,100 @@ RawTouch, not the fork. The `inputScale` upstream PR (item g) is
 unaffected.
 
 Remaining for RawTouch:
-1. **Menubar app + config UI** — NEXT SESSION. `MenuBarExtra` (macOS 13
-   floor matches), live status (device/gate/pad), config editing with
-   live-reload, login-item management, Accessibility onboarding. Keep
-   the CLI/LaunchAgent mode working.
+1. **Menubar app + config UI — DONE, LIVE 2026-08-30** (user switched
+   over same day: settings live-apply, both pads scroll, enabled-toggle
+   restores fallback, icons good; sliders gained editable value fields
+   in `b95f894`).
+   Single-process design (app embeds `RawTouchCore`; TCC rationale: the
+   app bundle is the one identity whose Accessibility grant survives
+   rebuilds when signed with a stable identity — a split app+daemon
+   would pin the grant on the fragile bare-binary identity plus an IPC
+   layer). Shipped at `~/src/rawtouch` @ `4691395`, 149/149 tests:
+   `RawTouchAppCore` (testable model: AppModel, icon-state precedence,
+   status formatters, login-item wrapper) + `RawTouchApp` (MenuBarExtra
+   menu style, grouped-Form settings window with log-scale sliders +
+   per-pad sections, one-screen AX onboarding with 1 s trust poll,
+   lock-conflict alert) + `scripts/make-app.sh` (assembles + signs
+   RawTouch.app; `RAWTOUCH_SIGN_ID` env for a stable TCC identity, ad-hoc
+   otherwise). Along the way the core grew: `RawTouchStatus` +
+   `onStatusChange`, `apply(configuration:)` live-reload with gate
+   reconciliation (fixed a real bug: `enabled: false` used to claim the
+   gate anyway → no scrolling at all), `ConfigFileWatcher` (CLI has
+   live-reload now too — config is no longer load-at-start), `save()`,
+   and a flock `InstanceLock` (CLI exit 3 on conflict) so app/CLI/
+   LaunchAgent can never double-consume the stream. PRODUCT.md +
+   DESIGN.md in the repo carry the design language.
+   **Redeploy loop after app edits:** quit the app (releases the gate)
+   → `./scripts/make-app.sh` → relaunch `~/Applications/RawTouch.app`.
+   With ad-hoc signing each rebuild is a new TCC identity (re-grant
+   Accessibility); `RAWTOUCH_SIGN_ID` with a stable cert avoids that.
 2. LaunchAgent switchover after burn-in (own TCC grant — grant only
-   right after install; the accessibility-loop trap applies).
+   right after install; the accessibility-loop trap applies). If the
+   menubar app becomes the daily driver, the LaunchAgent path is for
+   headless users only.
 3. GitHub repo + release pipeline (item f: Developer ID + notarization
    before public release).
 4. Watch-item: keyboard's own idle-sleep mid-claim — confirm scroll
    resumes the first time it happens naturally (bench §5 second box).
+5. Onboarding polish: wire the "Open System Settings" button to also
+   call `AXIsProcessTrustedWithOptions` with the prompt option — the
+   explicit-button case the design allows. macOS then auto-creates the
+   (unchecked) Accessibility row, so granting is a toggle instead of
+   the "+"/⌘⇧G dance. Surfaced 2026-08-31 by the first re-sign: a TCC
+   row from a previous signature shows "granted" while the new build is
+   untrusted; recovery is quit → `tccutil reset Accessibility
+   com.kalakris.RawTouch` → relaunch → grant fresh (now that the
+   signature is cert-stable, this was one-time).
+
+## l. Gate frame emission on the claim — DONE 2026-08-31 (firmware + host)
+
+Frames now exist only in RawTouch mode. `raw_touch.c` emits the 11-byte
+report only while `zmk_raw_touch_gate_engaged_for_selected()` — the same
+per-endpoint claim state that already drives the wheel suppression — is
+true; unclaimed, the stream is silent (saves ~100 Hz of 11-byte BLE
+reports whenever no host is running, the published module's common
+case). The relative-delta pointer path, tap detection and `prev_x/prev_y`
+tracking keep running unclaimed — that is Standard mode. If the claim
+clears mid-touch (timeout / release / endpoint switch while
+`prev_touched`), the firmware emits exactly ONE synthetic release frame
+(touched = 0) with bit 2 CLEAR, then goes silent; bit 2 keeps its exact
+meaning ("host claim live when this frame was sampled") and is
+implied-set on ordinary frames. Host side: an unclaimed frame arriving
+for a pad WITH an active series (touching or coasting) cancels that
+series like `interrupt()`, deliberately WITHOUT lift-off momentum — a
+declaim means firmware wheel scrolling resumed, and momentum on top
+would double-scroll; unclaimed frames for pads with no series stay
+silently dropped (4 new pipeline tests, suite at 152). Because a passive
+monitor now sees silence, `scripts/raw-touch-monitor.swift` grew an
+opt-in `--claim` flag (claim + periodic refresh + release on Ctrl-C,
+USB report-ID-prefix quirk handled; --claim makes it a stream
+consumer — quit RawTouch first). Compatibility: new firmware + an old
+non-claiming host degrades via the stale-touch watchdog; old firmware +
+new host unchanged. Spec updated in the module README appendix (still
+protocol v3, no layout change). Deploy: flash BOTH halves (frame path)
++ redeploy the host app.
+
+## m. Mode naming: scrub "claim the gate" everywhere — DONE 2026-08-31
+
+Chosen: **Standard mode** (the firmware scrolls on its own — pointer,
+tap, ÷24 wheel; never "legacy"/"basic"/"fallback mode", though calling
+the wheel a fallback *mechanism* in protocol prose stays fine) ↔
+**RawTouch mode** (a host drives scrolling from the touch stream).
+"touch stream" / "raw touch stream" is KEPT everywhere — the product's
+core noun, not jargon. The protocol/firmware layer names the actual
+state: `ZMK_RAW_TOUCH_FLAGS_HOST_CLAIMED` (frame flags bit 2, formerly
+`_MODE_GATE`), `ZMK_RAW_TOUCH_CAP_HOST_CLAIM` (capability bit 0), Swift
+mirrors `TouchStreamFrame.hostClaimed` / `Capability.hostClaim` /
+`supportsHostClaim`; the verb "claim" survives ONLY there (the
+acquire/refresh/release/expiry lifecycle is real). Mechanism-code names
+(`gate.c`/`gate.h`, `zmk_raw_touch_gate_*`, `TouchStreamGate`, the
+`gateless*` identifiers) deliberately kept — minimal churn. Swept: the
+module README (appendix section retitled Mode gate → Host claim) +
+sources, RawTouch's README ("The mode gate" → "Scrolling modes") / CLI
+help / log strings / menu lines ("Gate claimed" → "RawTouch mode",
+"Firmware fallback active" → "Standard mode", gateless attention line →
+"Firmware doesn't support RawTouch mode — update needed") /
+PRODUCT.md / DESIGN.md, CLAUDE.md's RawTouch section, raw-touch.md's
+header, and the two stale upstreaming-todo.md gate items. Historical
+docs (BENCH-mode-gate.md, mode-gate-plan.md, DONE-item records, commit
+messages) untouched.

@@ -8,14 +8,19 @@ gesture phases, measured lift-off momentum, touch-to-catch, and a
 velocity-gain ballistics curve.
 
 **Since 2026-08-30 the host is RawTouch** (`~/src/rawtouch`, local
-SwiftPM daemon extracted from the fork) running against the firmware's
-**mode gate**: RawTouch claims the stream via a SET feature report, the
-firmware suppresses the ÷24 wheel fallback while claimed (frame flags
-bit 2 advertises it), and RawTouch synthesizes scroll only on gated
-frames — wheel and synthesized scroll are mutually exclusive by
-construction. The patched LinearMouse fork is the frozen fallback
+SwiftPM daemon extracted from the fork). The keyboard has two scrolling
+modes: **Standard mode** — no host software; pointer, tap-to-click and
+÷24 wheel scrolling all firmware-side, touch stream silent — and
+**RawTouch mode** — RawTouch claims the stream via a SET feature report,
+the firmware emits touch frames (only while claimed, since 2026-08-31;
+frame flags bit 2 = `host_claimed`) and suppresses the ÷24 wheel
+fallback, and RawTouch synthesizes all scrolling — wheel and synthesized
+scroll are mutually exclusive by construction. A claim clearing
+mid-touch produces one trailing bit-2-clear release frame, which the
+host answers by canceling that pad's series without momentum. The
+patched LinearMouse fork is the frozen fallback
 (quit rawtouch → launch LinearMouse); it will not be released publicly.
-Current operational state: next-steps.md items j/k. Gate spec: the
+Current operational state: next-steps.md items j/k/l/m. Claim spec: the
 module README appendix. Bench: module `BENCH-mode-gate.md`. This document is the full project state:
 architecture, repo map, what's validated, where every knob lives, the
 operational loops, and how to roll back. It assumes no prior context.

@@ -116,13 +116,14 @@ effectively EOL (abs-mode PRs from others already rotting there). Revised:
 
 ## Protocol / design decisions to settle (not code cleanups)
 
-- [ ] **Gate frame streaming on scroll context?** Today frames stream
-  during all touches. Gating would ~halve BLE airtime while pointing
-  (battery win) but forecloses future host-side pointer-context features
-  (drag-lock, gestures — and the host-synthesized-pointer idea for the LH
-  choppiness would *require* ungated frames). The host tap path is now
-  deleted; v3 reserves a mode-gate flag but deliberately does not
-  implement it. If ever gated, keep it firmware-configurable.
+- [x] **Gate frame streaming on scroll context?** Settled differently,
+  DONE 2026-08-31 (next-steps item l): emission is gated on the *host
+  claim*, not on scroll context — frames exist only in RawTouch mode
+  (with a single trailing bit-2-clear release on a mid-touch declaim).
+  That takes the whole BLE airtime win whenever no host runs, and
+  forecloses nothing: a claiming host still receives pointer-context
+  frames, so drag-lock / gestures / host-synthesized pointer all remain
+  possible.
 - [ ] The authoritative spec is now the module README's wire-format
   appendix (v3). When publishing, decide whether that appendix or a
   standalone versioned spec doc is the citable artifact for other
@@ -176,8 +177,10 @@ Protocol v3 candidates — **v3 shipped and bench-verified 2026-08-27**
   feature report *grew* rather than shrank: 20 bytes, with two per-pad
   geometry slots — per-pad geometry beat the descriptor-only idea once the
   left pad streamed
-- [ ] Device-side mode gate — **reserved in v3, deliberately not
-  implemented** (the spec says so); revisit if double-count ever bites
+- [x] Device-side host claim (formerly "mode gate") — **implemented
+  2026-08-30** (capability bit 0; per-endpoint claim/refresh/release
+  with timeout expiry) and frame emission gated on it 2026-08-31, so
+  wheel and synthesized scroll are exclusive by construction
 - [ ] Mode re-assert watchdog after sleep/BLE reconnect (hid-magicmouse
   and bcm5974 both learned this the hard way)
 - [ ] Serial-number-prefix device matching as the normative spec rule

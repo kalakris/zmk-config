@@ -109,14 +109,21 @@ fixed defines; report ID 0x04; **protocol v3**: 11-byte frames with
 pad_id/contact_id/seq/100 µs timestamp at ~100 Hz, 20-byte feature report
 with per-pad geometry slots; spec = the module README's appendix,
 authoritative). **The host is RawTouch** (`~/src/rawtouch`, standalone
-SwiftPM daemon; since 2026-08-30): it claims the firmware's **mode gate**
-via SET feature report, the firmware suppresses the ÷24 wheel fallback
-while claimed (frame flags bit 2), and RawTouch synthesizes scroll — with
+SwiftPM daemon; since 2026-08-30). Two scrolling modes — this naming is
+canonical (2026-08-31; never "legacy/basic/fallback mode"): **Standard
+mode** — no host software; the firmware scrolls on its own (pointer,
+tap, Nav-layer ÷24 wheel) and the touch stream is silent; and **RawTouch
+mode** — RawTouch holds the stream claim (SET feature report,
+refreshed, endpoint-scoped), the firmware emits frames only while
+claimed (since 2026-08-31; flags bit 2 = `host_claimed`, implied-set)
+and suppresses the ÷24 wheel, and RawTouch synthesizes scroll — with
 real gesture phases, lift-off momentum, ballistics, device-time
-reconstruction, and cross-pad-catch arbitration — only on gated frames,
-posting at the session event tap (composes with any mouse tool; never
-post at the HID tap). Dual-mode: standard pointer + Nav-layer ÷24 wheel
-events remain as a driverless fallback whenever no host claims the gate.
+reconstruction, and cross-pad-catch arbitration — posting at the session
+event tap (composes with any mouse tool; never post at the HID tap). A
+claim clearing mid-touch gets one trailing bit-2-clear release frame;
+the host answers by canceling that pad's series WITHOUT momentum. The
+keyboard reverts to Standard mode whenever the claim lapses (timeout,
+release, endpoint switch, host death).
 The patched LinearMouse fork is the frozen private fallback (quit
 rawtouch → launch LinearMouse; never both — double scroll) and **will
 not be released publicly**; RawTouch is the release vehicle. macOS
@@ -138,13 +145,13 @@ in `firmware/raw-touch-v0-prototype/`):
 - `~/src/zmk-raw-touch` (`kalakris/zmk-raw-touch@main`) — **the module**: private HID report descriptor, second USB HID interface + second BLE HIDS instance, frame handler, `zip_raw_touch_scroll` marker, `zip_raw_touch_idle_filter`. Name final (renamed from `-wip`); still **private** — vendored into `vendor/` for CI
 - `~/src/zmk` (`kalakris/zmk@raw-touch`) — the old ZMK core patch. **Dead; safe to delete** — `cfc4b3e6` is salvaged as `patches/zmk-skip-empty-mouse-report-syncs.patch`
 - `~/src/cirque-input-module` — `@intree-driver` (Zephyr main's driver vendored + 3 patches; patch 3/3 carries the dead-pad boot race, must-fix before upstreaming) and the historical `@raw-touch` fork. Never PR abs-mode anywhere — see [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md)
-- `~/src/rawtouch` — **RawTouch, the host** (local-only repo, no remote yet): SwiftPM daemon, binary at `~/bin/rawtouch`, config `~/.config/rawtouch/config.json` (load-at-start), LaunchAgent plist in `resources/`. Extracted from the LinearMouse fork; 91 unit tests. Runs foreground in iTerm during burn-in (TCC: Accessibility attributes to the terminal for CLI runs; the LaunchAgent needs its own grant)
+- `~/src/rawtouch` — **RawTouch, the host** (local-only repo, no remote yet): menubar app + CLI daemon over shared `RawTouchCore`. **The menubar app IS the live host since 2026-08-30** (`~/Applications/RawTouch.app`; the iTerm-tab CLI arrangement is retired). Config `~/.config/rawtouch/config.json` live-reloads via file watcher; flock instance lock stops app/CLI double-runs; LaunchAgent plist in `resources/` for headless use. Extracted from the LinearMouse fork; 149 unit tests. TCC: the app bundle holds its OWN Accessibility grant (ad-hoc signing = re-grant per rebuild; `RAWTOUCH_SIGN_ID` = stable); CLI-under-terminal attributes to the terminal instead
 - `~/src/linearmouse` (`kalakris/linearmouse`) — the old host consumer, now the **frozen private fallback** (keeps the cross-pad momentum-lockout bug; will never be released). `inputscale` branch = main + the 2 generic `inputScale` commits, still the upstream-PR candidate (item g)
 
 Build loops:
 - **Firmware**: edit on `main` → push → `./scripts/download-firmware.sh` (waits for the branch-tip run) → `./scripts/flash-go60.sh firmware/main/firmware` (bootloader: RH T3 + `/`; right half only for scroll/stream changes, both halves for driver or left-pad-config changes).
 - **Module edits**: the module repo is private, so CI cannot fetch it — edit `~/src/zmk-raw-touch`, then `./scripts/sync-raw-touch-module.sh` and commit `vendor/zmk-raw-touch/`. Pushing the module repo alone changes nothing.
-- **Host**: edit `~/src/rawtouch` → `swift build -c release && cp .build/release/rawtouch ~/bin/` → restart the running instance (Ctrl-C releases the gate claim cleanly). Config `~/.config/rawtouch/config.json` is load-at-start (live-reload pending the menubar app). Legacy LinearMouse loop: `./linearmouse/build-and-install.sh`, config live-reloads.
+- **Host (menubar app — the live host)**: edit `~/src/rawtouch` → user quits the app (releases the gate) → `./scripts/make-app.sh` assembles + signs `~/Applications/RawTouch.app` (`RAWTOUCH_SIGN_ID` for a TCC-stable signature, else re-grant Accessibility per rebuild) → user relaunches. Agents build and test only — launching/quitting is the user's move. **Host (CLI, headless fallback)**: `swift build -c release && cp .build/release/rawtouch ~/bin/`; the flock instance lock (`~/.config/rawtouch/rawtouch.pid`, exit 3) stops app/CLI double-runs. Config live-reloads for both. Legacy LinearMouse loop: `./linearmouse/build-and-install.sh`, config live-reloads.
 - **TCC rule**: the user must NEVER grant Accessibility prompts raised during `xcodebuild test` runs (they bind to the DerivedData test-host copy and lock the real app out — the "accessibility loop"). Grant only right after a deploy. Recovery recipe: docs/raw-touch.md → "THE ACCESSIBILITY-LOOP TRAP".
 
 Full state doc (architecture, tuning knobs, gotchas, rollback):
