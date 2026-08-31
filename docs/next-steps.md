@@ -11,15 +11,15 @@ Each item below is self-contained enough to start cold.
 In flight / current state (2026-08-31): **RawTouch is the live scroll
 host** (menubar app — see item k for the full operational state;
 LinearMouse stays quit). Items l (claim-gated frame emission) and m
-(Standard mode / RawTouch mode naming) landed in all three repos but
-are **not yet deployed**: flash BOTH halves from current `main` (l is a
-frame-path change — this also supersedes the note that LH was still on
-the pre-claim build) and rebuild + redeploy the app (quit it first —
-quitting releases the claim — then `./scripts/make-app.sh`, relaunch).
-Deploy order is flexible: new firmware + the currently-running host
-works (it claims and gets frames as before), and the new host against
-old firmware is unchanged. The merged `mode-gate` branches (both repos)
-are deletable. **The menubar app (item k #1) is LIVE** (the user
+(Standard mode / RawTouch mode naming) are **DEPLOYED AND VALIDATED
+LIVE**: both halves flashed from current `main` (LH is finally on
+current main — the pre-claim-build note is closed), the app rebuilt and
+relaunched, scrolling confirmed. The stable-signature TCC carry-over
+also proved out: the rebuild needed no Accessibility re-grant. Both
+halves now run the emission-gated firmware, so a quit app = Standard
+mode with a silent stream; debugging frames needs the monitor's
+`--claim` flag (quit the app first). The merged `mode-gate` branches
+(both repos) are deletable. **The menubar app (item k #1) is LIVE** (the user
 switched over 2026-08-30 — settings work, both pads scroll, the
 enabled-toggle returns the keyboard to Standard mode, icons render
 well). The iTerm-tab arrangement is retired. Previous round's flashes
