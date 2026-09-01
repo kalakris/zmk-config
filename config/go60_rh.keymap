@@ -160,7 +160,7 @@
         input-processors = <&zip_raw_touch_scroll>,
                            <&zip_xy_to_vscroll_mapper>,
                            <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                           <&zip_scroll_scaler 1 24>,
+                           <&zip_scroll_scaler 1 72>,
                            <&zip_raw_touch_idle_filter_lh>;
     };
 };
@@ -204,7 +204,7 @@
         input-processors = <&zip_raw_touch_scroll>,
                            <&zip_xy_to_vscroll_mapper>,
                            <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                           <&zip_scroll_scaler 1 24>,
+                           <&zip_scroll_scaler 1 72>,
                            <&zip_raw_touch_idle_filter>;
     };
 };
