@@ -377,6 +377,17 @@ timestamps, both pads): 120 → unchanged ~9.8 ms; then LH 60 / RH 200 as
 a discriminator → LH 16.6 ms (the write lands), RH 9.8 ms (clamped). So
 the ASIC clamps anything above 100 in normal mode; the 120 Hz idea is
 dead short of ERA-level tricks (AnyMeas mode). Both pads reverted to
-the default (property omitted). The remaining smoothness lever for the
-drag phase is host-side display-rate resampling (CVDisplayLink-driven
-emission); momentum already ticks at 120 Hz.
+the default (property omitted). Follow-up SHIPPED the same day:
+**host-side display-rate resampling** in RawTouch (`~/src/rawtouch`,
+7 commits on `ffab49a`, 203 tests): `FrameResampler` emits one position
+estimate per vsync of the display under the cursor (CVDisplayLink;
+exact interpolation when bracketed, capped extrapolation via the shared
+`WeightedVelocityFit` otherwise), momentum rides the same vsync, config
+`resampling.enabled` (default true) + `resampling.latencyMs` (default 5,
+0–10; Settings → "Display sync"). Offline bench: 0 % empty display
+frames vs 17 % (clean) / 45 % (BLE) before, totals exact, stop
+overshoot ≤2 px at 5 ms; Safari lockout sweep still 6/6. Two extras:
+the poster now holds `began` until the first non-zero delta, and the
+device clock tightens its anchor over BLE (opt-in, pipeline enables).
+Deployed 2026-09-02; **feel check pending** (drag shimmer gone? stop
+overshoot at 5 ms? BLE drags — try latency 10 if uneven).
