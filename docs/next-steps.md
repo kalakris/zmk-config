@@ -365,3 +365,18 @@ momentum synthesizer never engages on our stream (Safari consumes our
 momentum verbatim), the IOHIDEvent momentum-interrupted bit cannot be
 set, and the inherited `ioHidScrollY` setter has always been a no-op.
 Findings + resolution: the bench README.
+
+## o. Pinnacle sample rate — CEILING IS 100 SPS (measured 2026-09-02)
+
+Motivation: a 100 Hz drag on a 120 Hz display is a 5:6 beat (content
+holds every sixth frame). The in-tree driver never wrote the SampleRate
+register, so `cirque-input-module@intree-driver` gained an optional
+`sample-rate` DT property (commit `cbb4eaa`, pinned in west.yml).
+Measured with the passive monitor + `analyze-touch-timing.py` (device
+timestamps, both pads): 120 → unchanged ~9.8 ms; then LH 60 / RH 200 as
+a discriminator → LH 16.6 ms (the write lands), RH 9.8 ms (clamped). So
+the ASIC clamps anything above 100 in normal mode; the 120 Hz idea is
+dead short of ERA-level tricks (AnyMeas mode). Both pads reverted to
+the default (property omitted). The remaining smoothness lever for the
+drag phase is host-side display-rate resampling (CVDisplayLink-driven
+emission); momentum already ticks at 120 Hz.

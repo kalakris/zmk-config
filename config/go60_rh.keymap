@@ -72,13 +72,6 @@
     /* Absolute reporting, for the raw touch stream. */
     data-mode = "absolute";
 
-    /* EXPERIMENT (2026-09-02): 120 SPS instead of the 100 SPS power-on
-     * default, so touch frames land ~1:1 with a 120 Hz display instead of
-     * the 5:6 beat that holds content every sixth frame during a drag.
-     * Undocumented above 100 - verify the cadence with
-     * scripts/raw-touch-monitor.swift + analyze-touch-timing.py and watch
-     * Z noise; drop the property to revert. */
-    sample-rate = <200>;  /* discriminator: far above the documented ceiling */
 
     /* MANDATORY. Written to the Pinnacle's Z_IDLE register; upstream
      * DEFAULTS IT TO 0, which emits no lift-off packets at all - the
