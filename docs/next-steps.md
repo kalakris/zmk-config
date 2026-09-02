@@ -331,3 +331,37 @@ PRODUCT.md / DESIGN.md, CLAUDE.md's RawTouch section, raw-touch.md's
 header, and the two stale upstreaming-todo.md gate items. Historical
 docs (BENCH-mode-gate.md, mode-gate-plan.md, DONE-item records, commit
 messages) untouched.
+
+## n. Safari ProMotion post-bounce lockout — CHARACTERIZED 2026-09-02
+
+Symptom: after a flick rubber-bands at a page edge in Safari on the
+MacBook's 120 Hz display, a re-scroll is ignored for a moment (not on
+the 60 Hz external display, not in Chrome; an Apple trackpad shows it
+too, but only for a very fast re-scroll). Two real host fixes fell out:
+synthesized events now carry real uptime timestamps (they had none;
+WebKit's ProMotion momentum interpolator fits velocity from them — this
+alone made it "better but not gone"), and the momentum stop floor rose
+10 → 40 pt/s (an invisible crawl that kept consumers in their momentum
+state for >1 s). The residual was then measured with a new bench:
+`~/src/rawtouch/bench/safari-bounce/` (`scroll-bench` = the real
+engine+poster fed synthetic frames, driven against an instrumented page,
+per-frame scrollY read back over AppleScript). Result: a ~400 ms lockout
+floor on the ProMotion path, momentum-triggered (a plain drag into the
+edge has none), absent at 60 Hz, growing mildly with impact speed
+(400→516 ms for 625→2000 pt/s seeds), shortened by decay only at the
+margin (0.83→0.5 ≈ 10 %) and only collapsing at decay ≤ 0.3. Stop floor,
+timestamps and phase sequence are at parity with Apple hardware; the
+rest is WebKit's. **RESOLVED same day** by reading the WebKit source:
+a zero-delta `began` is never delivered to WebKit's rubber-band
+controller (`canHandleWheelEvent`), so the snap-back reset never fired;
+our poster sent began with delta 0 at touch-down. It now defers the
+began to the first movement and carries its delta (mayBegin +
+series-start still at touch-down; a no-move touch ends as `cancelled`,
+like hardware). Bench after: 98 % of a re-scroll applied at a catch
+76 ms after the edge, response ~25 ms later (was dead until 433 ms);
+same for a 2000 pt/s flick. No WebKit bug to file. Also learned: events
+made with `CGEvent(...)` carry NO IOHIDEvent, so WebKit's ProMotion
+momentum synthesizer never engages on our stream (Safari consumes our
+momentum verbatim), the IOHIDEvent momentum-interrupted bit cannot be
+set, and the inherited `ioHidScrollY` setter has always been a no-op.
+Findings + resolution: the bench README.
