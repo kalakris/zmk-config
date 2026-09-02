@@ -78,7 +78,7 @@
      * Undocumented above 100 - verify the cadence with
      * scripts/raw-touch-monitor.swift + analyze-touch-timing.py and watch
      * Z noise; drop the property to revert. */
-    sample-rate = <120>;
+    sample-rate = <200>;  /* discriminator: far above the documented ceiling */
 
     /* MANDATORY. Written to the Pinnacle's Z_IDLE register; upstream
      * DEFAULTS IT TO 0, which emits no lift-off packets at all - the
