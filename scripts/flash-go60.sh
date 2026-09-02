@@ -9,11 +9,14 @@
 #   firmware-dir   defaults to firmware/main/firmware/
 #   --halves       which halves to wait for (default both). Each is flashed
 #                  once; the watcher exits when all requested halves are done.
-#   --timeout      idle timeout in seconds (default 900): exit 2 if a requested
+#   --timeout      optional idle timeout in seconds: exit 2 if a requested
 #                  half has not shown up in that long since the last event.
+#                  Off by default - the watcher waits indefinitely, so
+#                  leaving the desk mid-flash and coming back just works.
 #   --loop         old behaviour: keep watching forever (Ctrl+C to stop).
 #
-# Exit codes: 0 all requested halves flashed; 2 idle timeout; 3 another
+# Exit codes: 0 all requested halves flashed; 2 idle timeout (only with
+# --timeout); 3 another
 # watcher is already running (never run two - they race for the volume);
 # 64 usage; 66 firmware missing.
 #
@@ -27,7 +30,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 FW_DIR="$REPO_DIR/firmware/main/firmware"
 HALVES="both"
-TIMEOUT=900
+TIMEOUT=0
 LOOP=0
 
 while [ $# -gt 0 ]; do
@@ -41,7 +44,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 case "$HALVES" in both|lh|rh) ;; *) echo "--halves must be both, lh or rh" >&2; exit 64 ;; esac
-case "$TIMEOUT" in ''|*[!0-9]*) echo "--timeout must be a whole number of seconds" >&2; exit 64 ;; esac
+case "$TIMEOUT" in ''|*[!0-9]*) echo "--timeout must be a whole number of seconds (0 = none)" >&2; exit 64 ;; esac
 
 LH_FW="$FW_DIR/go60_lh-zmk.uf2"
 RH_FW="$FW_DIR/go60_rh-zmk.uf2"
@@ -102,7 +105,7 @@ want_lh=0; want_rh=0
 [ "$HALVES" != "lh" ] && want_rh=1
 done_lh=0; done_rh=0
 
-echo "Watching for Go60 bootloader volumes (halves: $HALVES; idle timeout ${TIMEOUT}s)..."
+echo "Watching for Go60 bootloader volumes (halves: $HALVES; $( [ "$TIMEOUT" -gt 0 ] && echo "idle timeout ${TIMEOUT}s" || echo "no timeout - waits until you get to it"))..."
 [ $want_lh = 1 ] && echo "  LH firmware: $LH_FW"
 [ $want_rh = 1 ] && echo "  RH firmware: $RH_FW"
 echo "Put each half into bootloader over USB; this exits when every requested half has flashed."
@@ -126,7 +129,7 @@ while true; do
         exit 0
     fi
 
-    if [ $(( $(date +%s) - last_event )) -ge "$TIMEOUT" ]; then
+    if [ "$TIMEOUT" -gt 0 ] && [ $(( $(date +%s) - last_event )) -ge "$TIMEOUT" ]; then
         remaining=""
         [ $want_lh = 1 ] && [ $done_lh = 0 ] && remaining="LH"
         [ $want_rh = 1 ] && [ $done_rh = 0 ] && remaining="${remaining:+$remaining + }RH"

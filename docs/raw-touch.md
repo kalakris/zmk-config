@@ -400,8 +400,9 @@ git push                        # triggers "Build and Draw" (~2 min)
   **exits on its own once every requested half has flashed**
   (`--halves both|lh|rh`, default both) - run it in the background and
   its completion is the signal - **holds a lock so a second watcher
-  refuses to start (exit 3)**, and gives up after a 15-min idle timeout
-  (exit 2). The old "exactly one watcher" discipline is now enforced by
+  refuses to start (exit 3)**, and waits indefinitely by default (the user
+  may leave the desk mid-flash; `--timeout SECONDS` opts into an idle
+  timeout, exit 2). The old "exactly one watcher" discipline is now enforced by
   the script; `--loop` restores the forever-watching behaviour.
 - Stream changes go in `~/src/zmk-raw-touch` — there is no ZMK fork.
   Because that repo is private (CI's `west update` authenticates
