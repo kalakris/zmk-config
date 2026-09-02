@@ -396,11 +396,13 @@ git push                        # triggers "Build and Draw" (~2 min)
   needs reflashing for scroll/stream changes — but Cirque-driver or
   left-pad-config changes touch the left half too; flash both.
 - `flash-go60.sh` is glob + fast-retry hardened (bouncy mounts,
-  "GO60RHBOOT 1" stale-mountpoint remounts). **Exactly ONE flash watcher
-  at a time — even within the same session.** Stray watchers (old
-  sessions or a second launch) race the flash with the wrong firmware;
-  check `pgrep -fl flash-go60` before starting one and whenever a flash
-  behaves oddly.
+  "GO60RHBOOT 1" stale-mountpoint remounts). Since 2026-09-02 it also
+  **exits on its own once every requested half has flashed**
+  (`--halves both|lh|rh`, default both) - run it in the background and
+  its completion is the signal - **holds a lock so a second watcher
+  refuses to start (exit 3)**, and gives up after a 15-min idle timeout
+  (exit 2). The old "exactly one watcher" discipline is now enforced by
+  the script; `--loop` restores the forever-watching behaviour.
 - Stream changes go in `~/src/zmk-raw-touch` — there is no ZMK fork.
   Because that repo is private (CI's `west update` authenticates
   anonymously) they must be re-vendored:

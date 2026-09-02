@@ -143,8 +143,8 @@ BLE HOGP report map — ANY report-layout change needs forget + re-pair, and
 the failure is deceptively partial (keys/USB/feature report fine, only BLE
 frame parsing dead); (2) the in-tree driver's force-recalibrate patch has
 a boot race that can leave a pad dead (SW_CC stuck, DR never fires) while
-keys work — power-cycle the half. Also: announce every host deploy, and
-run exactly ONE flash watcher at a time.
+keys work — power-cycle the half. Also: announce every host deploy. The
+flash watcher enforces its own single-instance rule (see the build loop).
 
 Repos (`v0-prototype` tag on the older four = validated prototype; binaries
 in `firmware/raw-touch-v0-prototype/`):
@@ -156,7 +156,7 @@ in `firmware/raw-touch-v0-prototype/`):
 - `~/src/linearmouse` (`kalakris/linearmouse`) — the old host consumer. `main` = the frozen touch-stream fork (never released; obsolete even as a fallback post-claim-gated-emission). **`stock-inputscale`** (2026-08-31) = upstream `9843332` + the 2 `inputScale` commits (UI commit amended: `fieldRange:` dropped — that param was fork-only plumbing) — this is what's INSTALLED at /Applications/LinearMouse.app (pointer processing + input scaling, coexists with RawTouch) and the cleanest upstream-PR base (item g). `inputscale` = the old fork-stacked variant, superseded
 
 Build loops:
-- **Firmware**: edit on `main` → push → `./scripts/download-firmware.sh` (waits for the branch-tip run) → `./scripts/flash-go60.sh firmware/main/firmware` (bootloader: RH T3 + `/`; right half only for scroll/stream changes, both halves for driver or left-pad-config changes).
+- **Firmware**: edit on `main` → push → `./scripts/download-firmware.sh` (waits for the branch-tip run) → `./scripts/flash-go60.sh firmware/main/firmware [--halves both|lh|rh]` run in the background (bootloader: RH T3 + `/`; right half only for scroll/stream changes, both halves for driver or left-pad-config changes). The watcher **exits 0 by itself once every requested half has flashed** — so a backgrounded run notifies the agent when flashing is done, no polling or killing; exit 2 = 15-min idle timeout, exit 3 = another watcher already holds the lock (never start a second one; wait for or kill the owner it names).
 - **Module edits**: the module repo is private, so CI cannot fetch it — edit `~/src/zmk-raw-touch`, then `./scripts/sync-raw-touch-module.sh` and commit `vendor/zmk-raw-touch/`. Pushing the module repo alone changes nothing.
 - **Host (menubar app — the live host)**: edit `~/src/rawtouch` → user quits the app (releases the gate) → `./scripts/make-app.sh` assembles + signs `~/Applications/RawTouch.app` (`RAWTOUCH_SIGN_ID` for a TCC-stable signature, else re-grant Accessibility per rebuild) → user relaunches. Agents build and test only — launching/quitting is the user's move. **Host (CLI, headless fallback)**: `swift build -c release && cp .build/release/rawtouch ~/bin/`; the flock instance lock (`~/.config/rawtouch/rawtouch.pid`, exit 3) stops app/CLI double-runs. Config live-reloads for both. Legacy LinearMouse loop: `./linearmouse/build-and-install.sh`, config live-reloads.
 - **TCC rule**: the user must NEVER grant Accessibility prompts raised during `xcodebuild test` runs (they bind to the DerivedData test-host copy and lock the real app out — the "accessibility loop"). Grant only right after a deploy. Recovery recipe: docs/raw-touch.md → "THE ACCESSIBILITY-LOOP TRAP".
