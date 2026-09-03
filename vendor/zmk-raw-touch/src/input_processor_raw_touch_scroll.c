@@ -1,22 +1,18 @@
 /*
- * Copyright (c) 2026 The ZMK Contributors
+ * Copyright (c) 2026 Mrinal Kalakrishnan
  *
  * SPDX-License-Identifier: MIT
  *
- * Marker input processor for the raw touch stream (see raw_touch.c).
+ * Marker input processor for raw touch frames (see raw_touch.c).
  *
  * The processor itself is a pure pass-through: it never modifies or stops
  * events. Its only purpose is to mark a "scroll context": when an input
  * listener chain containing this processor handles an event from a
  * streaming pad, the pad's streamed frames carry the scroll-mode flag.
  *
- * Because the marker only runs when the chain containing it is the one
- * actually handling the pad's events, layer-overlay ordering and
- * process-next shadowing are honoured for free - no reimplementation of
- * the listener's effective-chain walk is needed, which is just as well
- * since a module cannot patch ZMK core's input listener. See
- * zmk/raw_touch/scroll.h for why this is reliable from the first frame of
- * a touch.
+ * See zmk/raw_touch/scroll.h for why marking from inside the chain is
+ * both faithful to layer ordering and reliable from the first frame of a
+ * touch.
  *
  * The latch storage lives here rather than in raw_touch.c so that the
  * marker keeps working (as a harmless no-op) in builds that enable the
@@ -40,7 +36,7 @@ struct rts_latch {
     bool marked;
 };
 
-static struct rts_latch rts_latches[CONFIG_ZMK_RAW_TOUCH_SCROLL_MAX_DEVICES];
+static struct rts_latch rts_latches[CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_MAX_DEVICES];
 
 /* A spinlock, not a mutex or a bare atomic:
  *
@@ -53,7 +49,7 @@ static struct rts_latch rts_latches[CONFIG_ZMK_RAW_TOUCH_SCROLL_MAX_DEVICES];
  *   would not make the insert safe on their own.
  *
  * The critical sections are a handful of pointer comparisons over a table
- * of CONFIG_ZMK_RAW_TOUCH_SCROLL_MAX_DEVICES entries, with no logging or
+ * of CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_MAX_DEVICES entries, with no logging or
  * other calls inside, so holding a spinlock across them is cheap.
  */
 static struct k_spinlock rts_lock;
@@ -107,8 +103,8 @@ void zmk_raw_touch_scroll_mark(const struct device *dev) {
         if (!warned) {
             warned = true;
             LOG_WRN("More than %d input devices reached a raw touch scroll marker; raise "
-                    "CONFIG_ZMK_RAW_TOUCH_SCROLL_MAX_DEVICES",
-                    CONFIG_ZMK_RAW_TOUCH_SCROLL_MAX_DEVICES);
+                    "CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_MAX_DEVICES",
+                    CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_MAX_DEVICES);
         }
     }
 }
@@ -140,7 +136,7 @@ static int rts_handle_event(const struct device *dev, struct input_event *event,
     return ZMK_INPUT_PROC_CONTINUE;
 }
 
-static struct zmk_input_processor_driver_api rts_driver_api = {
+static const struct zmk_input_processor_driver_api rts_driver_api = {
     .handle_event = rts_handle_event,
 };
 

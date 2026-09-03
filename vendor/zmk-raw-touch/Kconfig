@@ -1,7 +1,7 @@
-# Copyright (c) 2026 The ZMK Contributors
+# Copyright (c) 2026 Mrinal Kalakrishnan
 # SPDX-License-Identifier: MIT
 
-menu "Raw touch streaming"
+menu "Raw touch frames"
 
 config ZMK_RAW_TOUCH
     bool "Stream raw absolute touch frames over a vendor HID report"
@@ -16,8 +16,9 @@ config ZMK_RAW_TOUCH
 
       Relative deltas derived from successive frames are always re-injected
       into the pad's normal input listener chain as well, so ordinary
-      pointing (and any keymap wheel-mapping overlays) keep working as a
-      driverless fallback.
+      pointing (and any keymap wheel-mapping overlays) keep working with
+      no host software at all (Standard mode). Frames are only emitted
+      while a host has claimed them (RawTouch mode).
 
       Configure pads with zmk,raw-touch-pad devicetree nodes.
 
@@ -47,22 +48,23 @@ config ZMK_RAW_TOUCH_BLE
 
       NOTE: host support for two HIDS instances on one peripheral is not
       universal. If your host ignores the second service, disable this and
-      use USB for the raw stream; the relative-delta fallback still works
-      over BLE.
+      use USB for the raw frames; Standard mode still works over BLE.
 
 config ZMK_RAW_TOUCH_BLE_QUEUE_SIZE
     int "Max number of raw touch reports to queue for sending over BLE"
     default 30
     depends on ZMK_RAW_TOUCH_BLE
-
-config ZMK_RAW_TOUCH_REPORT_ID
-    hex "HID report ID for raw touch frames"
-    default 0x04
     help
-      The report lives on its own HID interface / HIDS instance, so this
-      is independent of ZMK's own report IDs. Kept explicit (rather than
-      dropping report IDs entirely) so the wire format is unchanged
-      apart from this byte, and so a future second report can be added.
+      Frames waiting for a BLE connection event. When the queue is full the
+      oldest frame is dropped (30 is ~0.3 s at 100 Hz).
+
+config ZMK_RAW_TOUCH_BLE_THREAD_STACK_SIZE
+    int "Stack size of the BLE send work queue"
+    default ZMK_BLE_THREAD_STACK_SIZE
+    depends on ZMK_RAW_TOUCH_BLE
+    help
+      The module runs its own work queue for BLE notifications so that a
+      frame burst can never delay ZMK's own HID reports.
 
 endif # ZMK_RAW_TOUCH
 
@@ -70,8 +72,13 @@ config ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL
     bool "Raw touch scroll-context marker input processor"
     default y
     depends on DT_HAS_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_ENABLED
+    depends on ZMK_POINTING
+    help
+      A pass-through processor whose presence in the chain handling a
+      pad's events marks those frames as scroll context (frame flags
+      bit 1). Place it first in the chain.
 
-config ZMK_RAW_TOUCH_SCROLL_MAX_DEVICES
+config ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_MAX_DEVICES
     int "Max input devices tracked by the scroll-context latch"
     default 4
     depends on ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL
@@ -85,11 +92,12 @@ config ZMK_INPUT_PROCESSOR_RAW_TOUCH_IDLE_FILTER
     bool "Raw touch idle-sync filter input processor"
     default y
     depends on DT_HAS_ZMK_INPUT_PROCESSOR_RAW_TOUCH_IDLE_FILTER_ENABLED
+    depends on ZMK_POINTING
     help
       Drops sync events that accumulated no host-visible change, so an
       absolute-mode pad streaming at ~100 Hz does not also emit ~100 Hz
       all-zero mouse HID reports (which on BLE compete with the raw
-      stream for connection events).
+      frames for connection events).
 
 module = ZMK_RAW_TOUCH
 module-str = ZMK_RAW_TOUCH
@@ -97,6 +105,10 @@ source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
 
 endmenu
 
-# The raw touch stream needs a second USB HID interface alongside ZMK's.
+# The raw touch report needs a second USB HID interface alongside ZMK's.
+# Module Kconfig is sourced before Zephyr's subsys/, so this default takes
+# precedence over the subsystem's own default of 1; an application .conf
+# that pins the symbol lower still wins, which raw_touch_usb_hid.c
+# BUILD_ASSERTs against.
 config USB_HID_DEVICE_COUNT
     default 2 if ZMK_RAW_TOUCH_USB

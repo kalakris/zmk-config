@@ -1,14 +1,17 @@
 /*
- * Copyright (c) 2026 The ZMK Contributors
+ * Copyright (c) 2026 Mrinal Kalakrishnan
  *
  * SPDX-License-Identifier: MIT
  *
  * A complete, copy-pasteable example: one Cirque Pinnacle trackpad on SPI,
  * streaming raw touch frames, with ordinary pointing and a Nav-layer scroll
- * context.
+ * context. Copy the whole file into your zmk-config's config/ directory as
+ * <board>.overlay (or paste the nodes into your keymap) and adjust the
+ * SPI bus, GPIO and layer number.
  *
- * The trackpad node here uses Zephyr's in-tree `cirque,pinnacle` driver
- * property names. Nothing in the raw touch module depends on that driver -
+ * The trackpad node here uses the property names of Zephyr's `cirque,pinnacle`
+ * binding (in-tree since Zephyr 3.6; see the README for what to use on ZMK
+ * v0.3.0 / Zephyr 3.5). Nothing in the raw touch module depends on that driver -
  * it consumes INPUT_ABS_X/Y/Z from whatever device the pad node points at,
  * and takes geometry, orientation and tap settings from its own binding.
  * Swap in any absolute-mode touchpad driver and only the pad's own node
@@ -64,7 +67,7 @@
         pad-id = <0>;
 
         /* How the pad is physically mounted. Applied to the relative
-         * deltas the module derives for the fallback pointer path, and
+         * deltas the module derives for the Standard-mode pointer path, and
          * published in the feature report so a host consuming the raw
          * frames can apply the same transform. */
         rotate-90;
@@ -79,8 +82,7 @@
     };
 
     input_processors {
-        /* Rewrites pointer motion into wheel ticks, for the driverless
-         * fallback scroll path. */
+        /* Rewrites pointer motion into wheel ticks: Standard-mode scrolling. */
         zip_xy_to_vscroll_mapper: zip_xy_to_vscroll_mapper {
             compatible = "zmk,input-processor-code-mapper";
             #input-processor-cells = <0>;
@@ -114,12 +116,13 @@
              * frames. Keep it first, before anything that could consume
              * an event.
              *
-             * Everything after it is the driverless fallback: map motion
+             * Everything after it is Standard-mode scrolling: map motion
              * to wheel ticks, invert for natural scrolling, and scale
              * down to a sane rate (1:24 suits deltas derived from
              * absolute counts, which run ~3x larger than typical
-             * relative-mode driver output). A host consuming the raw
-             * stream suppresses these wheel events itself.
+             * relative-mode driver output). While a host holds a claim the
+             * firmware does not inject these deltas at all, so this chain
+             * stays silent in RawTouch mode.
              *
              * Order matters - the mapper rewrites REL_X/REL_Y to
              * REL_WHEEL, so processors after it must target wheel codes.

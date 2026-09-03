@@ -61,15 +61,15 @@ appendix (the authoritative protocol doc), and the review-pass cleanups.
 zmk-raw-touch/
   zephyr/module.yml            # needs `settings: dts_root: .`
   CMakeLists.txt, Kconfig, LICENSE (MIT), README.md  # demo first, protocol an appendix
-  boards/example.overlay       # copy-pasteable worked example
+  examples/example.overlay     # copy-pasteable worked example
   dts/bindings/input/zmk,raw-touch-pad.yaml    # the module's whole config surface
   dts/bindings/input_processors/               # raw-touch-scroll, raw-touch-idle-filter
   dts/raw_touch/processors.dtsi                # /omit-if-no-ref/ node instances
-  src/
-    hid.c        # private report descriptor + report state
-    usb_hid.c    # second USB HID interface (HID_1)
-    hog.c        # second BLE HIDS instance, incl. the feature-report characteristic
-    endpoints.c, raw_touch.c, log.c
+  src/                         # raw_touch_ prefix: never shadows ZMK core's own basenames
+    raw_touch_hid.c        # private report descriptor + report state
+    raw_touch_usb_hid.c    # second USB HID interface (HID_1)
+    raw_touch_hog.c        # second BLE HIDS instance, incl. the feature-report characteristic
+    raw_touch_endpoints.c, raw_touch_gate.c, raw_touch.c, raw_touch_log.c
     input_processor_raw_touch_scroll.c
     input_processor_raw_touch_idle_filter.c
 ```

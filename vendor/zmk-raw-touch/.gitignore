@@ -1,1 +1,10 @@
 build/
+twister-out/
+.west/
+compile_commands.json
+.DS_Store
+*.swp
+.vscode/
+.idea/
+.claude/
+CLAUDE.md

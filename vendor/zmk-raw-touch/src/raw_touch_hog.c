@@ -1,7 +1,12 @@
 /*
- * Copyright (c) 2026 The ZMK Contributors
+ * Copyright (c) 2020 The ZMK Contributors
+ * Copyright (c) 2026 Mrinal Kalakrishnan
  *
  * SPDX-License-Identifier: MIT
+ *
+ * Derived from ZMK's app/src/hog.c (MIT), which in turn derives from
+ * Zephyr's samples/bluetooth/peripheral_hids (Apache-2.0, Copyright (c)
+ * 2018 Nordic Semiconductor ASA).
  *
  * A second HID-over-GATT service instance carrying only the raw touch
  * report.
@@ -41,7 +46,6 @@ enum {
 
 enum {
     HIDS_INPUT = 0x01,
-    HIDS_OUTPUT = 0x02,
     HIDS_FEATURE = 0x03,
 };
 
@@ -193,13 +197,10 @@ BT_GATT_SERVICE_DEFINE(
      * no CCC (feature reports are never notified). This is the BLE
      * counterpart of the USB GET_REPORT/SET_REPORT(FEATURE) paths; hosts
      * must read and validate it before treating the collection as raw
-     * touch.
-     *
-     * NOTE: adding the write property/permission changed the GATT
-     * database. Hosts with a cached copy (macOS caches aggressively) must
-     * forget + re-pair after flashing across this change, with the usual
-     * deceptively-partial failure mode if skipped - see the README's
-     * known issues. */
+     * touch. Feature reports are read/write per HIDS 1.0 s2.5.2; the
+     * write permission is a characteristic property only and does not
+     * change the report map or attribute layout, so it does not
+     * invalidate a host's cached GATT database. */
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT, BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_READ_ENCRYPT | BT_GATT_PERM_WRITE_ENCRYPT,
                            read_hids_touch_feature_report, write_hids_touch_feature_report, NULL),
@@ -217,7 +218,7 @@ BT_GATT_SERVICE_DEFINE(
  * attrs[0] is the primary service declaration, never a report. */
 static size_t touch_input_attr_idx;
 
-K_THREAD_STACK_DEFINE(raw_touch_hog_q_stack, CONFIG_ZMK_BLE_THREAD_STACK_SIZE);
+K_THREAD_STACK_DEFINE(raw_touch_hog_q_stack, CONFIG_ZMK_RAW_TOUCH_BLE_THREAD_STACK_SIZE);
 
 static struct k_work_q raw_touch_hog_work_q;
 
@@ -227,12 +228,15 @@ K_MSGQ_DEFINE(raw_touch_hog_msgq, sizeof(struct zmk_raw_touch_report_body),
 static void send_touch_report_callback(struct k_work *work) {
     struct zmk_raw_touch_report_body report;
 
-    while (k_msgq_get(&raw_touch_hog_msgq, &report, K_NO_WAIT) == 0) {
-        struct bt_conn *conn = zmk_ble_active_profile_conn();
-        if (conn == NULL) {
-            return;
-        }
+    /* One connection lookup per drain, not per frame: the queue holds
+     * several frames exactly when BLE batching is in play. The reference
+     * zmk_ble_active_profile_conn() hands back is released at the end. */
+    struct bt_conn *conn = zmk_ble_active_profile_conn();
+    if (conn == NULL) {
+        return;
+    }
 
+    while (k_msgq_get(&raw_touch_hog_msgq, &report, K_NO_WAIT) == 0) {
         struct bt_gatt_notify_params notify_params = {
             .attr = &raw_touch_hog_svc.attrs[touch_input_attr_idx],
             .data = &report,
@@ -245,11 +249,9 @@ static void send_touch_report_callback(struct k_work *work) {
         } else if (err) {
             LOG_DBG("Error notifying %d", err);
         }
-
-        /* zmk_ble_active_profile_conn() hands back a reference; release it on
-         * every path, including the error paths above. */
-        bt_conn_unref(conn);
     }
+
+    bt_conn_unref(conn);
 }
 
 K_WORK_DEFINE(raw_touch_hog_work, send_touch_report_callback);
@@ -278,7 +280,7 @@ int zmk_raw_touch_hog_send_report(struct zmk_raw_touch_report_body *body) {
     return 0;
 }
 
-static int zmk_raw_touch_hog_init(void) {
+static int raw_touch_hog_init(void) {
     /* BT_GATT_CHARACTERISTIC() emits two attributes -- the declaration and
      * then the value -- so the declaration sits one before the attribute
      * carrying our read callback. */
@@ -302,4 +304,4 @@ static int zmk_raw_touch_hog_init(void) {
     return 0;
 }
 
-SYS_INIT(zmk_raw_touch_hog_init, APPLICATION, CONFIG_ZMK_BLE_INIT_PRIORITY);
+SYS_INIT(raw_touch_hog_init, APPLICATION, CONFIG_ZMK_BLE_INIT_PRIORITY);

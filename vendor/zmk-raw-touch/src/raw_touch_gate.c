@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 The ZMK Contributors
+ * Copyright (c) 2026 Mrinal Kalakrishnan
  *
  * SPDX-License-Identifier: MIT
  *
@@ -69,22 +69,34 @@ struct gate_claim {
 static struct gate_claim gate_claims[ZMK_ENDPOINT_COUNT];
 static struct k_spinlock gate_lock;
 
-static void gate_clear_index(int idx, const char *reason) {
+/* The claim slot for an endpoint index, or NULL if the index is out of
+ * range (zmk_endpoint_instance_to_index() returns negative on failure). */
+static struct gate_claim *gate_slot(int idx) {
     if (idx < 0 || idx >= ZMK_ENDPOINT_COUNT) {
+        return NULL;
+    }
+
+    return &gate_claims[idx];
+}
+
+static void gate_clear_index(int idx, const char *reason) {
+    struct gate_claim *claim = gate_slot(idx);
+
+    if (claim == NULL) {
         return;
     }
 
     bool cleared = false;
 
     K_SPINLOCK(&gate_lock) {
-        if (gate_claims[idx].engaged) {
-            gate_claims[idx].engaged = false;
+        if (claim->engaged) {
+            claim->engaged = false;
             cleared = true;
         }
     }
 
     if (cleared) {
-        k_work_cancel_delayable(&gate_claims[idx].expiry_work);
+        k_work_cancel_delayable(&claim->expiry_work);
         LOG_INF("Raw touch host claim for endpoint %d cleared (%s)", idx, reason);
     }
 }
@@ -99,9 +111,8 @@ static void gate_expiry_cb(struct k_work *work) {
          * took the lock; the claim it refreshed must survive. Do NOT use
          * k_work_delayable_is_pending() here: it counts K_WORK_RUNNING --
          * i.e. this very handler -- as pending, so it is always true from
-         * inside the callback and the claim would never expire (caught on
-         * hardware, BENCH-mode-gate.md section 2). Test the re-arm flags
-         * alone. */
+         * inside the callback and the claim would never expire. Test the
+         * re-arm flags alone. */
         if (!(k_work_delayable_busy_get(dwork) & (K_WORK_DELAYED | K_WORK_QUEUED)) &&
             claim->engaged) {
             claim->engaged = false;
@@ -134,8 +145,9 @@ int zmk_raw_touch_gate_handle_command(struct zmk_endpoint_instance source, const
     }
 
     int idx = zmk_endpoint_instance_to_index(source);
+    struct gate_claim *claim = gate_slot(idx);
 
-    if (idx < 0 || idx >= ZMK_ENDPOINT_COUNT) {
+    if (claim == NULL) {
         LOG_ERR("Gate command from unindexable endpoint (transport %d)", source.transport);
         return -EINVAL;
     }
@@ -158,17 +170,17 @@ int zmk_raw_touch_gate_handle_command(struct zmk_endpoint_instance source, const
         bool refresh = false;
 
         K_SPINLOCK(&gate_lock) {
-            refresh = gate_claims[idx].engaged;
-            gate_claims[idx].engaged = true;
+            refresh = claim->engaged;
+            claim->engaged = true;
         }
 
         /* Re-arm the expiry AFTER engaging, so an in-flight expiry either
          * sees the delayable pending again or has already cleared the old
          * claim before this one was recorded. */
-        k_work_reschedule(&gate_claims[idx].expiry_work, K_SECONDS(timeout_s));
+        k_work_reschedule(&claim->expiry_work, K_SECONDS(timeout_s));
 
         if (!refresh) {
-            LOG_INF("Raw touch stream claimed by %s (timeout %us); wheel fallback suppressed "
+            LOG_INF("Raw touch frames claimed by %s (timeout %us); wheel fallback suppressed "
                     "while %s is selected",
                     label, timeout_s, label);
         } else {
@@ -193,15 +205,15 @@ int zmk_raw_touch_gate_handle_command(struct zmk_endpoint_instance source, const
 }
 
 bool zmk_raw_touch_gate_engaged_for_selected(void) {
-    int idx = zmk_endpoint_instance_to_index(zmk_endpoints_selected());
+    struct gate_claim *claim = gate_slot(zmk_endpoint_instance_to_index(zmk_endpoints_selected()));
 
-    if (idx < 0 || idx >= ZMK_ENDPOINT_COUNT) {
+    if (claim == NULL) {
         return false;
     }
 
     bool engaged = false;
 
-    K_SPINLOCK(&gate_lock) { engaged = gate_claims[idx].engaged; }
+    K_SPINLOCK(&gate_lock) { engaged = claim->engaged; }
 
     return engaged;
 }

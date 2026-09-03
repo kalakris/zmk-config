@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 The ZMK Contributors
+ * Copyright (c) 2026 Mrinal Kalakrishnan
  *
  * SPDX-License-Identifier: MIT
  *
@@ -14,7 +14,7 @@
  * such sync per frame, because absolute events contribute nothing to a
  * mouse report, and a downscaling wheel overlay (e.g. 1:8) adds more by
  * emitting REL_WHEEL with value 0 on most frames. On BLE these compete
- * with the raw touch stream's own notifications for connection events,
+ * with the raw touch frame notifications for connection events,
  * which is felt as stuttering scroll.
  *
  * ZMK core fixes this inside the listener, by skipping a sync whose
@@ -101,7 +101,7 @@ static int rtif_handle_event(const struct device *dev, struct input_event *event
     return ZMK_INPUT_PROC_CONTINUE;
 }
 
-static struct zmk_input_processor_driver_api rtif_driver_api = {
+static const struct zmk_input_processor_driver_api rtif_driver_api = {
     .handle_event = rtif_handle_event,
 };
 

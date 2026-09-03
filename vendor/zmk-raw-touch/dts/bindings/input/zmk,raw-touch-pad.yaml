@@ -1,4 +1,4 @@
-# Copyright (c) 2026 The ZMK Contributors
+# Copyright (c) 2026 Mrinal Kalakrishnan
 # SPDX-License-Identifier: MIT
 
 description: |
@@ -34,17 +34,23 @@ properties:
   x-max:
     type: int
     default: 2047
-    description: Maximum absolute X coordinate the pad reports.
+    description: |
+      Maximum absolute X coordinate the pad reports. The default is the
+      Cirque Pinnacle full-scale value.
 
   y-max:
     type: int
     default: 1535
-    description: Maximum absolute Y coordinate the pad reports.
+    description: |
+      Maximum absolute Y coordinate the pad reports. The default is the
+      Cirque Pinnacle full-scale value.
 
   resolution:
     type: int
     default: 38
-    description: Pad resolution in counts per millimetre, 0 if unknown.
+    description: |
+      Pad resolution in counts per millimetre, 0 if unknown. The default is
+      the Cirque Pinnacle value.
 
   rotate-90:
     type: boolean
@@ -53,7 +59,7 @@ properties:
       NOT transformed - the raw coordinates go out as-is and this flag is
       published in the feature report's orientation byte so the host can
       apply it. It IS applied to the relative deltas this module derives
-      for the fallback pointer path.
+      for the Standard-mode pointer path.
 
   x-invert:
     type: boolean

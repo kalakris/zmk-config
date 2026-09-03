@@ -1,12 +1,15 @@
 /*
- * Copyright (c) 2026 The ZMK Contributors
+ * Copyright (c) 2020 The ZMK Contributors
+ * Copyright (c) 2026 Mrinal Kalakrishnan
  *
  * SPDX-License-Identifier: MIT
+ *
+ * Derived from ZMK's app/src/usb_hid.c (MIT).
  *
  * A second USB HID interface (HID_1) carrying only the raw touch report.
  *
  * ZMK core owns HID_0. We register HID_1 with our own report descriptor and
- * our own hid_ops, which is why the raw stream needs no changes to ZMK's
+ * our own hid_ops, which is why the raw frames need no changes to ZMK's
  * descriptor or endpoint. Both interfaces sit behind the same USB device, so
  * the host sees one composite device exposing two HID collections.
  */
@@ -56,8 +59,7 @@ static K_SEM_DEFINE(hid_sem, 1, 1);
 
 static void in_ready_cb(const struct device *dev) { k_sem_give(&hid_sem); }
 
-/* Bus-state recovery for hid_sem -- the fix for the mid-transfer-detach
- * wedge (BENCH-mode-gate.md section 4).
+/* Bus-state recovery for hid_sem.
  *
  * An interrupt IN transfer that is in flight when the cable is pulled (or
  * the bus resets) is simply abandoned by the controller: in_ready_cb never
@@ -68,12 +70,12 @@ static void in_ready_cb(const struct device *dev) { k_sem_give(&hid_sem); }
  * the USB send path goes quiet until after replug, by which point
  * zmk_usb_get_status() is healthy again and that branch is unreachable.
  * Net effect without this listener: one frame in flight at unplug time
- * wedged the vendor stream permanently (feature GETs and keys fine, zero
- * input frames) until the half was power-cycled.
+ * wedges the vendor interface permanently (feature GETs and keys fine,
+ * zero input frames) until the keyboard is power-cycled.
  *
  * So re-arm the semaphore whenever the USB connection state leaves
  * ZMK_USB_CONN_HID (detach, bus reset, error -- every transition that
- * kills an in-flight transfer; the same condition src/gate.c uses to drop
+ * kills an in-flight transfer; the same condition raw_touch_gate.c uses to drop
  * the USB claim). Safe against a genuinely in-flight transfer by
  * construction: leaving the HID state means the controller has abandoned
  * any armed IN transfer, so nothing reads tx_report any more, and a late
@@ -87,9 +89,9 @@ static void in_ready_cb(const struct device *dev) { k_sem_give(&hid_sem); }
  * scheduling), the transfer stays armed indefinitely with the endpoint
  * still set up to DMA from tx_report, and a timed reclaim would overwrite
  * that buffer while the host can still collect it -- corrupting a frame
- * on the wire. (ZMK core's usb_hid.c does effectively that: it stomps its
- * buffer after a 30 ms k_sem_take timeout whose result it never checks.
- * We keep the checked non-blocking take instead.) A stalled-but-configured
+ * on the wire. The checked non-blocking take below drops a frame instead
+ * of overwriting a buffer an in-flight transfer may still be reading. A
+ * stalled-but-configured
  * host needs no reclaim anyway: the moment it polls again, the pending
  * transfer completes and in_ready_cb returns the semaphore. */
 static int usb_conn_state_listener(const zmk_event_t *eh) {
@@ -109,7 +111,6 @@ ZMK_SUBSCRIPTION(zmk_raw_touch_usb_hid, zmk_usb_conn_state_changed);
 #define HID_GET_REPORT_ID_MASK 0x00ff
 
 #define HID_REPORT_TYPE_INPUT 0x100
-#define HID_REPORT_TYPE_OUTPUT 0x200
 #define HID_REPORT_TYPE_FEATURE 0x300
 
 /*
@@ -172,17 +173,14 @@ static int get_report_cb(const struct device *dev, struct usb_setup_packet *setu
 }
 
 /* SET_REPORT(FEATURE) carries the protocol's single host-to-device path:
- * the host claim (see src/gate.c). Everything else is still rejected
+ * the host claim (see src/raw_touch_gate.c). Everything else is still rejected
  * with -ENOTSUP, exactly as Zephyr's default handler would.
  *
  * Per HID 1.11 a control-pipe report on a device using report IDs is
  * ID-prefixed, matching what get_report_cb returns; but host stacks are
  * not uniform about the prefix on Set_Report, so a bare 4-byte body is
  * accepted too. The two forms cannot collide: the command byte 0x01 is
- * fixed and distinct from the report ID (0x04 by default; hid.c
- * BUILD_ASSERTs the ID is nonzero, and a Kconfig override of 0x01 would
- * be rejected below anyway because a 5-byte payload is only parsed
- * ID-prefixed).
+ * fixed and distinct from the report ID 0x04.
  *
  * CONFIG_ENABLE_HID_INT_OUT_EP stays untouched -- it is a global symbol
  * that would add an interrupt OUT endpoint to ZMK's keyboard interface as
@@ -242,7 +240,7 @@ int zmk_raw_touch_usb_send_report(void) {
         break;
     }
 
-    /* Unlike ZMK core we check the take: a busy semaphore means the previous
+    /* The take is checked: a busy semaphore means the previous
      * transfer is still reading tx_report, so overwriting it would corrupt a
      * frame that is already on the wire. K_NO_WAIT, not a timeout: this runs
      * inline on the input dispatch path, so waiting here head-of-line blocks
@@ -265,7 +263,7 @@ int zmk_raw_touch_usb_send_report(void) {
     return err;
 }
 
-static int zmk_raw_touch_usb_hid_init(void) {
+static int raw_touch_usb_hid_init(void) {
     hid_dev = device_get_binding(ZMK_RAW_TOUCH_USB_HID_DEV);
     if (hid_dev == NULL) {
         LOG_ERR("Unable to locate %s; raw touch frames will not be sent over USB. "
@@ -278,13 +276,11 @@ static int zmk_raw_touch_usb_hid_init(void) {
                             &ops);
 
     /* No usb_hid_set_proto_code(): this interface has no boot protocol, so
-     * bInterfaceProtocol stays 0 (None). Unlike the ZMK-fork prototype -- in
-     * which the raw report shared ZMK's keyboard interface and so had to be
-     * suppressed whenever the host selected boot protocol -- the raw stream
-     * here is unaffected by the keyboard interface's protocol. */
+     * bInterfaceProtocol stays 0 (None) and the host's boot/report protocol
+     * selection on ZMK's keyboard interface does not affect it. */
     usb_hid_init(hid_dev);
 
     return 0;
 }
 
-SYS_INIT(zmk_raw_touch_usb_hid_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+SYS_INIT(raw_touch_usb_hid_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);

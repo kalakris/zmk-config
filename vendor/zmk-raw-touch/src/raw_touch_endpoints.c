@@ -1,11 +1,14 @@
 /*
- * Copyright (c) 2026 The ZMK Contributors
+ * Copyright (c) 2020 The ZMK Contributors
+ * Copyright (c) 2026 Mrinal Kalakrishnan
  *
  * SPDX-License-Identifier: MIT
  *
+ * Derived from ZMK's app/src/endpoints.c (MIT).
+ *
  * Endpoint dispatch for the raw touch report.
  *
- * Mirrors ZMK core's zmk_endpoints_send_*_report(): the raw stream follows
+ * Mirrors ZMK core's zmk_endpoints_send_*_report(): the raw frames follow
  * whichever transport the user has selected, and on BLE whichever profile is
  * active, exactly as the keyboard and mouse reports do.
  */
@@ -34,7 +37,7 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
  *
  * The module core still runs there on purpose: it re-injects the relative
  * deltas that ordinary pointing needs, and the split link forwards those to
- * the central. Only the raw stream itself is unavailable, so the frame
+ * the central. Only the raw frames themselves are unavailable, so the frame
  * handler's send is a no-op. */
 int zmk_raw_touch_send_report(void) { return -ENOTSUP; }
 
@@ -44,9 +47,8 @@ int zmk_raw_touch_send_report(void) { return -ENOTSUP; }
 #include <zmk/endpoints_types.h>
 
 int zmk_raw_touch_send_report(void) {
-    /* Note the plural: zmk_endpoints_selected() is stock ZMK's spelling.
-     * zmk_endpoint_selected() exists only in a downstream fork, and stock ZMK
-     * has no ZMK_TRANSPORT_NONE, so the switch below is exhaustive. */
+    /* Stock ZMK has no ZMK_TRANSPORT_NONE, so the switch below is
+     * exhaustive. */
     struct zmk_endpoint_instance current_instance = zmk_endpoints_selected();
 
     switch (current_instance.transport) {

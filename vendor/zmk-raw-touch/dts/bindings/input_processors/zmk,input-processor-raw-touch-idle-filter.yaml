@@ -1,4 +1,4 @@
-# Copyright (c) 2026 The ZMK Contributors
+# Copyright (c) 2026 Mrinal Kalakrishnan
 # SPDX-License-Identifier: MIT
 
 description: |
@@ -10,7 +10,7 @@ description: |
   notification. A pad streaming absolute frames at ~100 Hz produces one
   such sync per frame (absolute events contribute nothing to a mouse
   report), and a downscaling wheel overlay adds more by emitting value-0
-  relative events. On BLE these compete with the raw stream's own
+  relative events. On BLE these compete with the raw touch frame
   notifications for connection events.
 
   Place it LAST in the chain, after every scaler, mapper and temp-layer

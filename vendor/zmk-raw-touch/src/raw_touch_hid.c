@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 The ZMK Contributors
+ * Copyright (c) 2026 Mrinal Kalakrishnan
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,8 +8,9 @@
  * The descriptor is a single top-level vendor-defined application collection
  * carrying one Input report (a touch frame) and one Feature report (pad
  * capabilities), both on ZMK_RAW_TOUCH_REPORT_ID. It is served verbatim on
- * our own USB HID interface (src/usb_hid.c) and our own HID-over-GATT report
- * map characteristic (src/hog.c); ZMK's own descriptor is never touched.
+ * our own USB HID interface (src/raw_touch_usb_hid.c) and our own
+ * HID-over-GATT report map characteristic (src/raw_touch_hog.c); ZMK's own
+ * descriptor is never touched.
  */
 
 #include <zephyr/kernel.h>
@@ -20,7 +21,7 @@
 
 #include <zephyr/logging/log.h>
 
-/* The module's LOG_MODULE_REGISTER lives in src/log.c. */
+/* The module's LOG_MODULE_REGISTER lives in src/raw_touch_log.c. */
 LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
 #include <zmk/raw_touch/hid.h>
@@ -49,8 +50,6 @@ BUILD_ASSERT(sizeof(struct zmk_raw_touch_feature_pad_slot) == 8,
              "Raw touch feature pad slot must stay 8 bytes; the host parses it by offset");
 BUILD_ASSERT(sizeof(struct zmk_raw_touch_feature_body) == 20,
              "Raw touch feature report body must stay 20 bytes; the host parses it by offset");
-BUILD_ASSERT(ZMK_RAW_TOUCH_REPORT_ID > 0 && ZMK_RAW_TOUCH_REPORT_ID <= 0xFF,
-             "CONFIG_ZMK_RAW_TOUCH_REPORT_ID must be a non-zero single-byte report ID");
 
 /* The descriptor declares the pads' REAL logical ranges on the x/y fields,
  * so generic HID tooling sees true geometry without parsing the feature
@@ -145,7 +144,7 @@ const size_t zmk_raw_touch_report_desc_size = sizeof(zmk_raw_touch_report_desc);
 static struct zmk_raw_touch_report touch_report = {
     .report_id = ZMK_RAW_TOUCH_REPORT_ID,
     /* contact_id stays 0 for the life of the report: the module only
-     * streams single-touch pads today. */
+     * streams single-touch pads. */
     .body = {.pad_id = 0, .contact_id = 0, .x = 0, .y = 0, .z = 0, .flags = 0, .seq = 0,
              .timestamp = 0},
 };

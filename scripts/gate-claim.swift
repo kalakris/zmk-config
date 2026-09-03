@@ -1,5 +1,5 @@
 // Ad-hoc mode-gate claim writer for the zmk-raw-touch vendor HID device.
-// Bench tool (BENCH-mode-gate.md): sends the 4-byte gate command as a SET
+// Bench tool for the host claim: sends the 4-byte gate command as a SET
 // feature report, no Accessibility/TCC needed. Companion to
 // raw-touch-monitor.swift, which shows the resulting flags bit 2.
 //

@@ -1,9 +1,13 @@
 /*
- * Copyright (c) 2026 The ZMK Contributors
+ * Copyright (c) 2026 Mrinal Kalakrishnan
  *
  * SPDX-License-Identifier: MIT
  *
- * Wire format for the raw touch stream (protocol v3).
+ * Wire format for raw touch frames (protocol v3).
+ *
+ * The README's wire-format appendix is the normative description of this
+ * layout; the structs here are its C spelling and must match it byte for
+ * byte (src/raw_touch_hid.c BUILD_ASSERTs the sizes).
  *
  * The module owns a private HID report descriptor containing exactly one
  * top-level vendor-defined application collection, carried on its own USB
@@ -16,7 +20,12 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
 
-#define ZMK_RAW_TOUCH_REPORT_ID CONFIG_ZMK_RAW_TOUCH_REPORT_ID
+/* Protocol identity, fixed rather than Kconfig-tunable: hosts match the
+ * application collection by usage page/usage and then the report ID, so a
+ * different value would be silently invisible to every host. */
+#define ZMK_RAW_TOUCH_USAGE_PAGE 0xFF00
+#define ZMK_RAW_TOUCH_USAGE 0x01
+#define ZMK_RAW_TOUCH_REPORT_ID 0x04
 
 /* Input report: one 11-byte frame, emitted per pad sample while touched
  * (~100 Hz), plus exactly one release frame (touched = 0, z = 0) on
@@ -52,17 +61,13 @@ struct zmk_raw_touch_report {
 
 /* Feature report: self-describing pad capabilities, on the same report ID.
  * Readable over USB GET_REPORT and the BLE feature report characteristic.
+ * At most ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS pads are described; further pads
+ * still set their pads_present bit but get no slot.
  * Hosts MUST read and validate this before treating a vendor collection on
  * this usage page as the raw touch protocol - 0xFF00/0x01 is a commonly
  * squatted vendor pair. */
 
 #define ZMK_RAW_TOUCH_PROTOCOL_VERSION 3
-
-/* The usage pair is the protocol's identity: hosts match the application
- * collection by it, so it is fixed, not tunable (unlike the report ID,
- * which keeps its Kconfig justification). */
-#define ZMK_RAW_TOUCH_USAGE_PAGE 0xFF00
-#define ZMK_RAW_TOUCH_USAGE 0x01
 
 /* Capabilities bit 0: the host claim is supported - the host may claim
  * the stream by writing the feature report (see zmk/raw_touch/gate.h),
@@ -89,7 +94,7 @@ struct zmk_raw_touch_feature_pad_slot {
 struct zmk_raw_touch_feature_body {
     uint8_t protocol_version; /* ZMK_RAW_TOUCH_PROTOCOL_VERSION */
     uint8_t pads_present;     /* bit N set if pad-id N exists */
-    uint8_t capabilities;     /* ZMK_RAW_TOUCH_CAP_*; all bits 0 today */
+    uint8_t capabilities;     /* ZMK_RAW_TOUCH_CAP_* */
     uint8_t reserved;         /* 0 */
     /* Present pads in ascending pad-id order; unused trailing slots stay
      * zeroed. */
@@ -101,11 +106,11 @@ struct zmk_raw_touch_feature_report {
     struct zmk_raw_touch_feature_body body;
 } __packed;
 
-/* The module's private report descriptor, defined in src/hid.c. */
+/* The module's private report descriptor, defined in src/raw_touch_hid.c. */
 extern const uint8_t zmk_raw_touch_report_desc[];
 extern const size_t zmk_raw_touch_report_desc_size;
 
-/* Report state accessors (src/hid.c). The caller owns seq and timestamp:
+/* Report state accessors (src/raw_touch_hid.c). The caller owns seq and timestamp:
  * seq is per-pad state (src/raw_touch.c) and timestamp is the device-side
  * sample time in 100 us units, so neither can be stamped here without
  * losing meaning. contact_id is fixed at 0 while the module only streams

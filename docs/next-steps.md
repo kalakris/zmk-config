@@ -107,7 +107,7 @@ radio+USB, tuned-wire+USB) — `/tmp` is volatile; re-capture if gone.
 Residual items, all **optional polish** now (the fixes they were
 designed for no longer occur under the tuned wire):
 
-1. A small USB TX ring in the module's `src/usb_hid.c` — the
+1. A small USB TX ring in the module's `src/raw_touch_usb_hid.c` — the
    single-slot `hid_sem` drop path only bites on multi-frame bursts,
    which the tuned poll cadence no longer produces. Worth doing only as
    robustness for users running stock poll timings.
@@ -186,8 +186,9 @@ to them now gets wheel-fallback scrolling only.
 
 **Complete and mainline.** Full story: wire contract in
 [mode-gate-plan.md](mode-gate-plan.md) (now historical); measurements
-and findings in the module repo's `BENCH-mode-gate.md` — every section
-passed. Highlights: claim/refresh/release/expiry/clamp verified over
+and findings in the module repo's `BENCH-mode-gate.md` (retired from the
+module 2026-09-02, release prep; recoverable from git history) — every
+section passed. Highlights: claim/refresh/release/expiry/clamp verified over
 USB and BLE; endpoint switch-away/switch-back/two-host handoff
 seamless; **§6 does not reproduce** — a permission-only GATT change
 leaves the macOS HOGP cache valid, so upgrading across the gate needs
@@ -417,3 +418,94 @@ the poster now holds `began` until the first non-zero delta, and the
 device clock tightens its anchor over BLE (opt-in, pipeline enables).
 Deployed 2026-09-02; **feel check pending** (drag shimmer gone? stop
 overshoot at 5 ms? BLE drags — try latency 10 if uneven).
+
+## p. Open-source release prep — pass 1 applied 2026-09-02 (UNCOMMITTED, module unverified by CI)
+
+A `/simplify` + release-lens sweep over both repos (six review agents:
+reuse, simplification, efficiency, altitude, and two open-source-hygiene
+passes). Applied, all **uncommitted** in `~/src/zmk-raw-touch` (staged),
+`~/src/rawtouch` (working tree), and here (`vendor/` synced + these docs):
+
+**Module.** Sources renamed `src/raw_touch_*.c` (no more shadowing of ZMK
+core's `usb_hid.c`/`hog.c`/`hid.c`/`endpoints.c`); example overlay moved
+`boards/` → `examples/` (`boards/` is a Zephyr board root); license
+headers corrected (original files: Mrinal; `raw_touch_hog.c`,
+`raw_touch_usb_hid.c`, `raw_touch_endpoints.c`: ZMK 2020 + Mrinal + a
+derived-from note); `CONFIG_ZMK_RAW_TOUCH_REPORT_ID` **removed** — the
+report ID is a fixed `0x04` in `hid.h` like the usage pair (a tunable a
+host cannot follow); `ZMK_RAW_TOUCH_SCROLL_MAX_DEVICES` renamed
+`ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_MAX_DEVICES`; new
+`ZMK_RAW_TOUCH_BLE_THREAD_STACK_SIZE` (default = ZMK's); processors
+`depends on ZMK_POINTING`; dead `HID_REPORT_TYPE_OUTPUT`/`HIDS_OUTPUT`
+gone; `gate_slot()` helper; BLE drain looks the conn up once per drain
+not per frame; device timestamp computed only when a report goes out;
+duplicate `pad-id` logged; driver-api structs `const`; every bench-doc
+citation, fork war story and "touch stream" gone from comments;
+`BENCH-mode-gate.md` deleted; README rewritten (host = RawTouch,
+listener node in the quickstart, Verify section with the log lines,
+driver guidance for Zephyr 3.5, USB feature GET = 21 bytes ID-prefixed
+vs BLE 20 bare, 2-slot cap stated, release-frame bit 1 stated, BLE ATT
+error codes listed, the re-pair contradiction resolved in favour of "a
+permission change does not invalidate the cache", v2 section dropped,
+acknowledgements). **Nothing compiled locally (no west here): push
+zmk-config to let CI build the vendored copy before flashing.** Config
+impact on this repo: none (`go60_rh.conf` sets nothing that changed).
+
+**RawTouch.** `TouchStreamCapabilities` lost its primary-pad forwarders
+and both `scrollInverted` helpers (tests now pin
+`RawTouchConfiguration.engineConfig`, the shipping derivation);
+`supportedVersions` → `protocolVersion`; `TouchStreamGate.allowsSynthesis`
+/ `refreshInterval(forTimeoutSeconds:)` gone (pipeline reads
+`frame.hostClaimed`); `RawTouchStatus.deviceCount` → `padIDs` and the
+Settings window now shows one section per pad the device reports (or
+per pad the config overrides), named **"Pad 0" / "Pad 1"** — the sided
+"Right pad"/"Left pad" names were a Go60 guess; `momentumEnded` lost its
+unused `interrupted` payload; `stopSpeed` is a private engine constant
+(bench `--stop` removed); `GestureEvent` class → two functions; AppKit
+is no longer linked by Core; per-frame `String(padID)` lookup gone
+(disabled pads simply get no engine config); os_log in the poster
+guarded; `RawTouchLog.fail`; `Comparable.clamped` public in its own file
+and used by the Settings fields; **unknown config keys are now logged**
+(`RawTouchConfiguration.unknownKeys(in:)`, schema derived from the
+encoder); decoders use a `decode(_:or:)` helper; axis picker relabelled
+"Sensor X / Sensor Y" (the old "Horizontal" meant vertical scrolling from
+the X sensor); log categories `Device` / `Scroll` / `HostClaim`; README
+rewritten (hardware + firmware step, vertical-only, full uninstall,
+config ranges + per-pad keys, no-network statement, debug-log note, no
+LinearMouse fork), DESIGN.md's icon table and section list now match the
+code, PRODUCT.md no longer says "one user", bench README stripped of
+dates and "rerun pending", `config.example.json` matches the documented
+defaults (acceleration off, no Go60 `pads` block), tracked `.pyc`
+removed + `.gitignore` extended, Info.plist copyright string. 208 tests
+green; `swift build` warning-free. **Not rebuilt into ~/Applications
+(user's move: quit app → `scripts/make-app.sh` → relaunch).** Behaviour
+changes the user will notice: pad section names, axis labels, unknown-key
+log lines.
+
+**Deferred — decisions for the user, not done:**
+1. Rename the `TouchStream*` types/files (`TouchStreamFrame`,
+   `TouchStreamManager`, `TouchStreamGate`, …, ~40 files) — the banned
+   term survives only in identifiers now; cheapest before the first push.
+2. "gate" vs "claim" in identifiers (`TouchStreamGate`, `gateClaimed`,
+   `onGatelessFirmware`) — prose is uniformly "claim" now.
+3. `com.kalakris.*` bundle ID / LaunchAgent label / log subsystem (15
+   consistent sites); the LaunchAgent label equals the app bundle ID.
+4. Module git history: squash before going public (commits name the
+   `-wip` repo, the LinearMouse fork, "item-k agent"); delete the
+   `mode-gate` branch on origin. RawTouch has no remote yet and two
+   author identities in its history.
+5. Module `zmk,` devicetree vendor prefix (a maintainer may object; the
+   `zmk,input-processor-*` convention argues for keeping it).
+6. Firmware: make the release frame undroppable in the BLE queue (today
+   the host's 150 ms watchdog is a MUST because of it); BLE queue depth
+   30 → ~8; feature report length = 4 + 8 × popcount(pads).
+7. Host: `IOHIDDeviceSetReport`/`GetReport` run synchronously on the main
+   queue (10 s refresh, connect); daemon lifecycle duplicated in
+   `main.swift` and `AppModel` (a `RawTouchService` would fold them);
+   `ManualDisplayTicker` + fixtures into a `RawTouchTestSupport` target;
+   resampler fits both axes when the engine reads one (left alone while
+   the feel test is pending); one shared USB/BLE report-ID framing codec
+   instead of four heuristics.
+8. Still missing for the flip: demo video, notarized RawTouch build,
+   app icon, `v0.1.0` tag, CONTRIBUTING, module CI workflow, a public
+   `kalakris/rawtouch` remote.

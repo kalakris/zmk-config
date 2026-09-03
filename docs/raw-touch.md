@@ -21,7 +21,7 @@ host answers by canceling that pad's series without momentum. The
 patched LinearMouse fork is the frozen fallback
 (quit rawtouch → launch LinearMouse); it will not be released publicly.
 Current operational state: next-steps.md items j/k/l/m. Claim spec: the
-module README appendix. Bench: module `BENCH-mode-gate.md`. This document is the full project state:
+module README appendix (the module's `BENCH-mode-gate.md` lab notebook was retired 2026-09-02 during release prep; its durable facts moved into the README's Verify section and wire appendix). This document is the full project state:
 architecture, repo map, what's validated, where every knob lives, the
 operational loops, and how to roll back. It assumes no prior context.
 
@@ -212,7 +212,7 @@ one FIFO ring, so LH *keystrokes* eat the same up-to-~22 ms latency.
 Two knock-on effects of the bursts:
 
 - **The 45% wire+USB drop is in the module, not the wire**: the
-  module's USB send path (`src/usb_hid.c`,
+  module's USB send path (`src/raw_touch_usb_hid.c`,
   `zmk_raw_touch_usb_send_report()`) has a single in-flight report slot
   guarded by `hid_sem`, released only by the host's interrupt-IN poll —
   frames 2..n of a back-to-back burst hit a busy slot and drop

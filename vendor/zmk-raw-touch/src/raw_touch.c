@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 2026 The ZMK Contributors
+ * Copyright (c) 2026 Mrinal Kalakrishnan
  *
  * SPDX-License-Identifier: MIT
  *
- * Raw touch streaming (protocol v3): forwards absolute touch frames
+ * Raw touch frames (protocol v3): forwards absolute touch frames
  * (position + touch strength) from a trackpad running in absolute mode to
  * the host over a vendor-defined HID report (see zmk/raw_touch/hid.h).
  *
  * Reports are emitted only while the selected endpoint's host holds a
- * live claim (see gate.c) - i.e. only in host-driven ("RawTouch") mode,
- * never in standard mode: one report per pad sample while
- * touched (~100 Hz), plus exactly one release report (touched = 0, z = 0)
- * on lift-off. Unclaimed, the stream is silent - nobody is listening, and
+ * live claim (see raw_touch_gate.c) - i.e. only in RawTouch mode, never
+ * in Standard mode: one report per pad sample while touched (~100 Hz),
+ * plus exactly one release report (touched = 0, z = 0) on lift-off.
+ * Unclaimed, nothing is emitted - nobody is listening, and
  * at ~100 Hz of 11-byte reports the wasted BLE airtime is real. If the
  * claim clears mid-touch, one final synthetic release report (touched =
  * 0, flags bit 2 clear) closes the host's gesture before the stream goes
- * quiet. Each frame carries a per-pad sequence number (drop detection) and a device-side
- * timestamp in 100 us units (host-side velocity that BLE batching cannot
+ * quiet. Each frame carries a per-pad sequence number (drop detection)
+ * and a device-side timestamp in 100 us units (host-side velocity that
+ * BLE batching cannot
  * distort). A 20-byte feature report on the same report ID describes the
  * protocol version, the pads present and, per pad, its resolution,
  * orientation, coordinate ranges and contact count; it is readable over
@@ -35,8 +36,8 @@
  * are ALWAYS re-injected as REL_X/REL_Y on the same input device,
  * regardless of scroll mode, so the existing input listener chain
  * (scaling, wheel-mapping overlays, temp mouse layer, buttons) keeps
- * working as a fallback. A host consuming the raw stream is expected to
- * suppress the pointer/wheel events it supersedes.
+ * working in Standard mode. A live host claim suppresses only the
+ * scroll-context deltas (see below).
  *
  * Tap-to-click: when the pad node sets tap-click, a touch that lifts off
  * within tap-max-ms and never strays more than tap-max-movement raw
@@ -129,6 +130,14 @@ static void raw_touch_emit_tap(const struct raw_touch_pad_config *cfg) {
     input_report_key(cfg->dev, INPUT_BTN_0, 0, true, K_NO_WAIT);
 }
 
+/* Device-side sample time (HID Scan Time convention, 100 us units): hosts
+ * derive finger velocity from this rather than from arrival time, which
+ * BLE connection-interval batching distorts. Only computed when a report
+ * actually goes out - the 64-bit divide is not free on a Cortex-M. */
+static uint16_t raw_touch_timestamp(void) {
+    return (uint16_t)(k_ticks_to_us_floor64(k_uptime_ticks()) / 100);
+}
+
 static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
                                     struct raw_touch_pad_data *data, bool scroll_mode) {
     /* An absolute-mode pad marks lift-off with an all-zeros idle frame. */
@@ -148,11 +157,6 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
      * frame after a claim clears or the endpoint switches away. */
     bool host_claimed = zmk_raw_touch_gate_engaged_for_selected();
 
-    /* Device-side sample time (HID Scan Time convention, 100 us units):
-     * hosts derive finger velocity from this rather than from arrival
-     * time, which BLE connection-interval batching distorts. */
-    uint16_t timestamp = (uint16_t)(k_ticks_to_us_floor64(k_uptime_ticks()) / 100);
-
     if (host_claimed) {
         uint8_t flags = (touched ? ZMK_RAW_TOUCH_FLAGS_TOUCHED : 0) |
                         (scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0) |
@@ -162,12 +166,12 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
          * derived above), so the release report's zeros need no special
          * case. */
         zmk_raw_touch_hid_set(cfg->pad_id, data->cur_x, data->cur_y, data->cur_z, flags,
-                              data->seq++, timestamp);
+                              data->seq++, raw_touch_timestamp());
         zmk_raw_touch_send_report();
         data->stream_touched = touched;
     } else if (data->stream_touched) {
         /* The claim cleared mid-touch (timeout, host release, endpoint
-         * switch - see gate.c) and the last report the host saw said
+         * switch - see raw_touch_gate.c) and the last report the host saw said
          * touched. Emit exactly one synthetic release report so the host
          * closes its gesture instead of holding a phantom finger-down
          * (runaway momentum), then go silent. Bit 2 is clear - its meaning
@@ -176,14 +180,14 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
          * again, so it must not add lift-off momentum on top. */
         zmk_raw_touch_hid_set(cfg->pad_id, 0, 0, 0,
                               scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0, data->seq++,
-                              timestamp);
+                              raw_touch_timestamp());
         zmk_raw_touch_send_report();
         data->stream_touched = false;
     }
     /* Unclaimed with nothing owed: emit nothing. Everything below - tap
      * detection, relative-delta derivation, prev_x/prev_y tracking - keeps
-     * running regardless, because it IS the driverless standard-mode
-     * experience (cursor + tap + wheel fallback). */
+     * running regardless, because it IS Standard mode (cursor + tap +
+     * wheel fallback). */
 
     if (touched && !data->prev_touched) {
         /* Touch-down: start a tap candidacy. */
@@ -206,8 +210,7 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
 
     /* Dual mode: derive relative deltas for the normal pointer pipeline,
      * even in scroll mode - an existing wheel-mapping overlay then
-     * provides standard wheel scrolling as a fallback for hosts without a
-     * stream consumer.
+     * provides standard wheel scrolling for hosts that never claim.
      *
      * The host claim suppresses exactly that fallback: while the selected
      * endpoint holds a claim, scroll-context deltas are not injected at
@@ -279,22 +282,9 @@ static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
         return;
     }
 
-    /* Fold the scroll-context latch into the frame being accumulated.
-     *
-     * A frame is three input events (ABS_X, ABS_Y, then ABS_Z carrying the
-     * sync) and the listener's processor chain runs on all of them, while
-     * we act only on the sync. So whichever order the input subsystem
-     * happens to invoke the listener's callback and ours in, the marker
-     * has already been reached at least once for this frame by the time we
-     * process the sync - the flag is correct from the very first frame of
-     * a touch, including when the scroll layer was held before touch-down,
-     * and it follows layer changes mid-touch.
-     *
-     * That is also strictly more faithful than reimplementing the
-     * listener's chain walk would be: the marker runs if and only if the
-     * chain containing it is the one actually handling the event, so layer
-     * overlay ordering and process-next shadowing are honoured by
-     * construction.
+    /* Fold the scroll-context latch into the frame being accumulated (see
+     * zmk/raw_touch/scroll.h for why the latch is already correct on the
+     * first frame of a touch, whichever order the input callbacks run in).
      *
      * The latch is discarded rather than accumulated on the first event of
      * a frame. A mark can be set *after* we handled the previous sync (if
@@ -357,15 +347,21 @@ static int raw_touch_init(void) {
     uint8_t pads_present = 0;
 
     for (size_t i = 0; i < ARRAY_SIZE(raw_touch_pads); i++) {
-        pads_present |= BIT(raw_touch_pads[i]->pad_id);
+        uint8_t bit = BIT(raw_touch_pads[i]->pad_id);
+
+        if (pads_present & bit) {
+            LOG_ERR("Duplicate raw touch pad-id %d; frames from both pads will be indistinguishable",
+                    raw_touch_pads[i]->pad_id);
+        }
+        pads_present |= bit;
     }
 
     zmk_raw_touch_hid_set_feature_header(pads_present);
 
     /* Fill the feature report's pad slots with the present pads in
      * ascending pad-id order, each with its own geometry and orientation.
-     * pad-ids are unique (the binding requires it), so each id fills at
-     * most one slot. */
+     * pad-ids are unique (the binding requires it; duplicates are flagged
+     * above), so each id fills at most one slot. */
     int slot = 0;
 
     for (uint8_t id = 0; id < 8 && slot < ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS; id++) {
