@@ -79,8 +79,12 @@ func describe(_ device: IOHIDDevice, index: Int) {
     let result = IOHIDDeviceGetReport(device, kIOHIDReportTypeFeature,
                                       CFIndex(frameReportID), &buffer, &length)
     if result == kIOReturnSuccess, length >= 3 {
+        // Over USB the GET comes back report-ID-prefixed (21 bytes); over
+        // BLE bare (20). Normalize, or the USB endpoint reads as "v4".
+        var body = Array(buffer[0 ..< length])
+        if body[0] == UInt8(frameReportID) { body.removeFirst() }
         note(String(format: "# dev %d: feature report: protocol_version=%d pads_present=0x%02X capabilities=0x%02X",
-                    index, buffer[0], buffer[1], buffer[2]))
+                    index, body[0], body[1], body[2]))
     } else {
         note(String(format: "# dev %d: feature report read failed (0x%X)", index, result))
     }

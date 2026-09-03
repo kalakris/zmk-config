@@ -8,11 +8,15 @@ v3, both pads streaming, USB + BLE verified) — see
 [module-publish-brief.md](module-publish-brief.md) for the publish plan.
 Each item below is self-contained enough to start cold.
 
-**Current state (2026-09-02 end of session):** RawTouch app runs with
-**display-rate resampling, carry semantics, latency 0** (item o) — the
-user's feel test is PENDING, as are the Safari `--resample` lockout
-sweep rerun and a 100 Hz sample-rate verification capture (both need the
-user at the desk; commands in item o / the bench README). The Safari
+**Current state (2026-09-02, late evening):** RawTouch app runs with
+**display-rate resampling, carry semantics, latency 0** (item o) — feel
+test PASSED, Safari `--resample` lockout sweep rerun 3/3 ok (98–100 %
+applied, response 100–133 ms after the edge), plain-drag total 2082–2083
+vs 2077 before = the ~6 px carried offset the offline bench predicts at
+latency 0, and a 100 Hz cadence capture over BLE confirmed both pads at
+~10 ms device spacing (pad 0 p50 9.70 / p90 10.30 ms; pad 1 p50 9.70 /
+p90 9.90 ms; zero drops; the usual 15 ms BLE arrival batching). Release
+prep pass 1 (item p) is committed, CI-verified and flashed. The Safari
 ProMotion lockout is fixed at the source (item n, poster began carries
 the first motion delta). Firmware: both halves on current `main` with
 the pad sample rate at the 100 SPS default (the 120 experiment proved
@@ -416,8 +420,11 @@ plus the plain-drag total (`--flick 10 --flick-frames 30 --flick-settle
 60 --start 2000`, expect ~2077). Two extras:
 the poster now holds `began` until the first non-zero delta, and the
 device clock tightens its anchor over BLE (opt-in, pipeline enables).
-Deployed 2026-09-02; **feel check pending** (drag shimmer gone? stop
-overshoot at 5 ms? BLE drags — try latency 10 if uneven).
+Deployed 2026-09-02; **feel check PASSED 2026-09-02** (user: "beautiful"
+at latency 0). Safari sweep rerun 3/3 ok at latency 0 (response 100–133
+ms after the edge); plain-drag final 2082–2083, i.e. ~6 px past the
+5 ms-era 2077 — the carried offset, by design. Cadence capture: both pads
+~10 ms device spacing over BLE, zero drops. Item closed.
 
 ## p. Open-source release prep — pass 1 DONE 2026-09-02 (committed, CI green, both halves flashed, app redeployed)
 
@@ -426,7 +433,8 @@ reuse, simplification, efficiency, altitude, and two open-source-hygiene
 passes). Committed as zmk-raw-touch `f431278`, rawtouch `4aa7189`,
 zmk-config `655952d`; CI run 33710477203 built the vendored module on
 both Go60 targets; both halves flashed from it and the app rebuilt and
-relaunched the same evening. Feel test still pending (see item o).
+relaunched the same evening. Feel test passed (item o). No BLE re-pair
+needed: the report map and GATT layout are unchanged.
 
 **Module.** Sources renamed `src/raw_touch_*.c` (no more shadowing of ZMK
 core's `usb_hid.c`/`hog.c`/`hid.c`/`endpoints.c`); example overlay moved
