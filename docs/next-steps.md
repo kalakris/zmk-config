@@ -419,12 +419,14 @@ device clock tightens its anchor over BLE (opt-in, pipeline enables).
 Deployed 2026-09-02; **feel check pending** (drag shimmer gone? stop
 overshoot at 5 ms? BLE drags — try latency 10 if uneven).
 
-## p. Open-source release prep — pass 1 applied 2026-09-02 (UNCOMMITTED, module unverified by CI)
+## p. Open-source release prep — pass 1 DONE 2026-09-02 (committed, CI green, both halves flashed, app redeployed)
 
 A `/simplify` + release-lens sweep over both repos (six review agents:
 reuse, simplification, efficiency, altitude, and two open-source-hygiene
-passes). Applied, all **uncommitted** in `~/src/zmk-raw-touch` (staged),
-`~/src/rawtouch` (working tree), and here (`vendor/` synced + these docs):
+passes). Committed as zmk-raw-touch `f431278`, rawtouch `4aa7189`,
+zmk-config `655952d`; CI run 33710477203 built the vendored module on
+both Go60 targets; both halves flashed from it and the app rebuilt and
+relaunched the same evening. Feel test still pending (see item o).
 
 **Module.** Sources renamed `src/raw_touch_*.c` (no more shadowing of ZMK
 core's `usb_hid.c`/`hog.c`/`hid.c`/`endpoints.c`); example overlay moved
@@ -447,9 +449,8 @@ driver guidance for Zephyr 3.5, USB feature GET = 21 bytes ID-prefixed
 vs BLE 20 bare, 2-slot cap stated, release-frame bit 1 stated, BLE ATT
 error codes listed, the re-pair contradiction resolved in favour of "a
 permission change does not invalidate the cache", v2 section dropped,
-acknowledgements). **Nothing compiled locally (no west here): push
-zmk-config to let CI build the vendored copy before flashing.** Config
-impact on this repo: none (`go60_rh.conf` sets nothing that changed).
+acknowledgements). Config impact on this repo: none (`go60_rh.conf`
+sets nothing that changed).
 
 **RawTouch.** `TouchStreamCapabilities` lost its primary-pad forwarders
 and both `scrollInverted` helpers (tests now pin
@@ -477,9 +478,8 @@ code, PRODUCT.md no longer says "one user", bench README stripped of
 dates and "rerun pending", `config.example.json` matches the documented
 defaults (acceleration off, no Go60 `pads` block), tracked `.pyc`
 removed + `.gitignore` extended, Info.plist copyright string. 208 tests
-green; `swift build` warning-free. **Not rebuilt into ~/Applications
-(user's move: quit app → `scripts/make-app.sh` → relaunch).** Behaviour
-changes the user will notice: pad section names, axis labels, unknown-key
+green; `swift build` warning-free. Behaviour changes the user will
+notice: pad section names, axis labels, unknown-key
 log lines.
 
 **Deferred — decisions for the user, not done:**
