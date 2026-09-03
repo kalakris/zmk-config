@@ -8,6 +8,20 @@ v3, both pads streaming, USB + BLE verified) — see
 [module-publish-brief.md](module-publish-brief.md) for the publish plan.
 Each item below is self-contained enough to start cold.
 
+**Current state (2026-09-02 end of session):** RawTouch app runs with
+**display-rate resampling, carry semantics, latency 0** (item o) — the
+user's feel test is PENDING, as are the Safari `--resample` lockout
+sweep rerun and a 100 Hz sample-rate verification capture (both need the
+user at the desk; commands in item o / the bench README). The Safari
+ProMotion lockout is fixed at the source (item n, poster began carries
+the first motion delta). Firmware: both halves on current `main` with
+the pad sample rate at the 100 SPS default (the 120 experiment proved
+the ASIC clamps at 100). `scripts/flash-go60.sh` now self-exits when
+the requested halves are flashed, locks against a second watcher, and
+waits indefinitely (user preference). LinearMouse `stock-inputscale`
+runs alongside RawTouch for pointer processing. Everything committed
+and pushed in all repos.
+
 In flight / current state (2026-08-31): **RawTouch is the live scroll
 host** (menubar app — see item k for the full operational state;
 LinearMouse stays quit). Items l (claim-gated frame emission) and m
