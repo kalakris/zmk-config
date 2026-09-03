@@ -383,10 +383,22 @@ the default (property omitted). Follow-up SHIPPED the same day:
 estimate per vsync of the display under the cursor (CVDisplayLink;
 exact interpolation when bracketed, capped extrapolation via the shared
 `WeightedVelocityFit` otherwise), momentum rides the same vsync, config
-`resampling.enabled` (default true) + `resampling.latencyMs` (default 5,
-0–10; Settings → "Display sync"). Offline bench: 0 % empty display
-frames vs 17 % (clean) / 45 % (BLE) before, totals exact, stop
-overshoot ≤2 px at 5 ms; Safari lockout sweep still 6/6. Two extras:
+`resampling.enabled` (default true) + `resampling.latencyMs` (default
+**0**, 0–10; Settings → "Display sync"; the knob is only for BLE-batching
+smoothness — try 10 over BLE). Stops use **carry semantics** (3 more
+commits, `ea0f855`..`fae77fe`, 207 tests): emission is relative and a
+retraction of our own extrapolation is never posted — content lands ~1
+sample period past a hard stop (6 px at 600 px/s) and stays; genuine
+reversals pass at true magnitude; no dead zone on resume (asserted);
+the carried offset is dropped at lift. User's reasoning: scrolling is
+relative and ballistics already makes the mapping non-absolute, so a
+gesture-local bias is imperceptible while a snap-back or sticky restart
+is not. Offline bench: 0 % empty display frames vs 17 % (clean) / 45 %
+(BLE) before, totals exact, zero added latency at 0 ms; Safari lockout
+sweep 6/6 before the carry change — **rerun pending** (screen was
+locked): `run.py --resample --delays 250 --rescroll-frames 60 --repeat 3`
+plus the plain-drag total (`--flick 10 --flick-frames 30 --flick-settle
+60 --start 2000`, expect ~2077). Two extras:
 the poster now holds `began` until the first non-zero delta, and the
 device clock tightens its anchor over BLE (opt-in, pipeline enables).
 Deployed 2026-09-02; **feel check pending** (drag shimmer gone? stop
