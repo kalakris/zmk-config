@@ -8,7 +8,9 @@ v3, both pads streaming, USB + BLE verified) — see
 [module-publish-brief.md](module-publish-brief.md) for the publish plan.
 Each item below is self-contained enough to start cold.
 
-**Current state (2026-09-02, late evening):** RawTouch app runs with
+**Current state (2026-09-04):** everything below plus item q (physical-1:1
+gain defaults, per-transport latency) is deployed; all three repos are
+pushed (rawtouch is now a private GitHub repo). RawTouch app runs with
 **display-rate resampling, carry semantics, latency 0** (item o) — feel
 test PASSED, Safari `--resample` lockout sweep rerun 3/3 ok (98–100 %
 applied, response 100–133 ms after the edge), plain-drag total 2082–2083
