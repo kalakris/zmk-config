@@ -517,3 +517,21 @@ log lines.
 8. Still missing for the flip: demo video, notarized RawTouch build,
    app icon, `v0.1.0` tag, CONTRIBUTING, module CI workflow, a public
    `kalakris/rawtouch` remote.
+
+## q. Apple-like scroll defaults + per-transport latency — DONE 2026-09-04 (rawtouch `c7a4999`, `aa50533`)
+
+`scale` is now a **gain relative to physical 1:1** (points/count derived
+per gesture = gain × display pt/mm under the cursor ÷ pad counts/mm;
+fallbacks 4.0 pt/mm, 38 counts/mm; both panels here measure ≈4.3 pt/mm).
+Defaults tuned on hardware by the user: gain 1.0, acceleration ON
+(exponent 0.9, reference 1500 counts/s, minGain 1.0, maxGain 16),
+momentum decay 0.55 s, seed cap 20000 pt/s. The user's config carries
+gain 1.14 (= the 0.13 pt/count he settled on). Reasoning: Apple is ~1:1
+at slow speed; the 54 × 40 mm pad needs a steep curve for reach; Apple's
+momentum is ≈0.5 s. Then **per-transport display-sync latency**: frames
+are tagged with their IOHIDDevice's transport, the pipeline adopts it at
+touch-down, `resampling.latencyMs` (USB/unknown, 0) vs the new
+`resampling.bluetoothLatencyMs` (10); Settings has two sliders; the menu
+device line says "connected over USB and Bluetooth". Backups of the
+pre-change config: `~/.config/rawtouch/config.json.pre-apple-defaults-2026-09-03`
+and `.pre-gain-2026-09-03`. rawtouch still has **no git remote**.
