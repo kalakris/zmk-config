@@ -534,4 +534,4 @@ touch-down, `resampling.latencyMs` (USB/unknown, 0) vs the new
 `resampling.bluetoothLatencyMs` (10); Settings has two sliders; the menu
 device line says "connected over USB and Bluetooth". Backups of the
 pre-change config: `~/.config/rawtouch/config.json.pre-apple-defaults-2026-09-03`
-and `.pre-gain-2026-09-03`. rawtouch still has **no git remote**.
+and `.pre-gain-2026-09-03`. rawtouch now lives at **github.com/kalakris/rawtouch (private, created 2026-09-04)**; the module README already links there.
