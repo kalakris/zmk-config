@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <zephyr/devicetree.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
 
@@ -31,6 +32,14 @@
  * (~100 Hz), plus exactly one release frame (touched = 0, z = 0) on
  * lift-off. */
 
+/* Touched. Clear marks a RELEASE frame - the one emitted at lift-off, and
+ * the single synthetic one emitted when a host claim clears mid-touch.
+ * Release frames are the only frames whose delivery matters: a lost one
+ * leaves the host holding a phantom finger-down. The transports treat
+ * them as durable - the BLE queue evicts motion frames rather than a
+ * release and retries a release that fails to notify, in order (see
+ * zmk_raw_touch_hog_send_report() in zmk/raw_touch/transport.h). Motion
+ * frames may still be dropped under pressure; `seq` exposes that. */
 #define ZMK_RAW_TOUCH_FLAGS_TOUCHED BIT(0)
 #define ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE BIT(1)
 /* Host claimed: set iff the endpoint this frame is being sent to held a
@@ -61,8 +70,15 @@ struct zmk_raw_touch_report {
 
 /* Feature report: self-describing pad capabilities, on the same report ID.
  * Readable over USB GET_REPORT and the BLE feature report characteristic.
- * At most ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS pads are described; further pads
- * still set their pads_present bit but get no slot.
+ *
+ * Its body is 4 + 8 * N bytes, where N = ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS
+ * is the number of pads compiled into this firmware - 20 bytes on the
+ * two-pad reference build (21 over USB, where the control transfer
+ * carries the report ID as its first byte). Hosts MUST accept any body
+ * length of that form and MUST NOT hard-code 20. Pads beyond the 8-slot
+ * ceiling (pads_present is an 8-bit mask) still set their bit but get no
+ * slot.
+ *
  * Hosts MUST read and validate this before treating a vendor collection on
  * this usage page as the raw touch protocol - 0xFF00/0x01 is a commonly
  * squatted vendor pair. */
@@ -80,7 +96,22 @@ struct zmk_raw_touch_report {
 #define ZMK_RAW_TOUCH_ORIENT_X_INVERT BIT(1)
 #define ZMK_RAW_TOUCH_ORIENT_Y_INVERT BIT(2)
 
-#define ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS 2
+/* One slot per pad compiled in, so the report is exactly as long as the
+ * hardware needs and no longer. Derived from the devicetree rather than
+ * from a Kconfig knob or a fixed cap: the pad instances are what
+ * src/raw_touch.c enumerates, so the two can never disagree.
+ *
+ * Floor of 1 keeps struct zmk_raw_touch_feature_body well-formed (and
+ * the HID descriptor's feature REPORT_COUNT nonzero) if this header is
+ * ever pulled into a build with no pad node. Ceiling of 8 is the
+ * pads_present bitmask's width.
+ *
+ * WARNING: changing the pad count changes the report body's length,
+ * which changes the HID report descriptor - and macOS caches the HOGP
+ * report map at pairing time. Adding or removing a pad therefore needs a
+ * forget + re-pair on the host (see the README's Known issues; the
+ * failure is deceptively partial - USB fine, BLE frames unparseable). */
+#define ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS CLAMP(DT_NUM_INST_STATUS_OKAY(zmk_raw_touch_pad), 1, 8)
 
 struct zmk_raw_touch_feature_pad_slot {
     uint8_t resolution;   /* counts/mm, 0 = unknown */
@@ -96,8 +127,10 @@ struct zmk_raw_touch_feature_body {
     uint8_t pads_present;     /* bit N set if pad-id N exists */
     uint8_t capabilities;     /* ZMK_RAW_TOUCH_CAP_* */
     uint8_t reserved;         /* 0 */
-    /* Present pads in ascending pad-id order; unused trailing slots stay
-     * zeroed. */
+    /* Present pads in ascending pad-id order, one slot per pad compiled
+     * in. Hosts recover N from the report length as (len - 4) / 8 and
+     * read min(N, popcount(pads_present)) slots; any slot they do not
+     * account for that way is zeroed. */
     struct zmk_raw_touch_feature_pad_slot pads[ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS];
 } __packed;
 

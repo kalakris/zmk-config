@@ -18,10 +18,12 @@
  * quiet. Each frame carries a per-pad sequence number (drop detection)
  * and a device-side timestamp in 100 us units (host-side velocity that
  * BLE batching cannot
- * distort). A 20-byte feature report on the same report ID describes the
+ * distort). A feature report on the same report ID describes the
  * protocol version, the pads present and, per pad, its resolution,
- * orientation, coordinate ranges and contact count; it is readable over
- * USB GET_REPORT and the BLE HOG feature-report characteristic.
+ * orientation, coordinate ranges and contact count; its body is
+ * 4 + 8 * (pads compiled in) bytes - 20 on a two-pad build - and it is
+ * readable over USB GET_REPORT and the BLE HOG feature-report
+ * characteristic.
  *
  * One instance per zmk,raw-touch-pad devicetree node. Nothing here is
  * specific to any particular touchpad ASIC: the node names the input
@@ -361,7 +363,10 @@ static int raw_touch_init(void) {
     /* Fill the feature report's pad slots with the present pads in
      * ascending pad-id order, each with its own geometry and orientation.
      * pad-ids are unique (the binding requires it; duplicates are flagged
-     * above), so each id fills at most one slot. */
+     * above), so each id fills at most one slot. There is one slot per pad
+     * node (hid.h derives the count from the same devicetree instances),
+     * so every pad is described unless more than 8 are configured - the
+     * ceiling of the pads_present bitmask, warned about below. */
     int slot = 0;
 
     for (uint8_t id = 0; id < 8 && slot < ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS; id++) {

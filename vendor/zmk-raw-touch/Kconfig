@@ -52,11 +52,26 @@ config ZMK_RAW_TOUCH_BLE
 
 config ZMK_RAW_TOUCH_BLE_QUEUE_SIZE
     int "Max number of raw touch reports to queue for sending over BLE"
-    default 30
+    default 8
+    range 2 255
     depends on ZMK_RAW_TOUCH_BLE
     help
-      Frames waiting for a BLE connection event. When the queue is full the
-      oldest frame is dropped (30 is ~0.3 s at 100 Hz).
+      Frames waiting for a BLE connection event.
+
+      Sized to cover arrival batching, not to buffer a backlog. Frames are
+      ~10 ms apart and a host collects them in bursts about one connection
+      interval wide (~15 ms on macOS), so 8 frames is ~80 ms of slack -
+      several intervals' worth. A frame older than that is useless for
+      scrolling: the host reconstructs motion from the device timestamps in
+      the frames it does get, and a stale position only delays the fresh
+      one behind it. The old default of 30 (~0.3 s) just deferred the same
+      drop by a quarter second of added latency.
+
+      When the queue is full the oldest MOTION frame is evicted; release
+      frames (touched = 0) are never evicted and are retried on a transient
+      notify error, so shrinking this does not risk a phantom finger-down
+      on the host. Raise it only if the log warns that the queue is full of
+      undelivered release frames - that means more pads than it can hold.
 
 config ZMK_RAW_TOUCH_BLE_THREAD_STACK_SIZE
     int "Stack size of the BLE send work queue"

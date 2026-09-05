@@ -48,8 +48,18 @@ BUILD_ASSERT(sizeof(struct zmk_raw_touch_report_body) == 11,
              "Raw touch input report body must stay 11 bytes; the host parses it by offset");
 BUILD_ASSERT(sizeof(struct zmk_raw_touch_feature_pad_slot) == 8,
              "Raw touch feature pad slot must stay 8 bytes; the host parses it by offset");
-BUILD_ASSERT(sizeof(struct zmk_raw_touch_feature_body) == 20,
-             "Raw touch feature report body must stay 20 bytes; the host parses it by offset");
+/* The feature body is a 4-byte header plus one 8-byte slot per pad, so
+ * its length is 4 + 8 * N (20 on a two-pad build). Hosts derive N from
+ * the report length; nothing here may pad the struct. */
+BUILD_ASSERT(sizeof(struct zmk_raw_touch_feature_body) ==
+                 4 + 8 * ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS,
+             "Raw touch feature report body must stay 4 + 8 * pads bytes; "
+             "the host parses it by offset");
+/* The descriptor's feature REPORT_COUNT below is a single-byte HID item
+ * payload, so the body must fit in a byte. 8 pads = 68 bytes, so this
+ * can only trip if the slot count ceiling in hid.h is raised. */
+BUILD_ASSERT(sizeof(struct zmk_raw_touch_feature_body) <= 0xFF,
+             "Raw touch feature report body no longer fits a one-byte HID REPORT_COUNT");
 
 /* The descriptor declares the pads' REAL logical ranges on the x/y fields,
  * so generic HID tooling sees true geometry without parsing the feature
@@ -124,16 +134,22 @@ const uint8_t zmk_raw_touch_report_desc[] = {
     HID_REPORT_COUNT(0x01),
     HID_INPUT(RAW_TOUCH_HID_DATA_VAR_ABS),
 
-    /* Feature: self-describing pad capabilities, 20 bytes, uniform 8-bit
-     * fields (its u16 members are protocol-level structure the host parses
-     * by offset; the descriptor does not model them). Readable over USB
+    /* Feature: self-describing pad capabilities, uniform 8-bit fields
+     * (its u16 members are protocol-level structure the host parses by
+     * offset; the descriptor does not model them). Readable over USB
      * GET_REPORT and the BLE feature report characteristic.
-     * protocol_version, pads_present, capabilities, reserved, then two
-     * 8-byte pad slots. */
+     * protocol_version, pads_present, capabilities, reserved, then one
+     * 8-byte slot per pad compiled in: 4 + 8 * N bytes, 20 on the two-pad
+     * reference build.
+     *
+     * The count is taken from sizeof() rather than written out, so the
+     * descriptor and the struct cannot drift apart when the pad count
+     * changes. Note that it changing at all is a report-map change, which
+     * on macOS means the host must forget and re-pair. */
     HID_USAGE(RAW_TOUCH_HID_USAGE_FEATURE),
     HID_LOGICAL_MAX16(0xFF, 0x00),
     HID_REPORT_SIZE(0x08),
-    HID_REPORT_COUNT(0x14),
+    HID_REPORT_COUNT(sizeof(struct zmk_raw_touch_feature_body)),
     HID_FEATURE(RAW_TOUCH_HID_DATA_VAR_ABS),
 
     HID_END_COLLECTION,
