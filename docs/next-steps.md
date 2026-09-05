@@ -9,11 +9,11 @@ v3, both pads streaming, USB + BLE verified) — see
 Each item below is self-contained enough to start cold.
 
 **Current state (2026-09-04, evening):** item p pass 2 (sub-items 1, 6, 7)
-is committed and pushed in all three repos and CI-green, but the RH is
-NOT yet flashed with `e689a8c` and the RawTouch app is NOT yet rebuilt
-from `18c2eb0` — do both first (flash RH; then quit app → `make-app.sh`
-→ relaunch → re-grant Accessibility unless `RAWTOUCH_SIGN_ID` is set),
-then a feel test over USB and BLE. **The bundle ID changed to
+is committed and pushed in all three repos and CI-green. **RH flashed
+with `e689a8c` at 20:43** (undroppable release frames, queue 8, per-pad
+feature slots live on hardware). The RawTouch app is NOT yet rebuilt
+from `4e7c553` — do that first (quit app → `make-app.sh` → relaunch →
+re-grant Accessibility), then a feel test over USB and BLE. **The bundle ID changed to
 `io.github.kalakris.RawTouch` (rawtouch `4e7c553`), so that deploy needs
 a fresh Accessibility grant even with `RAWTOUCH_SIGN_ID`** (TCC keys on
 the bundle ID). Item p sub-items 2, 4, 5, 8 await the user's decisions;
