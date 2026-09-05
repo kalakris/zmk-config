@@ -174,8 +174,8 @@ Protocol v3 candidates — **v3 shipped and bench-verified 2026-08-27**
   (the host logs seq gaps and synthesizes lift-off after 150 ms of
   mid-touch silence)
 - [x] Real Logical ranges in the report descriptor (macOS-verified). The
-  feature report *grew* rather than shrank: 20 bytes, with two per-pad
-  geometry slots — per-pad geometry beat the descriptor-only idea once the
+  feature report *grew* rather than shrank: 20 bytes on the Go60, one
+  8-byte geometry slot per pad (4 + 8 × pads since 2026-09-04) — per-pad geometry beat the descriptor-only idea once the
   left pad streamed
 - [x] Device-side host claim (formerly "mode gate") — **implemented
   2026-08-30** (capability bit 0; per-endpoint claim/refresh/release

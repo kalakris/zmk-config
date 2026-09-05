@@ -8,7 +8,16 @@ v3, both pads streaming, USB + BLE verified) — see
 [module-publish-brief.md](module-publish-brief.md) for the publish plan.
 Each item below is self-contained enough to start cold.
 
-**Current state (2026-09-04):** everything below plus item q (physical-1:1
+**Current state (2026-09-04, evening):** item p pass 2 (sub-items 1, 6, 7)
+is committed and pushed in all three repos and CI-green, but the RH is
+NOT yet flashed with `e689a8c` and the RawTouch app is NOT yet rebuilt
+from `18c2eb0` — do both first (flash RH; then quit app → `make-app.sh`
+→ relaunch → re-grant Accessibility unless `RAWTOUCH_SIGN_ID` is set),
+then a feel test over USB and BLE. **The bundle ID changed to
+`io.github.kalakris.RawTouch` (rawtouch `4e7c553`), so that deploy needs
+a fresh Accessibility grant even with `RAWTOUCH_SIGN_ID`** (TCC keys on
+the bundle ID). Item p sub-items 2, 4, 5, 8 await the user's decisions;
+signing/notarization (item f) is deferred by the user. Everything before that: item q (physical-1:1
 gain defaults, per-transport latency) is deployed; all three repos are
 pushed (rawtouch is now a private GitHub repo). RawTouch app runs with
 **display-rate resampling, carry semantics, latency 0** (item o) — feel
@@ -428,7 +437,7 @@ ms after the edge); plain-drag final 2082–2083, i.e. ~6 px past the
 5 ms-era 2077 — the carried offset, by design. Cadence capture: both pads
 ~10 ms device spacing over BLE, zero drops. Item closed.
 
-## p. Open-source release prep — pass 1 DONE 2026-09-02 (committed, CI green, both halves flashed, app redeployed)
+## p. Open-source release prep — pass 1 DONE 2026-09-02; deferred sub-items 1, 6, 7 DONE 2026-09-04 (2–5, 8 still open, discussion pending)
 
 A `/simplify` + release-lens sweep over both repos (six review agents:
 reuse, simplification, efficiency, altitude, and two open-source-hygiene
@@ -492,30 +501,66 @@ green; `swift build` warning-free. Behaviour changes the user will
 notice: pad section names, axis labels, unknown-key
 log lines.
 
+**Pass 2 (2026-09-04, three opus subagents):** sub-items 1, 6 and 7
+below are done. rawtouch `741d141` (rename), `9db48ba` `32ceed4`
+`48db3e0` `ca1220e` `18c2eb0` (cleanup; 256 tests, offline bench
+byte-identical); module `4776642` `ef2625b` `1f58b7f`, vendored as
+zmk-config `e689a8c`, CI run 33939572008 green on both Go60 targets.
+**Not yet flashed / not yet redeployed** at the time of writing — RH
+flash is the only firmware step (the module compiles out on the LH), no
+BLE re-pair needed (Go60 feature body is still exactly 20 bytes). The new
+host accepts both the old fixed-20 and the new 4 + 8N feature bodies, so
+host and firmware can be updated in either order.
+
 **Deferred — decisions for the user, not done:**
-1. Rename the `TouchStream*` types/files (`TouchStreamFrame`,
-   `TouchStreamManager`, `TouchStreamGate`, …, ~40 files) — the banned
-   term survives only in identifiers now; cheapest before the first push.
+1. ~~Rename the `TouchStream*` types/files~~ — DONE 2026-09-04
+   (`741d141`): `RawTouchFrame`, `RawTouchCapabilities`,
+   `RawTouchTransport`, `RawTouchDeviceManager`/`-Managing`,
+   `RawTouchGate` (suffix kept pending item 2), `RawTouchDeviceClock`,
+   `RawTouchScrollPoster`, `RawTouchAxis`; 13 `git mv`s, zero
+   occurrences of the term remain.
 2. "gate" vs "claim" in identifiers (`TouchStreamGate`, `gateClaimed`,
    `onGatelessFirmware`) — prose is uniformly "claim" now.
-3. `com.kalakris.*` bundle ID / LaunchAgent label / log subsystem (15
-   consistent sites); the LaunchAgent label equals the app bundle ID.
+3. ~~`com.kalakris.*` bundle ID / LaunchAgent label / log subsystem~~ —
+   DONE 2026-09-04 (`4e7c553`): `io.github.kalakris.RawTouch` everywhere
+   (19 sites; plist renamed to match its label). Chosen over
+   `net.mrinal.*` by the user; the reverse-DNS of a namespace he
+   controls. Consequence: next deploy = fresh Accessibility grant;
+   `log stream --predicate 'subsystem == "io.github.kalakris.RawTouch"'`.
+   Developer ID signing + notarization (item f) deferred by the user.
 4. Module git history: squash before going public (commits name the
    `-wip` repo, the LinearMouse fork, "item-k agent"); delete the
    `mode-gate` branch on origin. RawTouch has no remote yet and two
    author identities in its history.
 5. Module `zmk,` devicetree vendor prefix (a maintainer may object; the
    `zmk,input-processor-*` convention argues for keeping it).
-6. Firmware: make the release frame undroppable in the BLE queue (today
-   the host's 150 ms watchdog is a MUST because of it); BLE queue depth
-   30 → ~8; feature report length = 4 + 8 × popcount(pads).
-7. Host: `IOHIDDeviceSetReport`/`GetReport` run synchronously on the main
-   queue (10 s refresh, connect); daemon lifecycle duplicated in
-   `main.swift` and `AppModel` (a `RawTouchService` would fold them);
-   `ManualDisplayTicker` + fixtures into a `RawTouchTestSupport` target;
-   resampler fits both axes when the engine reads one (left alone while
-   the feel test is pending); one shared USB/BLE report-ID framing codec
-   instead of four heuristics.
+6. ~~Firmware: undroppable release frame, queue 30 → 8, feature length
+   4 + 8 × pads~~ — DONE 2026-09-04 (module `4776642` `ef2625b`
+   `1f58b7f`). The BLE send path is a spinlocked ring drained by a
+   delayable work item: a full queue evicts the oldest *motion* frame
+   (never a release; slot 0 is never a candidate because the drain
+   works on a copy of the head), a release that fails to notify is
+   retried head-of-line every 8 ms up to 4 attempts, ordering is one
+   FIFO for all pads. Queue default 8 (`range 2 255`). The slot count is
+   `CLAMP(DT_NUM_INST_STATUS_OKAY(zmk_raw_touch_pad), 1, 8)` and the
+   descriptor's feature REPORT_COUNT is `sizeof` the body, so a pad-count
+   change is a report-map change (BLE re-pair) — the README says so. The
+   host watchdog is now documented as a safety net (README "Release
+   frames are delivered" block).
+7. ~~Host cleanup~~ — DONE 2026-09-04, five commits: `9db48ba` one
+   `ReportFraming` type replaces the four report-ID heuristics and
+   `RawTouchCapabilities` accepts any 4 + 8N body (N floored from the
+   length, capped at 8; a 19-byte body now parses as one slot rather
+   than being rejected; pads beyond the carried slots get default
+   geometry); `32ceed4` IOKit Get/SetReport on a serial `reportQueue`,
+   state stays main-queue-only, shutdown releases every claim and waits
+   ≤ 2 s on a semaphore (no sync hop back, so no deadlock); `48db3e0`
+   `RawTouchService` owns lock + config + watcher + manager lifecycle
+   for both CLI and app; `ca1220e` resampler fits only the read axis
+   (offline bench tables byte-identical before/after); `18c2eb0`
+   `RawTouchTestSupport` target for `ManualDisplayTicker` + fixtures
+   (scroll-bench depends on it; Core does not). Not covered by tests:
+   `RawTouchDeviceManager` itself (IOKit boundary) — reviewed by hand.
 8. Still missing for the flip: demo video, notarized RawTouch build,
    app icon, `v0.1.0` tag, CONTRIBUTING, module CI workflow, a public
    `kalakris/rawtouch` remote.

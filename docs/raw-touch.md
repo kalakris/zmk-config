@@ -82,8 +82,9 @@ still flashable as rollbacks, but superseded. See
 │        usage page 0xFF00, report ID 0x04, protocol v3:     │
 │        11-byte frames (pad_id, contact_id, x/y u16LE, z,   │
 │          flags, seq, timestamp u16LE in 100 µs units)      │
-│        + 20-byte feature report (version=3, pads bitmask,  │
-│          two per-pad geometry slots); real logical ranges  │
+│        + feature report, 4 + 8 × pads bytes (20 on the    │
+│          Go60; version=3, pads bitmask, one geometry slot   │
+│          per pad); real logical ranges                     │
 │          in the report descriptor (macOS-verified)         │
 │        scroll-mode flag set by the &zip_raw_touch_scroll   │
 │        marker when the chain that actually handles a pad's │

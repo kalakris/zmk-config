@@ -326,7 +326,7 @@ The original decision blockers are all closed:
   end-to-end. Per-frame device timestamp (100 µs units, u16LE, drives
   host-side device-time reconstruction that fixes BLE-batching velocity
   distortion), `contact_id` + flags + `seq`, per-pad geometry slots in the
-  20-byte feature report, real logical ranges in the report descriptor
+  feature report (4 + 8 × pads bytes since 2026-09-04; 20 on the Go60), real logical ranges in the report descriptor
   (macOS-verified). The device-side mode gate is *reserved, not
   implemented* — the spec says so explicitly. Spec = the module README's
   wire-format appendix, authoritative.
