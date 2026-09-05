@@ -11,9 +11,11 @@ Each item below is self-contained enough to start cold.
 **Current state (2026-09-04, evening):** item p pass 2 (sub-items 1, 6, 7)
 is committed and pushed in all three repos and CI-green. **RH flashed
 with `e689a8c` at 20:43** (undroppable release frames, queue 8, per-pad
-feature slots live on hardware). The RawTouch app is NOT yet rebuilt
-from `4e7c553` — do that first (quit app → `make-app.sh` → relaunch →
-re-grant Accessibility), then a feel test over USB and BLE. **The bundle ID changed to
+feature slots live on hardware). The RawTouch app was rebuilt from `4e7c553`
+and relaunched at ~20:50 (Accessibility re-granted for the new bundle
+ID, as predicted); the passive monitor saw both transports validate the
+feature report and frames flowing under the app's claim. Feel test over
+USB and BLE still to be reported by the user. **The bundle ID changed to
 `io.github.kalakris.RawTouch` (rawtouch `4e7c553`), so that deploy needs
 a fresh Accessibility grant even with `RAWTOUCH_SIGN_ID`** (TCC keys on
 the bundle ID). Item p sub-items 2, 4, 5, 8 await the user's decisions;
