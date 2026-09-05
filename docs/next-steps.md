@@ -15,7 +15,14 @@ feature slots live on hardware). The RawTouch app was rebuilt from `4e7c553`
 and relaunched at ~20:50 (Accessibility re-granted for the new bundle
 ID, as predicted); the passive monitor saw both transports validate the
 feature report and frames flowing under the app's claim. Feel test over
-USB and BLE still to be reported by the user. **The bundle ID changed to
+USB and BLE still to be reported by the user. **Safari lockout bench
+(item n) rerun on the pass-2 host, 2026-09-04 evening, no regression:**
+`run.py --resample --delays 250 --rescroll-frames 60 --repeat 3` → 3/3
+ok, 99–100 % applied, response 101–117 ms after the edge (reference
+98–100 %, 100–133 ms); fast flick (`--flick 80 --start 400`) 3/3 ok,
+99–100 %, response 7–8 ms after a 160–177 ms catch; plain drag
+(`--flick 10 --flick-frames 30 --flick-settle 60 --start 50`) 3/3,
+102 %, response at the catch. **The bundle ID changed to
 `io.github.kalakris.RawTouch` (rawtouch `4e7c553`), so that deploy needs
 a fresh Accessibility grant even with `RAWTOUCH_SIGN_ID`** (TCC keys on
 the bundle ID). Item p sub-items 2, 4, 5, 8 await the user's decisions;
