@@ -24,9 +24,8 @@ ok, 99–100 % applied, response 101–117 ms after the edge (reference
 (`--flick 10 --flick-frames 30 --flick-settle 60 --start 50`) 3/3,
 102 %, response at the catch. Then the user's felt lockout was recorded
 live and root-caused (item n, second cause: sub-point first-motion began);
-the poster fix (rawtouch `9023988`) is deployed to the app; the user's
-bounce-and-catch verdict is pending — if any catch still dies, rerun
-`bench/safari-bounce/record.py` and look at the residual-stretch rows. **The bundle ID changed to
+the poster fix (rawtouch `9023988`) is deployed to the app and the
+user confirmed the lockout is gone. **The bundle ID changed to
 `io.github.kalakris.RawTouch` (rawtouch `4e7c553`), so that deploy needs
 a fresh Accessibility grant even with `RAWTOUCH_SIGN_ID`** (TCC keys on
 the bundle ID). Item p sub-items 2, 4, 5, 8 await the user's decisions;
@@ -430,8 +429,8 @@ after. Fix: the poster defers the began until |Σdelta| ≥ 1 pt and carries
 the sum. `scroll-bench --catch-ramp --catch-rest` reproduces it (dead /
 23 % / 65 % at residual 10 / 4 / 1 px → 80 % = the ramp's own deficit at
 every delay after the fix); standard sweep unchanged. Deployed to the app
-2026-09-04 ~21:25 (rawtouch `9023988`); user's bounce-and-catch verdict
-pending.
+2026-09-04 ~22:05 (rawtouch `9023988`); **user's verdict: "lockout is
+gone"** — item n is closed for real.
 
 ## o. Pinnacle sample rate — CEILING IS 100 SPS (measured 2026-09-02)
 
