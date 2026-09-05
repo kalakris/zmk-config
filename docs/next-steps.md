@@ -22,7 +22,10 @@ ok, 99–100 % applied, response 101–117 ms after the edge (reference
 98–100 %, 100–133 ms); fast flick (`--flick 80 --start 400`) 3/3 ok,
 99–100 %, response 7–8 ms after a 160–177 ms catch; plain drag
 (`--flick 10 --flick-frames 30 --flick-settle 60 --start 50`) 3/3,
-102 %, response at the catch. **The bundle ID changed to
+102 %, response at the catch. Then the user's felt lockout was recorded
+live and root-caused (item n, second cause: sub-point first-motion began);
+the poster fix is committed in rawtouch but **the app is not yet rebuilt
+from it** — deploy, then have the user repeat the bounce-and-catch test. **The bundle ID changed to
 `io.github.kalakris.RawTouch` (rawtouch `4e7c553`), so that deploy needs
 a fresh Accessibility grant even with `RAWTOUCH_SIGN_ID`** (TCC keys on
 the bundle ID). Item p sub-items 2, 4, 5, 8 await the user's decisions;
@@ -404,6 +407,30 @@ momentum synthesizer never engages on our stream (Safari consumes our
 momentum verbatim), the IOHIDEvent momentum-interrupted bit cannot be
 set, and the inherited `ioHidScrollY` setter has always been a no-op.
 Findings + resolution: the bench README.
+
+**Second cause, found and fixed 2026-09-04 (rawtouch, "Poster: defer the
+began until a whole point of motion").** The user still felt a >100 ms
+lockout the bench could not reproduce. A new live recorder
+(`bench/safari-bounce/record.py`: page scrollY + raw pad frames via
+`raw-touch-monitor.swift`, aligned by cross-correlation) over 73 real
+touches showed it exactly: every re-scroll whose first movement landed
+while the bounce was still settling (residual stretch 1–31 px) vanished
+whole, momentum included; every one after the settle responded in ≤ 16 ms.
+Difference from the bench: a finger starts from rest with sub-point
+deltas, and Safari reads the INTEGER point delta
+(`kCGScrollWheelEventPointDeltaAxis1` backs AppKit's `scrollingDeltaY` and
+WebKit's unaccelerated delta — verified with an NSEvent probe), so "began
+carries the first motion" was still a zero-delta began to WebKit. Without
+it `ScrollingEffectsController::handleWheelEvent` never clears
+`m_ignoreMomentumScrolls` (set when the flick's momentum reached the
+stretched edge) nor stops the snap-back, and its early-return ignores
+every gesture event while the animation runs and every momentum event
+after. Fix: the poster defers the began until |Σdelta| ≥ 1 pt and carries
+the sum. `scroll-bench --catch-ramp --catch-rest` reproduces it (dead /
+23 % / 65 % at residual 10 / 4 / 1 px → 80 % = the ramp's own deficit at
+every delay after the fix); standard sweep unchanged. **Not yet deployed
+to the app at the time of writing** (committed + pushed; the user decides
+the deploy).
 
 ## o. Pinnacle sample rate — CEILING IS 100 SPS (measured 2026-09-02)
 
