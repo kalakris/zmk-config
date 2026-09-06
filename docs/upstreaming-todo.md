@@ -203,6 +203,15 @@ Spec authoring:
 - [ ] Standalone spec repo when publishing; cite Tier-1/Tier-2 prior art
   and include the pre-emption paragraphs from survey §6 (VoodooInput,
   PTP gates, halfdane, badjeff/zmk-hid-io, upstream LinearMouse deltas)
+- [ ] **Run the "did you need any of this?" A/B before publishing** (survey
+  §6.12, added 2026-09-05). Quit RawTouch -> Standard mode, enable stock
+  LinearMouse smoothed scrolling, and A/B against RawTouch on
+  `bench/safari-bounce/`. Needs no firmware change and does not depend on
+  [zmk#3483](https://github.com/zmkfirmware/zmk/pull/3483). This is the
+  evidence behind the narrowed public claim (survey §3): the honest gap is
+  *the finger-down bit*, not "raw touch or nothing" — pad identity and
+  device-time reconstruction are both recoverable without a touch protocol.
+  Do not publish comparative claims about upstream LinearMouse without it.
 - [ ] Test-host TCC hygiene: the xcodebuild test host still raises TCC
   prompts sometimes (TouchStreamManager.start() is guarded; some other
   path — likely event-tap creation or an AX check in app startup — is

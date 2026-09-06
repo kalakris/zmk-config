@@ -598,8 +598,80 @@ host and firmware can be updated in either order.
    (scroll-bench depends on it; Core does not). Not covered by tests:
    `RawTouchDeviceManager` itself (IOKit boundary) — reviewed by hand.
 8. Still missing for the flip: demo video, notarized RawTouch build,
-   app icon, `v0.1.0` tag, CONTRIBUTING, module CI workflow, a public
-   `kalakris/rawtouch` remote.
+   app icon, `v0.1.0` tag, CONTRIBUTING, CI workflows in BOTH release
+   repos (rawtouch: `swift build` + `swift test` on macOS; module: a
+   pinned example firmware build), a public `kalakris/rawtouch` remote.
+   Added by the 2026-09-05 review (item r): decide before freezing the
+   protocol whether the feature report needs a distinctive magic /
+   identification field and range checks on reserved bytes (accidental
+   0xFF00/0x01 squatter hardening, not authentication); either select
+   one physical keyboard and leave others in Standard mode or key host
+   state by device-and-pad (today two RawTouch keyboards collide —
+   documented as a limitation); decide Fast User Switching behaviour
+   (the instance lock is per home directory).
+
+## r. Codex release review — fixes applied 2026-09-05 (UNCOMMITTED in all three repos; not deployed, not flashed)
+
+Codex's open-source release review (`docs/reviews/rawtouch-2026-09-05/`,
+reviewed rawtouch `9023988` + module `1f58b7f`) was independently
+assessed (all nine findings confirmed; the lease-locking concern disputed
+on reachability, hardened anyway because it was cheap) and the fixes were
+applied by four opus subagents, then hand-reviewed. State at the end of
+the session — **everything below is in the working trees only**:
+
+- **rawtouch** (280 tests green, release build warning-free, offline
+  bench byte-identical): posting readiness gates the claim —
+  `RawTouchService` polls the injected trust check (1 s untrusted / 5 s
+  trusted, never the prompting API) and pushes `setPostingReady(_:)` into
+  the manager, which releases/claims on every device and interrupts the
+  pipeline; `enabled` is never rewritten; status carries `postingReady`
+  and the menu says "Not claimed — Accessibility needed to scroll". Claim
+  writes carry a `GateClaimState` generation so a claim in flight cannot
+  land after a release. `TouchScrollPipeline.configure` interrupts when
+  the active pad leaves the set or its axis changes. Feature-report read
+  buffer is 69 bytes (8 slots + report ID). Settings: per-pad "Direction"
+  is a 3-state picker (Automatic/Normal/Inverted = nil/false/true).
+  Bundle ships `Resources/LICENSE`; LICENSE inventory corrected (17
+  derived files). LaunchAgent `KeepAlive` → `Crashed` (was
+  `SuccessfulExit=false`, which looped on exit 2/3). README: no
+  "keystroke access" overclaim, 30 s crash-fallback bound, one-keyboard
+  limitation, tested = Apple silicon + macOS 26 + Go60.
+- **zmk-raw-touch** (CI-compiled green via zmk-config branch
+  `review-fixes-2026-09-05`, run 34002376780; **not flashed**): shared
+  transmit ring `src/raw_touch_txq.h` (motion-only eviction, generation
+  counter, per-entry binding); USB frames queue
+  (`CONFIG_ZMK_RAW_TOUCH_USB_QUEUE_SIZE`, default 4) and are drained
+  from `in_ready_cb`, so a release is never dropped on a healthy bus;
+  BLE entries are bound to the profile they were sampled for, discarded
+  at drain on mismatch, flushed on endpoint switch and on the bound
+  profile's disconnect; gate state + expiry timer move under one
+  spinlock. README appendix rewritten honestly (both transports protect
+  releases; watchdog still required for link loss/bus reset/endpoint
+  switch mid-touch); new "Split keyboards" section (relay wiring example
+  from the Go60 keymaps + the RX_COMPLETE_TIMEOUT=3/RX_TIMEOUT=5 poll
+  tweak); "Tested configuration" paragraph; crash fallback bounded by
+  the lease. Verified with source-extracted C harnesses
+  (`$TMPDIR/rt-harness/` — volatile).
+- **zmk-config**: CLAUDE.md/AGENTS.md no longer call the dead-pad boot
+  race open; `vendor/` re-synced from the dirty module tree.
+
+**Hardware item before any of the firmware goes to `main`:** arming the
+next USB transfer from inside `in_ready_cb` is only reasoned about
+(legacy stack, nRF work-queue context), not run. Flash RH from the CI
+branch, then check: two-pad USB scrolling with releases intact (passive
+monitor: seq gaps, no 150 ms watchdog lift-offs), unplug/replug
+mid-touch, BLE profile switch mid-touch (no blip on the other host),
+rapid re-touch, claim expiry. Then: commit module (squash decision still
+open, item p.4), re-vendor, merge to main; commit rawtouch, redeploy the
+app (fresh Accessibility grant is NOT needed — signature unchanged — but
+the readiness change means an ungranted app now leaves the keyboard in
+Standard mode, which is the point).
+
+Not done from the review (deliberately), now tracked in item p.8:
+device-and-pad identity for multiple keyboards (documented as a
+limitation instead), stronger feature-report validation / a magic field
+(protocol decision), CI workflows in the two release repos, Fast User
+Switching behaviour; notarization stays item f.
 
 ## q. Apple-like scroll defaults + per-transport latency — DONE 2026-09-04 (rawtouch `c7a4999`, `aa50533`)
 

@@ -16,6 +16,13 @@
  * and takes geometry, orientation and tap settings from its own binding.
  * Swap in any absolute-mode touchpad driver and only the pad's own node
  * changes.
+ *
+ * Tested configuration: MoErgo's ZMK tree (ZMK v0.3.0 / Zephyr 3.5) with
+ * kalakris/cirque-input-module@intree-driver, on a Go60 with two Cirque
+ * pads over USB and BLE on macOS. Upstream ZMK main / Zephyr 4.1 is NOT
+ * verified. This file shows a pad local to the half that streams; for a
+ * pad on the peripheral half of a split, see the README's
+ * "Split keyboards" section.
  */
 
 #include <input/processors.dtsi>

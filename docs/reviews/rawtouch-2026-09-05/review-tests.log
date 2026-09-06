@@ -1,0 +1,42 @@
+warning: /Users/kalakris/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/kalakris/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+warning: /Users/kalakris/Library/Caches/org.swift.swiftpm is not accessible or not writable, disabling user-level cache features.
+warning: 'rawtouch-review.ejkn1g': failed storing manifest for 'rawtouch-review.ejkn1g' in cache: attempt to write a readonly database
+[0/1] Planning build
+Building for debugging...
+[0/11] Write sources
+[2/11] Write swift-version--58304C5D6DBC2206.txt
+[4/9] Compiling RawTouchAppCoreTests ReleaseReviewTrustTests.swift
+[5/9] Emitting module RawTouchAppCoreTests
+[6/9] Compiling RawTouchCoreTests ReleaseReviewTests.swift
+[7/9] Emitting module RawTouchCoreTests
+[7/9] Write Objects.LinkFileList
+[8/9] Linking rawtouchPackageTests
+Build complete! (1.13s)
+Test Suite 'Selected tests' started at 2026-09-05 16:30:16.108.
+Test Suite 'rawtouchPackageTests.xctest' started at 2026-09-05 16:30:16.109.
+Test Suite 'ReleaseReviewTests' started at 2026-09-05 16:30:16.109.
+Test Case '-[RawTouchCoreTests.ReleaseReviewTests testChangingAxisAtRestDoesNotGenerateMotion]' started.
+/private/tmp/rawtouch-review.EjKN1g/Tests/RawTouchCoreTests/ReleaseReviewTests.swift:54: error: -[RawTouchCoreTests.ReleaseReviewTests testChangingAxisAtRestDoesNotGenerateMotion] : XCTAssertEqualWithAccuracy failed: ("-60.0") is not equal to ("0.0") +/- ("0.001") - stationary Y must not be differenced against the previous X
+Test Case '-[RawTouchCoreTests.ReleaseReviewTests testChangingAxisAtRestDoesNotGenerateMotion]' failed (0.032 seconds).
+Test Case '-[RawTouchCoreTests.ReleaseReviewTests testDisablingActivePadClosesGestureAndAllowsOtherPad]' started.
+/private/tmp/rawtouch-review.EjKN1g/Tests/RawTouchCoreTests/ReleaseReviewTests.swift:28: error: -[RawTouchCoreTests.ReleaseReviewTests testDisablingActivePadClosesGestureAndAllowsOtherPad] : XCTAssertNil failed: "0" - disabled pad must relinquish the gesture even after its release/watchdog
+/private/tmp/rawtouch-review.EjKN1g/Tests/RawTouchCoreTests/ReleaseReviewTests.swift:29: error: -[RawTouchCoreTests.ReleaseReviewTests testDisablingActivePadClosesGestureAndAllowsOtherPad] : XCTAssertFalse failed - disabled pad must not retain a display link
+/private/tmp/rawtouch-review.EjKN1g/Tests/RawTouchCoreTests/ReleaseReviewTests.swift:32: error: -[RawTouchCoreTests.ReleaseReviewTests testDisablingActivePadClosesGestureAndAllowsOtherPad] : XCTAssertEqual failed: ("Optional(0)") is not equal to ("Optional(1)") - other pad must be able to scroll
+Test Case '-[RawTouchCoreTests.ReleaseReviewTests testDisablingActivePadClosesGestureAndAllowsOtherPad]' failed (0.001 seconds).
+Test Suite 'ReleaseReviewTests' failed at 2026-09-05 16:30:16.143.
+	 Executed 2 tests, with 4 failures (0 unexpected) in 0.033 (0.033) seconds
+Test Suite 'ReleaseReviewTrustTests' started at 2026-09-05 16:30:16.143.
+Test Case '-[RawTouchAppCoreTests.ReleaseReviewTrustTests testUntrustedAppMustNotEnableClaiming]' started.
+/private/tmp/rawtouch-review.EjKN1g/Tests/RawTouchAppCoreTests/ReleaseReviewTrustTests.swift:18: error: -[RawTouchAppCoreTests.ReleaseReviewTrustTests testUntrustedAppMustNotEnableClaiming] : XCTAssertFalse failed - service may discover devices, but must not claim until it can post
+Test Case '-[RawTouchAppCoreTests.ReleaseReviewTrustTests testUntrustedAppMustNotEnableClaiming]' failed (0.002 seconds).
+Test Suite 'ReleaseReviewTrustTests' failed at 2026-09-05 16:30:16.144.
+	 Executed 1 test, with 1 failure (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'rawtouchPackageTests.xctest' failed at 2026-09-05 16:30:16.144.
+	 Executed 3 tests, with 5 failures (0 unexpected) in 0.035 (0.035) seconds
+Test Suite 'Selected tests' failed at 2026-09-05 16:30:16.144.
+	 Executed 3 tests, with 5 failures (0 unexpected) in 0.035 (0.036) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

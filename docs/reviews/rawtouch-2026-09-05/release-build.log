@@ -1,0 +1,21 @@
+warning: /Users/kalakris/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/kalakris/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+warning: /Users/kalakris/Library/Caches/org.swift.swiftpm is not accessible or not writable, disabling user-level cache features.
+warning: 'rawtouch-review.ejkn1g': failed storing manifest for 'rawtouch-review.ejkn1g' in cache: attempt to write a readonly database
+Building for production...
+[0/14] Write sources
+[6/14] Write swift-version--58304C5D6DBC2206.txt
+[7/14] Compiling RawTouchSPI RawTouchSPI.c
+[9/15] Compiling RawTouchCore Clamped.swift
+[10/18] Compiling rawtouch main.swift
+[10/18] Write Objects.LinkFileList
+[11/18] Linking rawtouch
+[13/18] Compiling RawTouchTestSupport FakeRawTouchDeviceManager.swift
+[14/19] Compiling RawTouchAppCore AppModel.swift
+[15/20] Compiling scroll_bench OfflineBench.swift
+[15/20] Write Objects.LinkFileList
+[16/20] Linking scroll-bench
+[18/20] Compiling RawTouchApp MenuBarLabelView.swift
+[18/20] Write Objects.LinkFileList
+[19/20] Linking RawTouchApp
+Build complete! (8.26s)

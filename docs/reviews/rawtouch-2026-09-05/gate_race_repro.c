@@ -28,51 +28,63 @@
  *
  * Threading: claim writes arrive on the USB workqueue or the BT RX
  * thread, expiry runs on the system workqueue, and the engaged check runs
- * on the input dispatch path. A slot's state and its timer move together
- * under gate_lock: whoever sets `engaged` arms the expiry in the same
- * critical section, and whoever clears it cancels the expiry there too.
- * Split across two critical sections they can be interleaved into a claim
- * that is engaged with no expiry armed (so it never expires) or cleared
- * with one still armed. Both k_work_reschedule() and
- * k_work_cancel_delayable() are ISR-safe and non-blocking, which is what
- * makes holding them under a spinlock legal; their _sync variants are
- * not, and must never appear here.
- *
- * gate_expiry_cb() cannot be brought under that rule -- it IS the timer --
- * so it stays as it was: it takes gate_lock and then re-reads the work's
- * busy flags, declining to clear a claim whose expiry a concurrent
- * refresh has just re-armed. The lock order is the same on every path
- * (gate_lock, then the kernel's own work-queue lock inside the k_work_*
- * call), so the two can never deadlock against each other.
+ * on the input dispatch path. The state is a couple of booleans guarded
+ * by a spinlock; the expiry handler re-checks k_work_delayable_is_pending
+ * under the lock so an in-flight expiry cannot clear a claim that a
+ * concurrent refresh just re-armed.
  */
 
+
+/* Review harness: scheduler/transport stubs below are not Zephyr. */
+
+#include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <errno.h>
-
-#include <zephyr/kernel.h>
-#include <zephyr/init.h>
-#include <zephyr/sys/util.h>
-
-#include <zephyr/logging/log.h>
-LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
-
-#include <zmk/endpoints.h>
-#include <zmk/endpoints_types.h>
-#include <zmk/event_manager.h>
-#include <zmk/events/endpoint_changed.h>
-
-#include <zmk/raw_touch/gate.h>
-
-#if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB)
-#include <zmk/usb.h>
-#include <zmk/events/usb_conn_state_changed.h>
-#endif
-
-#if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE)
-#include <zephyr/bluetooth/bluetooth.h>
-#include <zephyr/bluetooth/conn.h>
-#include <zmk/ble.h>
-#endif
-
+#include <string.h>
+#include <assert.h>
+#define ZMK_ENDPOINT_COUNT 1
+#define ZMK_ENDPOINT_STR_LEN 16
+#define ZMK_RAW_TOUCH_GATE_CMD_LEN 4
+#define ZMK_RAW_TOUCH_GATE_CMD_CLAIM 1
+#define ZMK_RAW_TOUCH_GATE_OP_CLAIM 1
+#define ZMK_RAW_TOUCH_GATE_OP_RELEASE 0
+#define ZMK_RAW_TOUCH_GATE_TIMEOUT_MIN_S 5
+#define ZMK_RAW_TOUCH_GATE_TIMEOUT_MAX_S 120
+#define K_WORK_RUNNING 1
+#define K_WORK_DELAYED 2
+#define K_WORK_QUEUED 4
+#define K_SECONDS(n) (n)
+#define CLAMP(n,l,h) ((n)<(l)?(l):((n)>(h)?(h):(n)))
+#define CONTAINER_OF(p,t,m) ((t *)((char *)(p)-offsetof(t,m)))
+#define ARRAY_INDEX(a,p) ((p)-(a))
+#define LOG_INF(...) ((void)0)
+#define LOG_WRN(...) ((void)0)
+#define LOG_ERR(...) ((void)0)
+#define LOG_DBG(...) ((void)0)
+/* Single-thread scheduler: hooks inject another thread only outside locks. */
+#define K_SPINLOCK(p) for(int once=1;once;once=0)
+struct k_spinlock { int unused; };
+struct k_work { int unused; };
+struct k_work_delayable { struct k_work work; int flags; };
+struct zmk_endpoint_instance { int transport; };
+static struct zmk_endpoint_instance endpoint = {0};
+static int zmk_endpoint_instance_to_index(struct zmk_endpoint_instance ep) { return 0; }
+static void zmk_endpoint_instance_to_str(struct zmk_endpoint_instance ep,char *b,size_t s) { snprintf(b,s,"USB"); }
+static struct zmk_endpoint_instance zmk_endpoints_selected(void) { return endpoint; }
+static struct k_work_delayable *k_work_delayable_from_work(struct k_work *w) { return CONTAINER_OF(w,struct k_work_delayable,work); }
+static int k_work_delayable_busy_get(struct k_work_delayable *w) { return w->flags; }
+static void (*before_cancel)(void);
+static void (*before_rearm)(void);
+static int k_work_cancel_delayable(struct k_work_delayable *w) {
+    if (before_cancel) { void (*hook)(void)=before_cancel; before_cancel=NULL; hook(); }
+    w->flags &= ~K_WORK_DELAYED; return 0;
+}
+static int k_work_reschedule(struct k_work_delayable *w,int timeout) {
+    if (before_rearm) { void (*hook)(void)=before_rearm; before_rearm=NULL; hook(); }
+    w->flags |= K_WORK_DELAYED; return 0;
+}
 struct gate_claim {
     bool engaged;
     struct k_work_delayable expiry_work;
@@ -103,18 +115,12 @@ static void gate_clear_index(int idx, const char *reason) {
     K_SPINLOCK(&gate_lock) {
         if (claim->engaged) {
             claim->engaged = false;
-            /* Inside the lock, with the flag: a claim arriving between the
-             * two would otherwise have its freshly armed expiry cancelled
-             * here, leaving it engaged forever. k_work_cancel_delayable()
-             * is ISR-safe and non-blocking, so it is legal under a
-             * spinlock -- unlike its _sync variant, which waits for a
-             * running handler and must never be called from here. */
-            k_work_cancel_delayable(&claim->expiry_work);
             cleared = true;
         }
     }
 
     if (cleared) {
+        k_work_cancel_delayable(&claim->expiry_work);
         LOG_INF("Raw touch host claim for endpoint %d cleared (%s)", idx, reason);
     }
 }
@@ -190,17 +196,12 @@ int zmk_raw_touch_gate_handle_command(struct zmk_endpoint_instance source, const
         K_SPINLOCK(&gate_lock) {
             refresh = claim->engaged;
             claim->engaged = true;
-
-            /* Re-armed under the same lock as the flag, and after setting
-             * it, so an expiry racing this claim either sees the delayable
-             * pending again (and declines to clear) or has already cleared
-             * the old claim before this one was recorded -- and a clear
-             * racing it cannot cancel this expiry after the fact.
-             * k_work_reschedule() is ISR-safe and non-blocking, so it is
-             * legal under a spinlock; the _sync variants, which wait for a
-             * running handler, are not. */
-            k_work_reschedule(&claim->expiry_work, K_SECONDS(timeout_s));
         }
+
+        /* Re-arm the expiry AFTER engaging, so an in-flight expiry either
+         * sees the delayable pending again or has already cleared the old
+         * claim before this one was recorded. */
+        k_work_reschedule(&claim->expiry_work, K_SECONDS(timeout_s));
 
         if (!refresh) {
             LOG_INF("Raw touch frames claimed by %s (timeout %us); wheel fallback suppressed "
@@ -241,80 +242,28 @@ bool zmk_raw_touch_gate_engaged_for_selected(void) {
     return engaged;
 }
 
-static int gate_event_listener(const zmk_event_t *eh) {
-    const struct zmk_endpoint_changed *epc = as_zmk_endpoint_changed(eh);
 
-    if (epc != NULL) {
-        /* Endpoint switch: clear every claim except the newly selected
-         * endpoint's own, so a host already holding a claim on the
-         * switched-to endpoint engages seamlessly while claims left
-         * behind cannot go stale out of sight. */
-        int selected = zmk_endpoint_instance_to_index(epc->endpoint);
-
-        for (int i = 0; i < ZMK_ENDPOINT_COUNT; i++) {
-            if (i != selected) {
-                gate_clear_index(i, "endpoint switched away");
-            }
-        }
-
-        return ZMK_EV_EVENT_BUBBLE;
-    }
-
-#if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB)
-    const struct zmk_usb_conn_state_changed *usb = as_zmk_usb_conn_state_changed(eh);
-
-    if (usb != NULL && usb->conn_state != ZMK_USB_CONN_HID) {
-        struct zmk_endpoint_instance usb_endpoint = {.transport = ZMK_TRANSPORT_USB};
-
-        gate_clear_index(zmk_endpoint_instance_to_index(usb_endpoint), "USB detached");
-    }
-#endif
-
-    return ZMK_EV_EVENT_BUBBLE;
+static void refresh(void) {
+    uint8_t command[] = {1,1,30,0};
+    assert(zmk_raw_touch_gate_handle_command(endpoint,command,4)==0);
 }
-
-ZMK_LISTENER(zmk_raw_touch_gate, gate_event_listener);
-ZMK_SUBSCRIPTION(zmk_raw_touch_gate, zmk_endpoint_changed);
-#if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB)
-ZMK_SUBSCRIPTION(zmk_raw_touch_gate, zmk_usb_conn_state_changed);
-#endif
-
-#if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE)
-
-/* Our own connection callback rather than zmk_ble_active_profile_changed:
- * that event only fires for the ACTIVE profile, and a claim can belong to
- * any connected profile. zmk_ble_profile_index() maps the peer to its
- * profile (returning a negative value for non-host connections such as
- * split peripherals, which this must ignore). */
-static void gate_ble_disconnected(struct bt_conn *conn, uint8_t reason) {
-    ARG_UNUSED(reason);
-
-    int profile = zmk_ble_profile_index(bt_conn_get_dst(conn));
-
-    if (profile < 0) {
-        return;
-    }
-
-    struct zmk_endpoint_instance ble_endpoint = {
-        .transport = ZMK_TRANSPORT_BLE,
-        .ble = {.profile_index = profile},
-    };
-
-    gate_clear_index(zmk_endpoint_instance_to_index(ble_endpoint), "BLE profile disconnected");
+static void expire(void) {
+    gate_claims[0].expiry_work.flags=K_WORK_RUNNING;
+    gate_expiry_cb(&gate_claims[0].expiry_work.work);
+    gate_claims[0].expiry_work.flags &= ~K_WORK_RUNNING;
 }
-
-BT_CONN_CB_DEFINE(zmk_raw_touch_gate_conn_callbacks) = {
-    .disconnected = gate_ble_disconnected,
-};
-
-#endif /* IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE) */
-
-static int gate_init(void) {
-    for (size_t i = 0; i < ARRAY_SIZE(gate_claims); i++) {
-        k_work_init_delayable(&gate_claims[i].expiry_work, gate_expiry_cb);
-    }
-
-    return 0;
+int main(void) {
+    refresh();
+    /* A disconnect/release clears engaged, then BT RX refresh runs before cancellation. */
+    before_cancel=refresh;
+    gate_clear_index(0,"release/disconnect");
+    printf("clear/refresh race: engaged=%d expiry_pending=%d\n",gate_claims[0].engaged,!!(gate_claims[0].expiry_work.flags & K_WORK_DELAYED));
+    assert(gate_claims[0].engaged && !(gate_claims[0].expiry_work.flags & K_WORK_DELAYED));
+    memset(gate_claims,0,sizeof(gate_claims));
+    refresh();
+    /* Refresh sets engaged, then already-due expiry executes before re-arm. */
+    before_rearm=expire;
+    refresh();
+    printf("refresh/expiry race: engaged=%d expiry_pending=%d\n",gate_claims[0].engaged,!!(gate_claims[0].expiry_work.flags & K_WORK_DELAYED));
+    assert(!gate_claims[0].engaged && (gate_claims[0].expiry_work.flags & K_WORK_DELAYED));
 }
-
-SYS_INIT(gate_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);

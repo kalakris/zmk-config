@@ -1,0 +1,1 @@
+Download the latest firmware for the current branch. Run `./scripts/download-firmware.sh` and report which files were downloaded.

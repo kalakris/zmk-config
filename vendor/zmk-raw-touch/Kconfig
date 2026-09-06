@@ -37,6 +37,28 @@ config ZMK_RAW_TOUCH_USB
       Registers a SECOND USB HID interface (HID_1) carrying only the raw
       touch report. Requires CONFIG_USB_HID_DEVICE_COUNT >= 2.
 
+config ZMK_RAW_TOUCH_USB_QUEUE_SIZE
+    int "Max number of raw touch reports to queue for sending over USB"
+    default 4
+    range 2 255
+    depends on ZMK_RAW_TOUCH_USB
+    help
+      Frames waiting for the interrupt IN endpoint.
+
+      The endpoint carries one transfer at a time and the queue is drained
+      by transfer completion, so it only has to cover what can pile up
+      within one host poll interval: the other pad sampling at the same
+      moment, or a peripheral pad's frames arriving from the split link in
+      a burst. 4 covers both with room to spare. A deeper queue would only
+      add latency - a frame the host receives late is worth less than the
+      fresh one behind it.
+
+      When the queue is full the oldest MOTION frame is evicted; release
+      frames (touched = 0) are never evicted, because losing one leaves the
+      host holding a phantom finger-down. Raise this only if the log warns
+      that the queue is full of undelivered release frames - that means
+      more pads than it can hold.
+
 config ZMK_RAW_TOUCH_BLE
     bool "Send raw touch frames over BLE"
     default y

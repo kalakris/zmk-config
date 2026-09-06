@@ -1,0 +1,686 @@
+warning: /Users/kalakris/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/kalakris/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[0/26] /private/tmp/rawtouch-review.EjKN1g/.build/arm64-apple-macosx/debug/rawtouchPackageTests.derived/runner.swift
+[1/26] Write sources
+[3/26] Write scroll-bench-entitlement.plist
+[3/26] Write rawtouch-entitlement.plist
+[3/26] Write sources
+[11/26] Write RawTouchApp-entitlement.plist
+[13/26] Write swift-version--58304C5D6DBC2206.txt
+[14/26] Compiling RawTouchSPI RawTouchSPI.c
+[16/53] Compiling RawTouchCore GestureEvent.swift
+[17/53] Compiling RawTouchCore GestureScrollSeriesPoster.swift
+[18/53] Compiling RawTouchCore Clamped.swift
+[19/53] Compiling RawTouchCore ConfigFileWatcher.swift
+[20/53] Compiling RawTouchCore SystemScrollingPreference.swift
+[21/53] Compiling RawTouchCore TouchScrollEngine.swift
+[22/55] Compiling RawTouchCore ReportFraming.swift
+[23/55] Compiling RawTouchCore ScrollWheelEventView.swift
+[24/55] Compiling RawTouchCore InstanceLock.swift
+[25/55] Compiling RawTouchCore Log.swift
+[26/55] Compiling RawTouchCore RawTouchStatus.swift
+[27/55] Compiling RawTouchCore RawTouchTransport.swift
+[28/55] Compiling RawTouchCore RawTouchDeviceManager.swift
+[29/55] Compiling RawTouchCore RawTouchDeviceManaging.swift
+[30/55] Compiling RawTouchCore RawTouchConfiguration.swift
+[31/55] Compiling RawTouchCore RawTouchDeviceClock.swift
+[32/55] Emitting module RawTouchCore
+[33/55] Compiling RawTouchCore RawTouchFrame.swift
+[34/55] Compiling RawTouchCore RawTouchGate.swift
+[35/55] Compiling RawTouchCore RawTouchScrollPoster.swift
+[36/55] Compiling RawTouchCore RawTouchService.swift
+[37/55] Compiling RawTouchCore EventThread.swift
+[38/55] Compiling RawTouchCore FrameResampler.swift
+[39/55] Compiling RawTouchCore DisplayGeometry.swift
+[40/55] Compiling RawTouchCore DisplayTicker.swift
+[41/55] Compiling RawTouchCore ModifierFlags.swift
+[42/55] Compiling RawTouchCore RawTouchCapabilities.swift
+[43/55] Compiling RawTouchCore TouchScrollPipeline.swift
+[44/55] Compiling RawTouchCore WeightedVelocityFit.swift
+[45/67] Compiling RawTouchTestSupport SplitMix64.swift
+[46/67] Compiling rawtouch main.swift
+[47/67] Emitting module rawtouch
+[47/67] Write Objects.LinkFileList
+[49/67] Compiling RawTouchTestSupport ManualDisplayTicker.swift
+[50/67] Compiling RawTouchTestSupport RawTouchFrameFixtures.swift
+[51/67] Emitting module RawTouchTestSupport
+[52/67] Compiling RawTouchTestSupport FakeRawTouchDeviceManager.swift
+[52/86] Linking rawtouch
+[53/86] Applying rawtouch
+[55/86] Compiling scroll_bench main.swift
+[56/86] Compiling scroll_bench OfflineBench.swift
+[57/86] Emitting module scroll_bench
+[57/86] Write Objects.LinkFileList
+[58/86] Linking scroll-bench
+[59/86] Applying scroll-bench
+[61/86] Compiling RawTouchAppCore StatusFormatter.swift
+[62/86] Compiling RawTouchAppCore LoginItemManaging.swift
+[63/86] Compiling RawTouchAppCore MenuBarIconState.swift
+[64/86] Emitting module RawTouchAppCore
+[65/86] Compiling RawTouchAppCore AppModel.swift
+[66/97] Emitting module RawTouchApp
+[67/97] Compiling RawTouchApp MenuContentView.swift
+[68/97] Compiling RawTouchApp SettingsView.swift
+[69/97] Compiling RawTouchApp MenuBarLabelView.swift
+[70/97] Compiling RawTouchApp RawTouchApp.swift
+[71/97] Compiling RawTouchApp OnboardingView.swift
+[71/97] Write Objects.LinkFileList
+[72/97] Linking RawTouchApp
+[73/97] Applying RawTouchApp
+[75/97] Compiling RawTouchCoreTests RawTouchGateTests.swift
+[76/98] Emitting module RawTouchCoreTests
+[77/98] Compiling RawTouchAppCoreTests StatusFormatterTests.swift
+[78/98] Compiling RawTouchAppCoreTests MenuBarIconStateTests.swift
+[79/98] Compiling RawTouchCoreTests RawTouchScrollPosterTests.swift
+[80/98] Compiling RawTouchCoreTests RawTouchTransportTests.swift
+[81/98] Compiling RawTouchCoreTests ReportFramingTests.swift
+[82/98] Compiling RawTouchAppCoreTests Fakes.swift
+[83/98] Emitting module RawTouchAppCoreTests
+[84/98] Compiling RawTouchAppCoreTests AppModelTests.swift
+[85/98] Compiling RawTouchCoreTests TouchScrollPipelineTests.swift
+[86/98] Compiling RawTouchCoreTests RawTouchServiceTests.swift
+[87/98] Compiling RawTouchCoreTests InstanceLockTests.swift
+[88/98] Compiling RawTouchCoreTests DisplayTickerTests.swift
+[89/98] Compiling RawTouchCoreTests FrameResamplerTests.swift
+[90/98] Compiling RawTouchCoreTests RawTouchConfigurationTests.swift
+[91/98] Compiling RawTouchCoreTests RawTouchCapabilitiesTests.swift
+[92/98] Compiling RawTouchCoreTests ConfigFileWatcherTests.swift
+[93/98] Compiling RawTouchCoreTests DisplayGeometryTests.swift
+[94/98] Compiling RawTouchCoreTests TouchScrollEngineTests.swift
+[95/98] Compiling RawTouchCoreTests TouchScrollPipelineResamplingTests.swift
+[96/98] Compiling RawTouchCoreTests WeightedVelocityFitTests.swift
+[97/100] Emitting module rawtouchPackageTests
+[98/100] Compiling rawtouchPackageTests runner.swift
+[98/100] Write Objects.LinkFileList
+[99/100] Linking rawtouchPackageTests
+Build complete! (12.78s)
+Test Suite 'All tests' started at 2026-09-05 16:28:52.547.
+Test Suite 'rawtouchPackageTests.xctest' started at 2026-09-05 16:28:52.548.
+Test Suite 'AppModelTests' started at 2026-09-05 16:28:52.548.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testAFailedRegistrationKeepsTheRealStateAndRecordsTheError]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testAFailedRegistrationKeepsTheRealStateAndRecordsTheError]' passed (0.003 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testAMalformedExternalEditIsReportedNotApplied]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testAMalformedExternalEditIsReportedNotApplied]' passed (0.001 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testAnEditBurstSavesTheFinalValue]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testAnEditBurstSavesTheFinalValue]' passed (0.073 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testAnExternalEditUpdatesConfigAndAppliesWithoutSavingBack]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testAnExternalEditUpdatesConfigAndAppliesWithoutSavingBack]' passed (0.418 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testAWatcherEchoDoesNotDirtyTheModel]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testAWatcherEchoDoesNotDirtyTheModel]' passed (0.207 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testDisplaySyncEditsApplyAndResetLikeEveryOtherSection]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testDisplaySyncEditsApplyAndResetLikeEveryOtherSection]' passed (0.072 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testEditAppliesImmediatelyButSavesDebounced]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testEditAppliesImmediatelyButSavesDebounced]' passed (0.072 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testGatelessFirmwareSurfacesInsteadOfExiting]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testGatelessFirmwareSurfacesInsteadOfExiting]' passed (0.003 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testLockConflictSurfacesTheHolderAndStartsNothing]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testLockConflictSurfacesTheHolderAndStartsNothing]' passed (0.002 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testMalformedConfigAtStartRunsOnDefaultsAndReports]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testMalformedConfigAtStartRunsOnDefaultsAndReports]' passed (0.002 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testNoOpEditChangesNothing]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testNoOpEditChangesNothing]' passed (0.204 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testRefreshAccessibilityTrustReadsTheCheckOnDemand]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testRefreshAccessibilityTrustReadsTheCheckOnDemand]' passed (0.003 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testShutdownFlushesAPendingSave]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testShutdownFlushesAPendingSave]' passed (0.004 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testShutdownForQuitIsIdempotent]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testShutdownForQuitIsIdempotent]' passed (0.001 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testStartAtLoginMirrorsTheRegistrationState]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testStartAtLoginMirrorsTheRegistrationState]' passed (0.001 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testStartBringsUpManagerAndMirrorsStatus]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testStartBringsUpManagerAndMirrorsStatus]' passed (0.001 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testStartIsIdempotent]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testStartIsIdempotent]' passed (0.001 seconds).
+Test Case '-[RawTouchAppCoreTests.AppModelTests testTrustFlipsToGrantedViaPolling]' started.
+Test Case '-[RawTouchAppCoreTests.AppModelTests testTrustFlipsToGrantedViaPolling]' passed (0.071 seconds).
+Test Suite 'AppModelTests' passed at 2026-09-05 16:28:53.692.
+	 Executed 18 tests, with 0 failures (0 unexpected) in 1.140 (1.143) seconds
+Test Suite 'ConfigFileWatcherTests' started at 2026-09-05 16:28:53.692.
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testABurstOfWritesCoalescesIntoOneDelivery]' started.
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testABurstOfWritesCoalescesIntoOneDelivery]' passed (0.361 seconds).
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testAFileAppearingAfterStartIsDelivered]' started.
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testAFileAppearingAfterStartIsDelivered]' passed (0.058 seconds).
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testAnAtomicReplaceIsDelivered]' started.
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testAnAtomicReplaceIsDelivered]' passed (0.057 seconds).
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testAnInPlaceModificationIsDelivered]' started.
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testAnInPlaceModificationIsDelivered]' passed (0.058 seconds).
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testMalformedContentDeliversTheError]' started.
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testMalformedContentDeliversTheError]' passed (0.060 seconds).
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testRewritingIdenticalContentDeliversNothing]' started.
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testRewritingIdenticalContentDeliversNothing]' passed (0.406 seconds).
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testSaveThenWatchRoundTrips]' started.
+Test Case '-[RawTouchCoreTests.ConfigFileWatcherTests testSaveThenWatchRoundTrips]' passed (0.059 seconds).
+Test Suite 'ConfigFileWatcherTests' passed at 2026-09-05 16:28:54.754.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 1.060 (1.062) seconds
+Test Suite 'DisplayGeometryTests' started at 2026-09-05 16:28:54.754.
+Test Case '-[RawTouchCoreTests.DisplayGeometryTests testADisplayWithNoReportedGeometryFallsBackToTheDocumentedDensity]' started.
+Test Case '-[RawTouchCoreTests.DisplayGeometryTests testADisplayWithNoReportedGeometryFallsBackToTheDocumentedDensity]' passed (0.004 seconds).
+Test Case '-[RawTouchCoreTests.DisplayGeometryTests testTheFallbackDensityIsPositive]' started.
+Test Case '-[RawTouchCoreTests.DisplayGeometryTests testTheFallbackDensityIsPositive]' passed (0.000 seconds).
+Test Suite 'DisplayGeometryTests' passed at 2026-09-05 16:28:54.759.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'DisplayTickerTests' started at 2026-09-05 16:28:54.759.
+Test Case '-[RawTouchCoreTests.DisplayTickerTests testHostClockConvertsRawHostTimeConsistently]' started.
+Test Case '-[RawTouchCoreTests.DisplayTickerTests testHostClockConvertsRawHostTimeConsistently]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.DisplayTickerTests testHostClockSharesTheSystemUptimeAxis]' started.
+Test Case '-[RawTouchCoreTests.DisplayTickerTests testHostClockSharesTheSystemUptimeAxis]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.DisplayTickerTests testManualTickerCanRefuseToStart]' started.
+Test Case '-[RawTouchCoreTests.DisplayTickerTests testManualTickerCanRefuseToStart]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.DisplayTickerTests testManualTickerDeliversToTheLiveSourceOnly]' started.
+Test Case '-[RawTouchCoreTests.DisplayTickerTests testManualTickerDeliversToTheLiveSourceOnly]' passed (0.000 seconds).
+Test Suite 'DisplayTickerTests' passed at 2026-09-05 16:28:54.760.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'FrameResamplerTests' started at 2026-09-05 16:28:54.760.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testAGenuineReversalPassesThroughAtItsOwnMagnitude]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testAGenuineReversalPassesThroughAtItsOwnMagnitude]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testANewTouchStartsWithNoCarriedOffset]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testANewTouchStartsWithNoCarriedOffset]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testAPointerModeFrameFlushesAndPassesThroughLikeARelease]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testAPointerModeFrameFlushesAndPassesThroughLikeARelease]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testAStaleNewestSampleIsExtrapolatedAtMostOneSamplePeriod]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testAStaleNewestSampleIsExtrapolatedAtMostOneSamplePeriod]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testAStopLandsAheadAndNeverStepsBack]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testAStopLandsAheadAndNeverStepsBack]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testBracketedTargetsAreInterpolatedExactly]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testBracketedTargetsAreInterpolatedExactly]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testChangingTheAxisMidTouchRebasesOnTheNewAxis]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testChangingTheAxisMidTouchRebasesOnTheNewAxis]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testCleanCadenceYieldsOneEvenDeltaPerTick]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testCleanCadenceYieldsOneEvenDeltaPerTick]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testCumulativeMotionMatchesTheFingerPlusTheCarriedOffsetUnderJitterAndBatching]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testCumulativeMotionMatchesTheFingerPlusTheCarriedOffsetUnderJitterAndBatching]' passed (0.004 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testFittingTheYAxisMatchesFittingTheXAxis]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testFittingTheYAxisMatchesFittingTheXAxis]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testLatencyCanBeChangedMidTouch]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testLatencyCanBeChangedMidTouch]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testNoFlushWhenTheFinalPositionWasAlreadyEmitted]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testNoFlushWhenTheFinalPositionWasAlreadyEmitted]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testNothingIsEmittedBeforeTheFirstSampleOrAfterReset]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testNothingIsEmittedBeforeTheFirstSampleOrAfterReset]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testOnlyTheFittedAxisIsResampled]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testOnlyTheFittedAxisIsResampled]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testReleaseAfterAnExtrapolatedFrameCarriesTheOvershootAndStaysMonotonic]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testReleaseAfterAnExtrapolatedFrameCarriesTheOvershootAndStaysMonotonic]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testReleaseFlushesTheExactFinalPositionThenPassesTheReleaseThrough]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testReleaseFlushesTheExactFinalPositionThenPassesTheReleaseThrough]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testResumingAfterAStopScrollsOnTheFirstMovingTick]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testResumingAfterAStopScrollsOnTheFirstMovingTick]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testTicksBeforeTheTouchDownHoldTheFirstPositionAndItsTime]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testTicksBeforeTheTouchDownHoldTheFirstPositionAndItsTime]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testTouchAndReleaseWithinOneTickStillReachTheEngine]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testTouchAndReleaseWithinOneTickStillReachTheEngine]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testZeroLatencyAlwaysExtrapolatesAndFullLatencyAlwaysInterpolates]' started.
+Test Case '-[RawTouchCoreTests.FrameResamplerTests testZeroLatencyAlwaysExtrapolatesAndFullLatencyAlwaysInterpolates]' passed (0.000 seconds).
+Test Suite 'FrameResamplerTests' passed at 2026-09-05 16:28:54.771.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.010 (0.011) seconds
+Test Suite 'InstanceLockTests' started at 2026-09-05 16:28:54.771.
+Test Case '-[RawTouchCoreTests.InstanceLockTests testAcquireCreatesTheFileAndRecordsOurPID]' started.
+Test Case '-[RawTouchCoreTests.InstanceLockTests testAcquireCreatesTheFileAndRecordsOurPID]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.InstanceLockTests testASecondAcquireFailsWhileTheLockIsHeld]' started.
+Test Case '-[RawTouchCoreTests.InstanceLockTests testASecondAcquireFailsWhileTheLockIsHeld]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.InstanceLockTests testAStalePIDFileDoesNotBlockAcquisition]' started.
+Test Case '-[RawTouchCoreTests.InstanceLockTests testAStalePIDFileDoesNotBlockAcquisition]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.InstanceLockTests testReleaseAllowsReacquiring]' started.
+Test Case '-[RawTouchCoreTests.InstanceLockTests testReleaseAllowsReacquiring]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.InstanceLockTests testReleaseIsIdempotent]' started.
+Test Case '-[RawTouchCoreTests.InstanceLockTests testReleaseIsIdempotent]' passed (0.001 seconds).
+Test Suite 'InstanceLockTests' passed at 2026-09-05 16:28:54.777.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.006 (0.006) seconds
+Test Suite 'MenuBarIconStateTests' started at 2026-09-05 16:28:54.777.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testActiveAndNoDeviceShareTheBaseGlyph]' started.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testActiveAndNoDeviceShareTheBaseGlyph]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testAttentionOutranksDisabled]' started.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testAttentionOutranksDisabled]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testConfigErrorIsAttention]' started.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testConfigErrorIsAttention]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testDeviceWithClaimedGateIsActive]' started.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testDeviceWithClaimedGateIsActive]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testDeviceWithoutClaimedGateIsNoDevice]' started.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testDeviceWithoutClaimedGateIsNoDevice]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testDisabledWithDevicePresentIsDisabled]' started.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testDisabledWithDevicePresentIsDisabled]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testDisabledWithNoDeviceIsDisabled]' started.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testDisabledWithNoDeviceIsDisabled]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testEveryStateHasADistinctSymbol]' started.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testEveryStateHasADistinctSymbol]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testGatelessFirmwareIsAttention]' started.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testGatelessFirmwareIsAttention]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testMissingAccessibilityIsAttentionEvenWhenOtherwiseActive]' started.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testMissingAccessibilityIsAttentionEvenWhenOtherwiseActive]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testNoDeviceIsNoDevice]' started.
+Test Case '-[RawTouchAppCoreTests.MenuBarIconStateTests testNoDeviceIsNoDevice]' passed (0.000 seconds).
+Test Suite 'MenuBarIconStateTests' passed at 2026-09-05 16:28:54.778.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'RawTouchCapabilitiesTests' started at 2026-09-05 16:28:54.778.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testGo60DirectionTruthTable]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testGo60DirectionTruthTable]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testGo60OrientationAnchorDrivesEngineLikeTheValidatedConfig]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testGo60OrientationAnchorDrivesEngineLikeTheValidatedConfig]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testIgnoresTrailingPadding]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testIgnoresTrailingPadding]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testOrientationDerivationTable]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testOrientationDerivationTable]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testPadsBeyondTheCarriedSlotsGetDefaultGeometry]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testPadsBeyondTheCarriedSlotsGetDefaultGeometry]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testParsesAFourSlotBody]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testParsesAFourSlotBody]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testParsesASingleSlotBody]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testParsesASingleSlotBody]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testParsesGo60V3FeatureReport]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testParsesGo60V3FeatureReport]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testParsesOrientationBitsIndividually]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testParsesOrientationBitsIndividually]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testParsesV3TwoPadSlotsInAscendingPadIDOrder]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testParsesV3TwoPadSlotsInAscendingPadIDOrder]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testRejectsShortReports]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testRejectsShortReports]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testRejectsUnsupportedVersions]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testRejectsUnsupportedVersions]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testReverseScrollingFlipsTheAnchorBehavior]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testReverseScrollingFlipsTheAnchorBehavior]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testSlotsBeyondTheEighthAreIgnored]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testSlotsBeyondTheEighthAreIgnored]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testStripsPrependedReportID]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testStripsPrependedReportID]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testSystemNaturalScrollingFlipsTheAnchorBehavior]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testSystemNaturalScrollingFlipsTheAnchorBehavior]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testV3LeftPadOnlyUsesFirstSlot]' started.
+Test Case '-[RawTouchCoreTests.RawTouchCapabilitiesTests testV3LeftPadOnlyUsesFirstSlot]' passed (0.000 seconds).
+Test Suite 'RawTouchCapabilitiesTests' passed at 2026-09-05 16:28:54.781.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'RawTouchConfigurationTests' started at 2026-09-05 16:28:54.781.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testAccelerationAndMomentumReachTheEngineConfiguration]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testAccelerationAndMomentumReachTheEngineConfiguration]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testAPadThatReportsNoResolutionUsesThePinnacleFallback]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testAPadThatReportsNoResolutionUsesThePinnacleFallback]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testBothLatenciesAreClampedToOneSamplePeriodWhenResolved]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testBothLatenciesAreClampedToOneSamplePeriodWhenResolved]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testEachPadUsesItsOwnReportedOrientation]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testEachPadUsesItsOwnReportedOrientation]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testEachTransportResolvesItsOwnLatency]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testEachTransportResolvesItsOwnLatency]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testEmptyObjectDecodesToTheDonorDefaults]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testEmptyObjectDecodesToTheDonorDefaults]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testFollowSystemNaturalScrollingCanBeTurnedOff]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testFollowSystemNaturalScrollingCanBeTurnedOff]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testGo60AnchorConfiguration]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testGo60AnchorConfiguration]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testLoadsFromDisk]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testLoadsFromDisk]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testMalformedFileThrows]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testMalformedFileThrows]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testMissingFileYieldsDefaults]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testMissingFileYieldsDefaults]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testNaturalScrollingAndReverseEachFlipTheDirection]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testNaturalScrollingAndReverseEachFlipTheDirection]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testOutOfRangeValuesAreClampedWhenResolved]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testOutOfRangeValuesAreClampedWhenResolved]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testPadEnableDefaultsToOnAndFollowsTheMasterSwitch]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testPadEnableDefaultsToOnAndFollowsTheMasterSwitch]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testPartialObjectsKeepDefaultsForEveryAbsentKey]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testPartialObjectsKeepDefaultsForEveryAbsentKey]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testPerPadOverridesTakePrecedence]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testPerPadOverridesTakePrecedence]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testPointsPerCountIsTheGainScaledByDisplayAndPadResolution]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testPointsPerCountIsTheGainScaledByDisplayAndPadResolution]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testResamplingKeysDecodeWithDefaultsForTheAbsentOnes]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testResamplingKeysDecodeWithDefaultsForTheAbsentOnes]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testResamplingLatencyIsClampedToOneSamplePeriodWhenResolved]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testResamplingLatencyIsClampedToOneSamplePeriodWhenResolved]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testResamplingRoundTripsThroughSave]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testResamplingRoundTripsThroughSave]' passed (0.002 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testRoundTripsThroughItsOwnEncoder]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testRoundTripsThroughItsOwnEncoder]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testSaveCreatesTheParentDirectoryAndRoundTrips]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testSaveCreatesTheParentDirectoryAndRoundTrips]' passed (0.002 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testTheDefaultsRoundTripThroughTheEncoderUnchanged]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testTheDefaultsRoundTripThroughTheEncoderUnchanged]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testTheShippedExampleConfigurationSpellsTheDefaults]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testTheShippedExampleConfigurationSpellsTheDefaults]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testUnknownKeysAreReportedAsDottedPaths]' started.
+Test Case '-[RawTouchCoreTests.RawTouchConfigurationTests testUnknownKeysAreReportedAsDottedPaths]' passed (0.000 seconds).
+Test Suite 'RawTouchConfigurationTests' passed at 2026-09-05 16:28:54.791.
+	 Executed 25 tests, with 0 failures (0 unexpected) in 0.009 (0.010) seconds
+Test Suite 'RawTouchDeviceClockTests' started at 2026-09-05 16:28:54.791.
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testAnchorsToArrivalTimeAndAdvancesByDeviceDeltas]' started.
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testAnchorsToArrivalTimeAndAdvancesByDeviceDeltas]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testHandlesTimestampWrap]' started.
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testHandlesTimestampWrap]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testLargeDeviceDeltaReAnchorsToArrival]' started.
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testLargeDeviceDeltaReAnchorsToArrival]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testLongArrivalSilenceReAnchorsDespiteSmallDeviceDelta]' started.
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testLongArrivalSilenceReAnchorsDespiteSmallDeviceDelta]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testReAnchoringNeverMovesBackwards]' started.
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testReAnchoringNeverMovesBackwards]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testResetForgetsTheAnchor]' started.
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testResetForgetsTheAnchor]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testTighteningIsOffByDefaultAndNeverStepsBackwards]' started.
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testTighteningIsOffByDefaultAndNeverStepsBackwards]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testTighteningSnapsTheTimelineToAFasterDelivery]' started.
+Test Case '-[RawTouchCoreTests.RawTouchDeviceClockTests testTighteningSnapsTheTimelineToAFasterDelivery]' passed (0.000 seconds).
+Test Suite 'RawTouchDeviceClockTests' passed at 2026-09-05 16:28:54.792.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'RawTouchFrameTests' started at 2026-09-05 16:28:54.792.
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testIgnoresTrailingPadding]' started.
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testIgnoresTrailingPadding]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testParsesFlagCombinations]' started.
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testParsesFlagCombinations]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testParsesV3FixtureRoundTrip]' started.
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testParsesV3FixtureRoundTrip]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testParsesWellFormedV3Payload]' started.
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testParsesWellFormedV3Payload]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testRejectsLegacyV2LengthFrames]' started.
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testRejectsLegacyV2LengthFrames]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testRejectsShortReports]' started.
+Test Case '-[RawTouchCoreTests.RawTouchFrameTests testRejectsShortReports]' passed (0.000 seconds).
+Test Suite 'RawTouchFrameTests' passed at 2026-09-05 16:28:54.793.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'RawTouchGateTests' started at 2026-09-05 16:28:54.793.
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testCapabilityBitZeroAdvertisesTheGate]' started.
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testCapabilityBitZeroAdvertisesTheGate]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testClaimPayloadMatchesTheWireContract]' started.
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testClaimPayloadMatchesTheWireContract]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testFeatureReportIDIsSharedWithTheInputAndCapabilityReports]' started.
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testFeatureReportIDIsSharedWithTheInputAndCapabilityReports]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testFixturesCarryTheHostClaimedFlag]' started.
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testFixturesCarryTheHostClaimedFlag]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testHostClaimedReadsBitTwoOfTheWireFlagsByte]' started.
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testHostClaimedReadsBitTwoOfTheWireFlagsByte]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testRefreshIntervalNeverExceedsHalfTheRequestedTimeout]' started.
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testRefreshIntervalNeverExceedsHalfTheRequestedTimeout]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testReleasePayloadOnlyDiffersInTheActionByte]' started.
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testReleasePayloadOnlyDiffersInTheActionByte]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testRequestedTimeoutIsClampedIntoTheFirmwareAcceptedRange]' started.
+Test Case '-[RawTouchCoreTests.RawTouchGateTests testRequestedTimeoutIsClampedIntoTheFirmwareAcceptedRange]' passed (0.000 seconds).
+Test Suite 'RawTouchGateTests' passed at 2026-09-05 16:28:54.794.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'RawTouchScrollPosterTests' started at 2026-09-05 16:28:54.794.
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testATouchThatNeverReachesAWholePointEndsAsCancelled]' started.
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testATouchThatNeverReachesAWholePointEndsAsCancelled]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testCatchSequencePostsWellFormedPhases]' started.
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testCatchSequencePostsWellFormedPhases]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testEventsCarryTheInjectedClockAsTimestamps]' started.
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testEventsCarryTheInjectedClockAsTimestamps]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testSubpixelDeltasAccumulateAcrossTouchChanges]' started.
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testSubpixelDeltasAccumulateAcrossTouchChanges]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testTheBeganWaitsForAWholePointAndCarriesAllOfIt]' started.
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testTheBeganWaitsForAWholePointAndCarriesAllOfIt]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testTheBeganWaitsForTheFirstNonZeroDelta]' started.
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testTheBeganWaitsForTheFirstNonZeroDelta]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testTouchWithoutMovementEndsAsCancelled]' started.
+Test Case '-[RawTouchCoreTests.RawTouchScrollPosterTests testTouchWithoutMovementEndsAsCancelled]' passed (0.000 seconds).
+Test Suite 'RawTouchScrollPosterTests' passed at 2026-09-05 16:28:54.795.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'RawTouchServiceTests' started at 2026-09-05 16:28:54.795.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testABadReloadIsReportedAndKeepsTheLastGoodConfiguration]' started.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testABadReloadIsReportedAndKeepsTheLastGoodConfiguration]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testAGoodReloadAppliesAndCallsBack]' started.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testAGoodReloadAppliesAndCallsBack]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testALockConflictThrowsAndStartsNothing]' started.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testALockConflictThrowsAndStartsNothing]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testAMalformedConfigurationRunsOnDefaultsAndIsReported]' started.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testAMalformedConfigurationRunsOnDefaultsAndIsReported]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testAnExternalEditFlowsThroughTheWatcher]' started.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testAnExternalEditFlowsThroughTheWatcher]' passed (0.217 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testApplyForwardsToTheManagerAndBecomesTheEffectiveConfiguration]' started.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testApplyForwardsToTheManagerAndBecomesTheEffectiveConfiguration]' passed (0.003 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testAServiceCannotBeRestartedAfterShutdown]' started.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testAServiceCannotBeRestartedAfterShutdown]' passed (0.002 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testShutdownReleasesTheClaimAndTheLockAndIsIdempotent]' started.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testShutdownReleasesTheClaimAndTheLockAndIsIdempotent]' passed (0.002 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testStartBringsTheStackUpInOrder]' started.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testStartBringsTheStackUpInOrder]' passed (0.002 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testStartIsIdempotent]' started.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testStartIsIdempotent]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testStatusChangesReachTheCaller]' started.
+Test Case '-[RawTouchCoreTests.RawTouchServiceTests testStatusChangesReachTheCaller]' passed (0.001 seconds).
+Test Suite 'RawTouchServiceTests' passed at 2026-09-05 16:28:55.029.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.233 (0.234) seconds
+Test Suite 'RawTouchTransportTests' started at 2026-09-05 16:28:55.029.
+Test Case '-[RawTouchCoreTests.RawTouchTransportTests testAnythingElseIsUnknown]' started.
+Test Case '-[RawTouchCoreTests.RawTouchTransportTests testAnythingElseIsUnknown]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchTransportTests testOnlyNamedTransportsHaveADisplayName]' started.
+Test Case '-[RawTouchCoreTests.RawTouchTransportTests testOnlyNamedTransportsHaveADisplayName]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.RawTouchTransportTests testUSBAndBluetoothSpellingsMap]' started.
+Test Case '-[RawTouchCoreTests.RawTouchTransportTests testUSBAndBluetoothSpellingsMap]' passed (0.000 seconds).
+Test Suite 'RawTouchTransportTests' passed at 2026-09-05 16:28:55.029.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'ReportFramingTests' started at 2026-09-05 16:28:55.029.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testALongerBufferWithTheWrongLeadingByteIsReadAsBare]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testALongerBufferWithTheWrongLeadingByteIsReadAsBare]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.ReportFramingTests testAnExactLengthBufferIsBareEvenWhenItStartsWithTheReportID]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testAnExactLengthBufferIsBareEvenWhenItStartsWithTheReportID]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.ReportFramingTests testBareInputReportStartsAtZero]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testBareInputReportStartsAtZero]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.ReportFramingTests testBothFramingsParseToTheSameFrame]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testBothFramingsParseToTheSameFrame]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.ReportFramingTests testCandidatesForABareBufferAreJustTheBuffer]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testCandidatesForABareBufferAreJustTheBuffer]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.ReportFramingTests testCandidatesForAnEmptyBufferAreTheEmptyBuffer]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testCandidatesForAnEmptyBufferAreTheEmptyBuffer]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.ReportFramingTests testCandidatesForAPrefixedBufferOfferBareFirst]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testCandidatesForAPrefixedBufferOfferBareFirst]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.ReportFramingTests testPaddedPrefixedBufferStillStartsAtOne]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testPaddedPrefixedBufferStillStartsAtOne]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.ReportFramingTests testPrefixedInputReportStartsAtOne]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testPrefixedInputReportStartsAtOne]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.ReportFramingTests testPrependAndStripRoundTrip]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testPrependAndStripRoundTrip]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.ReportFramingTests testShortBuffersHaveNoPayload]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testShortBuffersHaveNoPayload]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.ReportFramingTests testStrippingRequiresTheRightReportID]' started.
+Test Case '-[RawTouchCoreTests.ReportFramingTests testStrippingRequiresTheRightReportID]' passed (0.000 seconds).
+Test Suite 'ReportFramingTests' passed at 2026-09-05 16:28:55.031.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'StatusFormatterTests' started at 2026-09-05 16:28:55.031.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testCoastingPad]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testCoastingPad]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testConfigErrorPassesThrough]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testConfigErrorPassesThrough]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testDeviceLineNamesBothTransports]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testDeviceLineNamesBothTransports]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testDeviceLineNamesTheDevice]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testDeviceLineNamesTheDevice]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testDeviceLineNamesTheTransport]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testDeviceLineNamesTheTransport]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testDeviceLineOmitsUnnamedTransports]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testDeviceLineOmitsUnnamedTransports]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testDeviceLineWithoutADevice]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testDeviceLineWithoutADevice]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testGatelessFirmwareOutranksConfigError]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testGatelessFirmwareOutranksConfigError]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testHealthyHasNoAttentionLine]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testHealthyHasNoAttentionLine]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testIdleActivityHasNoLine]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testIdleActivityHasNoLine]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testMissingAccessibilityOutranksEverything]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testMissingAccessibilityOutranksEverything]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testModeLineWhenClaimed]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testModeLineWhenClaimed]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testModeLineWhenNotClaimed]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testModeLineWhenNotClaimed]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testPadNamesStayLiteral]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testPadNamesStayLiteral]' passed (0.000 seconds).
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testTouchingPad]' started.
+Test Case '-[RawTouchAppCoreTests.StatusFormatterTests testTouchingPad]' passed (0.000 seconds).
+Test Suite 'StatusFormatterTests' passed at 2026-09-05 16:28:55.032.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'TouchScrollEngineTests' started at 2026-09-05 16:28:55.033.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAcceleratingFlickSeedsNearReleaseVelocity]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAcceleratingFlickSeedsNearReleaseVelocity]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAccelerationAttenuatesSlowDragsAndBoostsFastDrags]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAccelerationAttenuatesSlowDragsAndBoostsFastDrags]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAccelerationExponentZeroMatchesDisabledAndLinear]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAccelerationExponentZeroMatchesDisabledAndLinear]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAccelerationGainClampsAtMinAndMax]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAccelerationGainClampsAtMinAndMax]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAccelerationHasNoSlowStartDeadZone]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAccelerationHasNoSlowStartDeadZone]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAccelerationMomentumSeedReflectsBoostedVelocity]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAccelerationMomentumSeedReflectsBoostedVelocity]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAxisXDrivesDeltasFromRawXAndComposesWithInvert]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testAxisXDrivesDeltasFromRawXAndComposesWithInvert]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testConstantVelocitySeedMatchesDragSpeedExactly]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testConstantVelocitySeedMatchesDragSpeedExactly]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testDragAndFlickProducesPhasesAndMomentum]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testDragAndFlickProducesPhasesAndMomentum]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testImplausiblePositionJumpDoesNotEmitHugeDelta]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testImplausiblePositionJumpDoesNotEmitHugeDelta]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testInterruptDuringMomentumEmitsMomentumEnded]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testInterruptDuringMomentumEmitsMomentumEnded]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testInterruptDuringTouchEmitsTouchEnded]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testInterruptDuringTouchEmitsTouchEnded]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testInvertFlipsDeltaSignAndMomentumDirection]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testInvertFlipsDeltaSignAndMomentumDirection]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testLeftPadFramesDriveTheGestureLikePadZero]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testLeftPadFramesDriveTheGestureLikePadZero]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testMomentumDecayTimeConstantControlsCoastDuration]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testMomentumDecayTimeConstantControlsCoastDuration]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testMomentumMaxSpeedCapsSeedVelocity]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testMomentumMaxSpeedCapsSeedVelocity]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testMomentumStartThresholdGatesMomentum]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testMomentumStartThresholdGatesMomentum]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testMomentumTailStopsAtTheFloorWithoutCrawling]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testMomentumTailStopsAtTheFloorWithoutCrawling]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testPointerTimeFramesAreIgnored]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testPointerTimeFramesAreIgnored]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testPointerTimeFramesDoNotCatchMomentum]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testPointerTimeFramesDoNotCatchMomentum]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testScaleAppliesToDeltas]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testScaleAppliesToDeltas]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testScrollModeDroppedMidTouchEndsGestureWithoutMomentum]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testScrollModeDroppedMidTouchEndsGestureWithoutMomentum]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testStopBeforeLiftYieldsNoMomentum]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testStopBeforeLiftYieldsNoMomentum]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testTouchDownDuringMomentumCancelsItImmediately]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollEngineTests testTouchDownDuringMomentumCancelsItImmediately]' passed (0.000 seconds).
+Test Suite 'TouchScrollEngineTests' passed at 2026-09-05 16:28:55.038.
+	 Executed 24 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'TouchScrollPipelineResamplingTests' started at 2026-09-05 16:28:55.038.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testACrossPadCatchStartsFromTheNewPadsOwnPosition]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testACrossPadCatchStartsFromTheNewPadsOwnPosition]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testAnUngatedFrameMidGestureCancelsAndStopsTheDisplayLink]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testAnUngatedFrameMidGestureCancelsAndStopsTheDisplayLink]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testAnUnnamedTransportTakesTheUSBLatency]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testAnUnnamedTransportTakesTheUSBLatency]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testATickFromAnInvalidatedSubscriptionIsIgnored]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testATickFromAnInvalidatedSubscriptionIsIgnored]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testEveryDisplayFrameGetsOneDeltaWhereRawFramesWouldBeat]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testEveryDisplayFrameGetsOneDeltaWhereRawFramesWouldBeat]' passed (0.010 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testInterruptBeforeTheFirstTickDropsTheBufferedTouchSilently]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testInterruptBeforeTheFirstTickDropsTheBufferedTouchSilently]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testInterruptStopsTheDisplayLink]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testInterruptStopsTheDisplayLink]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testMomentumRidesTheDisplayTicksAndStopsThemWhenItEnds]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testMomentumRidesTheDisplayTicksAndStopsThemWhenItEnds]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testMomentumSeedMatchesTheUnresampledSeedClosely]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testMomentumSeedMatchesTheUnresampledSeedClosely]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testResamplingOffLeavesTheOldPathIntact]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testResamplingOffLeavesTheOldPathIntact]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testScrollFramesReachTheEngineOnDisplayTicksNotOnArrival]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testScrollFramesReachTheEngineOnDisplayTicksNotOnArrival]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testStopsLandWithoutSteppingBackAtEveryLatency]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testStopsLandWithoutSteppingBackAtEveryLatency]' passed (0.016 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testStopThenLiftYieldsNoMomentumWithResampling]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testStopThenLiftYieldsNoMomentumWithResampling]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testTheDisplayLinkStartsAtTouchDownAndStopsWhenTheGestureEnds]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testTheDisplayLinkStartsAtTouchDownAndStopsWhenTheGestureEnds]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testTheDisplaySyncLatencyFollowsTheGesturesTransport]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testTheDisplaySyncLatencyFollowsTheGesturesTransport]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testTheStaleTouchWatchdogFlushesThroughTheResampler]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testTheStaleTouchWatchdogFlushesThroughTheResampler]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testTotalScrollIsTheFingersMotionPlusTheCarriedOffset]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testTotalScrollIsTheFingersMotionPlusTheCarriedOffset]' passed (0.013 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testTurningResamplingOffMidGestureKeepsTheGestureAndTotal]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testTurningResamplingOffMidGestureKeepsTheGestureAndTotal]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testWithoutADisplayLinkFramesDriveTheEngineDirectlyAndMomentumUsesTheTimer]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineResamplingTests testWithoutADisplayLinkFramesDriveTheEngineDirectlyAndMomentumUsesTheTimer]' passed (0.000 seconds).
+Test Suite 'TouchScrollPipelineResamplingTests' passed at 2026-09-05 16:28:55.084.
+	 Executed 19 tests, with 0 failures (0 unexpected) in 0.045 (0.046) seconds
+Test Suite 'TouchScrollPipelineTests' started at 2026-09-05 16:28:55.084.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testACrossPadCatchReportsTheStealingPad]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testACrossPadCatchReportsTheStealingPad]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testActivityIsReportedPerTransitionNotPerFrame]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testActivityIsReportedPerTransitionNotPerFrame]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testActivityRunsIdleTouchingCoastingIdle]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testActivityRunsIdleTouchingCoastingIdle]' passed (0.001 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testAGestureUsesTheDensityResolvedAtItsOwnTouchDown]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testAGestureUsesTheDensityResolvedAtItsOwnTouchDown]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testARealReleaseDisarmsTheWatchdog]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testARealReleaseDisarmsTheWatchdog]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testASlowReleaseGoesStraightBackToIdle]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testASlowReleaseGoesStraightBackToIdle]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testDeclaimCancelAddsNoLiftOffMomentum]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testDeclaimCancelAddsNoLiftOffMomentum]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testDisabledConfigurationSilencesThePipeline]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testDisabledConfigurationSilencesThePipeline]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testFirstPadToTouchOwnsTheGestureAndTheOtherPadIsIgnored]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testFirstPadToTouchOwnsTheGestureAndTheOtherPadIsIgnored]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testFramesWithTheGateBitClearAreDroppedSilently]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testFramesWithTheGateBitClearAreDroppedSilently]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testFramesWithTheGateBitSetDriveScrolling]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testFramesWithTheGateBitSetDriveScrolling]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testGatedPointerModeFrameEndsTheGestureWithoutScrolling]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testGatedPointerModeFrameEndsTheGestureWithoutScrolling]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testGateReopeningResumesSynthesis]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testGateReopeningResumesSynthesis]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testInterruptClosesAnOpenGesture]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testInterruptClosesAnOpenGesture]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testInterruptReportsIdle]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testInterruptReportsIdle]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testLosingTheDeviceClosesAnOpenGesture]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testLosingTheDeviceClosesAnOpenGesture]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testNoDeviceMeansNoSynthesis]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testNoDeviceMeansNoSynthesis]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testPerPadAxisAndInvertOverridesComposeWithReverseScrolling]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testPerPadAxisAndInvertOverridesComposeWithReverseScrolling]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testPerPadDisableIgnoresThatPadOnly]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testPerPadDisableIgnoresThatPadOnly]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testPerPadGainOverrideAppliesWhenThatPadClaimsTheGesture]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testPerPadGainOverrideAppliesWhenThatPadClaimsTheGesture]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testPointerContextTouchOnTheOtherPadDoesNotCatchTheMomentumTail]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testPointerContextTouchOnTheOtherPadDoesNotCatchTheMomentumTail]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testScrollTouchOnTheOtherPadCatchesAMomentumTailAndStealsTheClaim]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testScrollTouchOnTheOtherPadCatchesAMomentumTailAndStealsTheClaim]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testScrollTouchOnTheOtherPadDoesNotStealFromAnActiveTouch]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testScrollTouchOnTheOtherPadDoesNotStealFromAnActiveTouch]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testSecondaryContactsAreIgnored]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testSecondaryContactsAreIgnored]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testSilenceMidTouchSynthesizesTheLiftOff]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testSilenceMidTouchSynthesizesTheLiftOff]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testTheClaimClearsWhenTheGestureEnds]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testTheClaimClearsWhenTheGestureEnds]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testTheDisplayDensityIsResolvedOncePerGestureNotPerFrame]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testTheDisplayDensityIsResolvedOncePerGestureNotPerFrame]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testTheStolenToPadScrollsImmediately]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testTheStolenToPadScrollsImmediately]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testUngatedFrameDuringAnActiveTouchCancelsTheSeries]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testUngatedFrameDuringAnActiveTouchCancelsTheSeries]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testUngatedFrameDuringCoastingCancelsTheMomentumTail]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testUngatedFrameDuringCoastingCancelsTheMomentumTail]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testUngatedFrameForTheOtherPadLeavesTheSeriesAlone]' started.
+Test Case '-[RawTouchCoreTests.TouchScrollPipelineTests testUngatedFrameForTheOtherPadLeavesTheSeriesAlone]' passed (0.000 seconds).
+Test Suite 'TouchScrollPipelineTests' passed at 2026-09-05 16:28:55.090.
+	 Executed 31 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'WeightedVelocityFitTests' started at 2026-09-05 16:28:55.090.
+Test Case '-[RawTouchCoreTests.WeightedVelocityFitTests testAllWeightOnOneInstantIsDegenerate]' started.
+Test Case '-[RawTouchCoreTests.WeightedVelocityFitTests testAllWeightOnOneInstantIsDegenerate]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.WeightedVelocityFitTests testAStationaryTailOutweighsAnEarlierDrag]' started.
+Test Case '-[RawTouchCoreTests.WeightedVelocityFitTests testAStationaryTailOutweighsAnEarlierDrag]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.WeightedVelocityFitTests testConstantVelocityIsRecoveredExactlyWhateverTheWeights]' started.
+Test Case '-[RawTouchCoreTests.WeightedVelocityFitTests testConstantVelocityIsRecoveredExactlyWhateverTheWeights]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.WeightedVelocityFitTests testRecencyWeightingFavoursTheNewestSamples]' started.
+Test Case '-[RawTouchCoreTests.WeightedVelocityFitTests testRecencyWeightingFavoursTheNewestSamples]' passed (0.000 seconds).
+Test Case '-[RawTouchCoreTests.WeightedVelocityFitTests testTooFewSamplesOrTooShortASpanYieldsNoSlope]' started.
+Test Case '-[RawTouchCoreTests.WeightedVelocityFitTests testTooFewSamplesOrTooShortASpanYieldsNoSlope]' passed (0.000 seconds).
+Test Suite 'WeightedVelocityFitTests' passed at 2026-09-05 16:28:55.091.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'rawtouchPackageTests.xctest' passed at 2026-09-05 16:28:55.091.
+	 Executed 258 tests, with 0 failures (0 unexpected) in 2.525 (2.542) seconds
+Test Suite 'All tests' passed at 2026-09-05 16:28:55.091.
+	 Executed 258 tests, with 0 failures (0 unexpected) in 2.525 (2.544) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

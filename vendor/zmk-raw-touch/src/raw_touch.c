@@ -166,7 +166,17 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
 
         /* !touched implies cur_x/y/z are all zero (that is how touched is
          * derived above), so the release report's zeros need no special
-         * case. */
+         * case.
+         *
+         * The send result is deliberately not checked, here or below. Both
+         * transports QUEUE the frame rather than handing it to hardware
+         * synchronously, and both protect release frames on the way out -
+         * a full queue evicts motion and never a release (see
+         * zmk/raw_touch/transport.h). So there is nothing a per-frame
+         * producer could usefully retry: the cases that still lose a frame
+         * (the bus or the link going away) are exactly the cases where
+         * re-sending it would go nowhere either, and the host's silence
+         * watchdog covers them. */
         zmk_raw_touch_hid_set(cfg->pad_id, data->cur_x, data->cur_y, data->cur_z, flags,
                               data->seq++, raw_touch_timestamp());
         zmk_raw_touch_send_report();

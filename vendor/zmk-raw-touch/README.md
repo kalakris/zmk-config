@@ -22,9 +22,12 @@ normal input chain, so the cursor, tap-to-click, buttons and a
 wheel-scroll processor overlay all work on their own, and no frames are
 sent. When a host app claims the frames (see the appendix), the keyboard
 switches to **RawTouch mode**: samples go to the host, which drives
-scrolling itself, and the firmware's own wheel scrolling stands down. The
-moment the host goes away — quit, crash, sleep, disconnect — the keyboard
-reverts to Standard mode on its own.
+scrolling itself, and the firmware's own wheel scrolling stands down.
+When the host goes away the keyboard reverts to Standard mode on its own:
+immediately on a clean quit, a disconnect or an endpoint switch, and
+otherwise when the claim's lease runs out — a crashed or hung host holds
+the claim until then (RawTouch asks for 30 s; the firmware clamps the
+request to [5, 120] s).
 
 **The host app for macOS is [RawTouch](https://github.com/kalakris/rawtouch)**
 (menubar app, MIT). Firmware alone gives you Standard mode. The wire
@@ -84,7 +87,9 @@ failure would be a silently missing interface.
 On a **split** keyboard, flash both halves from the same build. Frames
 are sent by the central; a pad on the peripheral is still streamed (its
 input events cross the split link like any other), but the transports
-only exist on the central.
+only exist on the central. A peripheral pad needs a little more wiring
+and, on a wired split, a timing tweak — see
+[Split keyboards](#split-keyboards).
 
 Push, let the standard ZMK build workflow produce your firmware, flash.
 
@@ -130,6 +135,118 @@ Without a host app, you can still check that the firmware side is alive:
   momentum, no tap-to-click. Also wire `data-ready-gpios`; the driver
   needs the DR line.
 - **Host:** macOS with RawTouch. Other platforms: see the appendix.
+
+**Tested configuration.** Everything here is built and hardware-verified
+against exactly one combination: MoErgo's ZMK tree (`moergo-sc/zmk`,
+branch `go60-zmk0.3.0`, pinned at SHA `57a7b8e0` — ZMK v0.3.0 /
+Zephyr 3.5) plus
+[`kalakris/cirque-input-module`](https://github.com/kalakris/cirque-input-module)
+branch `intree-driver`, on a MoErgo Go60 with two Cirque pads, over both
+USB and BLE, with macOS and RawTouch as the host. Upstream ZMK `main`
+and Zephyr 4.1 are **not** verified — in particular the USB transport
+still uses the legacy device stack (see `USB_DEVICE_STACK_NEXT` above)
+and will need porting. Reports from other trees and boards are welcome.
+
+## Split keyboards
+
+The transports live on the central, so a pad on the peripheral half is
+relayed to the central with ZMK's `zmk,input-split` and streamed from
+there. Below is a minimal generic version of the tested Go60 wiring; the
+relay node itself usually already exists in your board's `.dtsi` (it does
+on the Go60), in which case you only write the two overlay halves.
+
+```dts
+/* --- Shared (board .dtsi): the relay. --- */
+/ {
+    inputs {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        trackpad_split: trackpad_split@0 {
+            compatible = "zmk,input-split";
+            reg = <0>;
+        };
+    };
+};
+```
+
+```dts
+/* --- Peripheral half. It only forwards; it neither processes nor
+ *     streams, so it has no listener and no raw-touch-pad node. --- */
+&trackpad_split {
+    device = <&remote_trackpad>;   /* the local absolute-mode pad */
+};
+
+&remote_trackpad_listener {
+    status = "disabled";
+};
+```
+
+```dts
+/* --- Central half. --- */
+&trackpad_split {
+    /* Only if your board .dtsi already set it: the central receives on
+     * this node, it does not send. */
+    /delete-property/ device;
+};
+
+/ {
+    input_processors {
+        /* One idle-filter instance per listener - the filter keeps
+         * per-node state and must not be shared. */
+        zip_raw_touch_idle_filter_remote: zip_raw_touch_idle_filter_remote {
+            compatible = "zmk,input-processor-raw-touch-idle-filter";
+            #input-processor-cells = <0>;
+        };
+    };
+
+    /* The peripheral's pad, with its own pad-id. Geometry and
+     * orientation are declared here, on the central, not on the
+     * peripheral's driver node - frames must cross the link raw. */
+    raw_touch_pad_remote: raw_touch_pad_remote {
+        compatible = "zmk,raw-touch-pad";
+        device = <&trackpad_split>;   /* not the driver: the relay */
+        pad-id = <1>;                 /* the local pad is 0 */
+        rotate-90;
+        y-invert;
+        tap-click;
+    };
+};
+
+&remote_trackpad_listener {
+    status = "okay";
+    device = <&trackpad_split>;
+    input-processors = <&zip_xy_scaler 1 1>,
+                       <&zip_raw_touch_idle_filter_remote>;
+};
+```
+
+This is the tested configuration (MoErgo Go60, ZMK v0.3.0-era MoErgo
+tree): right half central with its own pad as `pad-id = <0>`, left half
+peripheral relaying its pad to `pad-id = <1>`.
+
+**Wired splits want a poll-cadence tweak.** ZMK's half-duplex wired
+transport is *polled*: the peripheral never initiates a transmission, it
+queues events until the central asks. With the stock timings the central
+polls roughly every 22 ms, so a peripheral pad's ~10 ms frames arrive in
+2–3-frame bursts. The send queues absorb a burst rather than dropping
+what will not fit (see the appendix), so this costs no frames — but a
+burst is still worse than per-frame delivery: the whole burst reaches the
+host one poll cycle late, and the pad's *pointer* deltas are batched
+along with it. The tested Go60 configuration therefore sets, on the
+**central**:
+
+```
+CONFIG_ZMK_SPLIT_WIRED_HALF_DUPLEX_RX_COMPLETE_TIMEOUT=3
+CONFIG_ZMK_SPLIT_WIRED_HALF_DUPLEX_RX_TIMEOUT=5
+```
+
+which brings the poll cycle to ~5 ms and restores per-frame delivery
+(measured: burst size back to 1.00, with lower peripheral key latency as
+a bonus). Both symbols are central-side only, so only the central needs
+reflashing. Polling ~4× more often does cost peripheral battery, so treat
+it as a watch-item. A wireless split does not have this problem — its
+frames arrive in small batches that the BLE queue absorbs.
 
 ## Scroll mode
 
@@ -177,6 +294,7 @@ One filter node per listener — do not share a node between two listeners.
 |---|---|---|
 | `CONFIG_ZMK_RAW_TOUCH` | y if a pad node exists | The module |
 | `CONFIG_ZMK_RAW_TOUCH_USB` | y | Second USB HID interface (`HID_1`) |
+| `CONFIG_ZMK_RAW_TOUCH_USB_QUEUE_SIZE` | 4 | Frames buffered for the USB interrupt IN endpoint — drained by transfer completion, so it only has to cover one host poll interval (when full the oldest *motion* frame is evicted; release frames are never evicted) |
 | `CONFIG_ZMK_RAW_TOUCH_BLE` | y | Second BLE HIDS instance |
 | `CONFIG_ZMK_RAW_TOUCH_BLE_QUEUE_SIZE` | 8 | Frames buffered for BLE — ~80 ms, enough for arrival batching (when full the oldest *motion* frame is evicted; release frames are never evicted) |
 | `CONFIG_ZMK_RAW_TOUCH_BLE_THREAD_STACK_SIZE` | `ZMK_BLE_THREAD_STACK_SIZE` | Stack of the module's BLE send work queue |
@@ -294,32 +412,55 @@ clear, not "coordinates are zero" (release reports do also carry zeroed
 x/y/z, but hosts MUST key on the bit). `timestamp` is the device-side
 sample time (HID Scan Time convention); hosts MUST derive finger velocity
 from it rather than from arrival time, which BLE connection-interval
-batching distorts. `seq` exposes silent drops (under pressure the BLE
-send queue drops the oldest *motion* frame — see below); with device
-timestamps, velocity across a gap remains correct, so `seq` is
-diagnostic.
+batching distorts. `seq` exposes silent drops (under pressure either
+transport's send queue evicts the oldest *motion* frame — see below);
+with device timestamps, velocity across a gap remains correct, so `seq`
+is diagnostic.
 
-**Release frames are delivered.** A report with `touched` clear — the
-lift-off report, and the synthetic one from a mid-touch declaim — is the
-one report whose loss is visible to a user, as a phantom finger-down and
-runaway momentum. The firmware treats it as durable rather than
-best-effort:
+**Release frames are protected on both transports.** A report with
+`touched` clear — the lift-off report, and the synthetic one from a
+mid-touch declaim — is the one report whose loss is visible to a user, as
+a phantom finger-down and runaway momentum. Each transport queues frames
+in a ring that treats a release as near-durable rather than best-effort,
+within stated bounds:
 
-- a full BLE send queue evicts the oldest *motion* frame, never a
-  release; motion frames are ~10 ms apart and carry absolute positions,
-  so a gap costs nothing;
-- a release that fails to notify (typically because no TX buffer is free
-  this connection event) is retried, one connection interval apart, a few
-  times before being given up on;
-- retries are head-of-line and the queue drains in order, so per pad a
-  release never overtakes earlier motion, and a later touch's frames
-  never overtake the release that closed the previous one.
+- a full send queue evicts the oldest *motion* frame, never a release;
+  motion frames are ~10 ms apart and carry absolute positions, so a gap
+  costs nothing. If the queue holds nothing *but* releases there is
+  nothing evictable, and the incoming frame is dropped instead;
+- queues drain strictly in order, so per pad a release never overtakes
+  earlier motion, and a later touch's frames never overtake the release
+  that closed the previous one;
+- on **USB** the queue is drained by transfer completion: a frame
+  produced while the previous interrupt IN transfer is in flight waits in
+  the queue and goes out when that transfer finishes, so a busy endpoint
+  cannot lose a release. This matters in ordinary use, not just on a
+  broken link — two pads share the interface, and a peripheral pad's
+  frames arrive from the split link in bursts (see
+  [Split keyboards](#split-keyboards)). What the queue does *not* survive
+  is the bus going away: a reset, a detach or an error flushes it, since
+  those frames were addressed to a host that is no longer there;
+- on **BLE** a release that fails to notify (typically because no TX
+  buffer is free this connection event) is retried, 8 ms apart, up to
+  `RT_TXQ_RELEASE_ATTEMPTS` = 4 attempts in total, then given up on and
+  dropped. Retries are head-of-line, so nothing behind a stuck release is
+  sent past it;
+- also on BLE, each queued frame is bound to the profile that was active
+  when it was **sampled**, and is only ever delivered to that profile. A
+  profile switch flushes the queue and a disconnect discards that
+  profile's entries, so a frame sampled for one host — a release waiting
+  on its retry included — is never handed to another host with the first
+  host's `host_claimed` bit and coordinates. The endpoint scoping the
+  claim promises therefore holds for queued frames too.
 
-Hosts SHOULD still treat frame silence longer than ~150 ms while
-`touched` was last set as a lift-off — but as a **safety net** for what
-the firmware cannot cover (link loss, disconnect, host sleep, the
-keyboard losing power mid-touch), not as a correctness requirement on a
-healthy link.
+Hosts MUST nevertheless treat frame silence longer than ~150 ms while
+`touched` was last set as a lift-off. The queues remove the routine
+losses, not the ones the firmware cannot cover: link loss, disconnect,
+host sleep, a USB bus reset or detach, an endpoint switch mid-touch, the
+keyboard losing power, and the bounded give-up cases above (four failed
+BLE notifies, or a queue with nothing evictable). The watchdog is
+**part of correctness** on both transports — it is the only thing that
+closes a gesture whose release went into one of those.
 
 ### Feature report — 4 + 8×*N* bytes, same report ID
 

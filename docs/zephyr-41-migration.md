@@ -107,12 +107,51 @@ main. keymap-drawer needs no changes (it never builds ZMK).
   tip of `go60-zmk0.3.0` as of 2026-08-26, and is exactly the commit
   `kalakris/zmk@raw-touch` forked from, so dropping our ZMK fork is a pure
   subtraction. (`main` and `raw-touch` still track the branch name.)
-- [ ] **Cherry-pick [zmk#3483 "declare scroll resolution in the report
-  descriptor"](https://github.com/zmkfirmware/zmk/pull/3483) onto our
-  fork.** Touches only `hid.h`, `pointing/Kconfig`, docs — zero Zephyr
-  coupling, applies to a 3.5 base. Its problem statement is verbatim our
-  scroll-divisor saga ("slow scrolling or fine scrolling, but not both").
-  **May let us retire the LinearMouse `inputScale` patch entirely.**
+- [ ] **[zmk#3483 "declare scroll resolution in the report
+  descriptor"](https://github.com/zmkfirmware/zmk/pull/3483)** — still open
+  upstream. Adds `CONFIG_ZMK_POINTING_SCROLL_RESOLUTION` (counts per inch,
+  expressed as a physical range + unit exponent −1 on Wheel and AC Pan);
+  0 leaves the descriptor byte-identical. macOS ignores Resolution
+  Multipliers and otherwise assumes 9 counts/inch — a notched wheel — which
+  is verbatim our scroll-divisor saga ("slow scrolling or fine scrolling,
+  but not both"). Touches only `hid.h`, `pointing/Kconfig`, docs; zero
+  Zephyr coupling, applies to a 3.5 base.
+
+  **Re-costed 2026-09-05, two corrections to the original note:**
+
+  1. *"Cherry-pick onto our fork" is no longer cheap* — that was written
+     when `kalakris/zmk@raw-touch` was load-bearing. `main` now pins stock
+     MoErgo with **zero** ZMK patches, deliberately. Taking #3483 today
+     means re-forking MoErgo's ZMK for a Standard-mode scroll-feel tweak.
+     Prefer: wait for it to merge and reach our base, or fold it in if we
+     ever re-fork for another reason. It also touches the mouse report
+     descriptor, so adopting it costs a BLE forget + re-pair (gotcha 1).
+  2. *It would not retire the `inputScale` patch.* That patch lives in the
+     installed `stock-inputscale` LinearMouse build doing **pointer**
+     processing alongside RawTouch — a different axis entirely.
+
+  **What it would actually buy: a much better Standard mode**, and possibly
+  more than that. Upstream LinearMouse now ships
+  `SmoothedScrollingEngine.swift` (668 lines) which synthesizes real
+  `touchBegan/Changed/Ended` + `momentumBegan/Changed/Ended` phases,
+  velocity estimation, momentum decay, re-engagement blending and
+  opposing-momentum cancellation **from a plain wheel stream** — and it is
+  already in the build at /Applications/LinearMouse.app. So
+  "#3483 + stock LinearMouse smoothed scrolling" is a genuine no-custom-host
+  alternative to RawTouch for the common case, not just a coarse fallback.
+  The irreducible gaps are the ones that follow from a wheel stream having
+  no finger-down signal: a finger resting motionless after a move looks
+  identical to a lift (`inputGrace = 1/25 s`) → phantom momentum, and you
+  cannot halt momentum by planting a finger; momentum launches from an
+  estimated rather than measured lift velocity; CGEvent arrival times
+  instead of device timestamps, so BLE jitter gets smoothed rather than
+  corrected; and no pad identity, so cross-pad catch is unarbitrated.
+
+  **Cheap experiment available today** (does not need #3483): quit
+  RawTouch → Standard mode, enable LinearMouse smoothed scrolling, and A/B
+  it against RawTouch on `bench/safari-bounce/`. That measures how much of
+  the gap is real feel and how much is theory, before spending anything on
+  the firmware half.
 - [ ] Fix and keep warm the `origin/copilot/upgrade-zmk-to-0-4` branch
   (add boot retention + DC/DC) as a free regression canary; the Sofle half
   of the migration is then pre-validated.
