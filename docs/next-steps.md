@@ -655,17 +655,18 @@ the session — **everything below is in the working trees only**:
 - **zmk-config**: CLAUDE.md/AGENTS.md no longer call the dead-pad boot
   race open; `vendor/` re-synced from the dirty module tree.
 
-**Hardware item before any of the firmware goes to `main`:** arming the
-next USB transfer from inside `in_ready_cb` is only reasoned about
-(legacy stack, nRF work-queue context), not run. Flash RH from the CI
-branch, then check: two-pad USB scrolling with releases intact (passive
-monitor: seq gaps, no 150 ms watchdog lift-offs), unplug/replug
-mid-touch, BLE profile switch mid-touch (no blip on the other host),
-rapid re-touch, claim expiry. Then: commit module (squash decision still
-open, item p.4), re-vendor, merge to main; commit rawtouch, redeploy the
-app (fresh Accessibility grant is NOT needed — signature unchanged — but
-the readiness change means an ungranted app now leaves the keyboard in
-Standard mode, which is the point).
+**Deployed 2026-09-06 00:14:** RH flashed from main run 34017041142
+(module `1d5c41f`), app redeployed from rawtouch `8ca32d4`. First
+hardware evidence, passive monitor right after the flash: both endpoints
+validate (v3, pads 0x03, capabilities 0x01); 240 pad-0 frames over USB,
+seq-contiguous (0 dropped), 7 release frames delivered, all with the
+claim bit, 10 ms median cadence — so the `in_ready_cb` re-arm works for
+one pad. **Still owed (needs hands):** two-pad USB scrolling (LH pad 1 through the split relay, both
+pads alternating) with releases intact (passive monitor: seq gaps, no
+150 ms watchdog lift-offs), unplug/replug mid-touch, BLE profile switch
+mid-touch (no blip on the other host), rapid re-touch, claim expiry
+(quit the app mid-touch, then wait 30 s), and the feel check. Then: the
+module history-squash decision (item p.4) before the public flip.
 
 Not done from the review (deliberately), now tracked in item p.8:
 device-and-pad identity for multiple keyboards (documented as a
