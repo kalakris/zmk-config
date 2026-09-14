@@ -78,7 +78,14 @@ DR after the recalibrate) is the tip of `cirque-input-module@
 intree-driver` (SHA `89a08962`); the pinned revision in
 `config/west.yml` is bumped and pushed on zmk-config `main`, and both
 halves are flashed. **Hardware verification ongoing**: any dead pad on
-a future boot is now a real bug, not the known race. Fixing this was the MUST-FIX gate before upstreaming the
+a future boot is now a real bug, not the known race. **First recurrence
+observed 2026-09-14:** LH pad dead for everything (no pointer, no tap, no
+wheel; keys fine) while running the 2026-09-05 hardware checklist,
+discovered after the RH had been reflashed on 2026-09-06 (the LH was not
+reflashed and had been up since 2026-09-04). Power-cycling the LH
+revived it. Unknown whether it died at the RH reboot (peripheral sits
+unpolled while the central is in bootloader) or earlier; not
+reproduced. Watch for the next one and note what preceded it. Fixing this was the MUST-FIX gate before upstreaming the
 ERA/recalibrate patches to Zephyr (see
 [upstreaming-todo.md](upstreaming-todo.md)).
 
@@ -661,9 +668,18 @@ hardware evidence, passive monitor right after the flash: both endpoints
 validate (v3, pads 0x03, capabilities 0x01); 240 pad-0 frames over USB,
 seq-contiguous (0 dropped), 7 release frames delivered, all with the
 claim bit, 10 ms median cadence — so the `in_ready_cb` re-arm works for
-one pad. **Still owed (needs hands):** two-pad USB scrolling (LH pad 1 through the split relay, both
-pads alternating) with releases intact (passive monitor: seq gaps, no
-150 ms watchdog lift-offs), unplug/replug mid-touch, BLE profile switch
+one pad. **Checklist run 2026-09-14, tests 1–8 PASSED:** feel check;
+Accessibility revoke/re-grant switches modes in well under a second
+each way with no dead window; rapid enable toggling leaves wheel
+scrolling live at once; disabling the active pad and changing its axis
+mid-gesture (via a delayed config edit) both end the gesture cleanly and
+the other pad scrolls immediately; direction picker correct incl.
+`"invert": false`; menu quit mid-drag ends without momentum, wheel live
+at once, RawTouch mode back almost instantly on relaunch; two-pad USB
+capture: pad 0 829 frames / 40 touches / 40 releases / 0 dropped,
+pad 1 (split relay) 1084 / 42 / 42 / 0, no late releases, batch size
+1.00 on both. (LH pad was found dead before this test — see item a.)
+**Still owed (needs hands):** unplug/replug mid-touch, BLE profile switch
 mid-touch (no blip on the other host), rapid re-touch, claim expiry
 (quit the app mid-touch, then wait 30 s), and the feel check. Then: the
 module history-squash decision (item p.4) before the public flip.
