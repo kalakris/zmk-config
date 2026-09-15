@@ -181,8 +181,8 @@
  * positive means scroll UP, so Y is inverted to get the old-school
  * direction (finger down -> scroll down); REL_HWHEEL positive means
  * scroll RIGHT, which already matches finger-right, so X is left alone.
- * macOS Natural Scrolling then flips both. The HORIZONTAL direction is
- * still UNVERIFIED on hardware - see docs/next-steps.md item s.
+ * macOS Natural Scrolling then flips both. Both directions were confirmed
+ * on hardware 2026-09-15 (docs/next-steps.md item s).
  *
  * As on the right pad: no &zip_button_behaviors, and this listener's OWN
  * idle-filter instance stays LAST - the filter keeps per-node state and

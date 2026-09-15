@@ -736,13 +736,13 @@ device line says "connected over USB and Bluetooth". Backups of the
 pre-change config: `~/.config/rawtouch/config.json.pre-apple-defaults-2026-09-03`
 and `.pre-gain-2026-09-03`. rawtouch now lives at **github.com/kalakris/rawtouch (private, created 2026-09-04)**; the module README already links there.
 
-## s. Left pad as a dedicated two-axis scroll pad — IMPLEMENTED 2026-09-15, not yet flashed or hardware-tested
+## s. Left pad as a dedicated two-axis scroll pad — FLASHED + VERIFIED 2026-09-15 (items 1–3 passed; 4–6 open)
 
 The left Cirque is now a **scroll pad only** — no layer to hold — and
 both pads scroll in **two axes**.
 
-**Firmware** (`config/go60_rh.keymap`, the central; working tree only,
-nothing committed or pushed):
+**Firmware** (`config/go60_rh.keymap`, the central; zmk-config `5e32fe1`,
+CI green, RH flashed 15:37):
 
 - `&zip_raw_touch_scroll` moved into `&cirque_lh_listener`'s **base**
   chain, so every LH touch is scroll context on every layer. The LH
@@ -767,8 +767,8 @@ nothing committed or pushed):
   `REL_WHEEL` positive means scroll UP so Y is inverted for the old-school
   direction, while `REL_HWHEEL` positive means scroll RIGHT, which already
   matches finger-right. macOS Natural Scrolling then flips both.
-  **The horizontal fallback direction is a reasoned guess, unverified on
-  hardware** — checklist item 1 below is the test.
+  **The horizontal fallback direction was confirmed on hardware** the same
+  day (checklist item 1) — no X_INVERT needed.
 - Verified against the pinned tree so no local shim was needed: its
   `zip_scroll_scaler` already covers `<INPUT_REL_WHEEL INPUT_REL_HWHEEL>`
   and `zip_scroll_transform` already has `x-codes = <INPUT_REL_HWHEEL>`;
@@ -780,8 +780,11 @@ nothing committed or pushed):
   central does all processing, so **the LH half does not need
   reflashing**.
 
-**Host** (RawTouch, done in parallel): two-axis synthesis, with config
-keys `axes`, `pads.<id>.axes` and `pads.<id>.invertHorizontal`.
+**Host** (RawTouch `16e8f80`, 301 tests, deployed 15:36 with the Apple
+Development cert so the AX grant carried over): two-axis synthesis, with
+config keys `axes`, `pads.<id>.axes` and `pads.<id>.invertHorizontal`.
+The inferred horizontal sign (`!invertX`, true on the Go60) was confirmed
+on hardware — no override needed.
 
 **Module README**: a "dedicated scroll pad" subsection under Scroll mode
 documents the pattern (marker in the base chain, `tap-click` inert,
@@ -794,20 +797,25 @@ central. Follow the firmware loop in CLAUDE.md: push `main`, wait for the
 background (bootloader: RH T3 + `/`). No report-layout change, so no BLE
 forget/re-pair.
 
-**Hardware checklist (all open):**
+**Hardware checklist (1–3 PASSED 2026-09-15 over USB; 4–6 open):**
 
-1. **Standard mode** (quit RawTouch): the LH pad scrolls **vertically and
+1. ✅ **Standard mode** (quit RawTouch): the LH pad scrolls **vertically and
    horizontally** through the wheel fallback, with no layer held, and both
    directions read sanely against the macOS Natural Scrolling setting.
    This is the test that settles the unverified horizontal sign — if
    sideways scrolling goes the wrong way, add `INPUT_TRANSFORM_X_INVERT`
    to the LH (and RH `nav_scroll`) `&zip_scroll_transform` argument.
-2. **RawTouch mode**: the LH pad gives smooth two-axis scrolling with
+2. ✅ **RawTouch mode**: the LH pad gives smooth two-axis scrolling with
    lift-off momentum; diagonal drags track the finger; horizontal
    direction is correct — if not, override `pads.1.invertHorizontal`
    host-side rather than changing the firmware (the fallback sign and the
-   host sign are independent).
-3. **RH pad unchanged**: Nav-held scrolling still works and is now
+   host sign are independent). *Result: both axes and diagonals track the
+   finger, directions match the Natural Scrolling setting.*
+   *Standard-mode observation, not a bug: in Apple Maps the LH vertical
+   wheel ZOOMS while the horizontal wheel pans — Maps treats phase-less
+   mouse-wheel events as zoom; RawTouch mode's gesture-phase events pan.
+   Every other app scrolls normally.*
+3. ✅ **RH pad unchanged**: Nav-held scrolling still works and is now
    two-axis; pointer and tap-to-click on the base layer are unaffected.
 4. **LH tap does nothing**: quick taps on the left pad produce no click,
    anywhere, and no stray clicks during scroll gestures.
