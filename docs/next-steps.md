@@ -679,9 +679,37 @@ at once, RawTouch mode back almost instantly on relaunch; two-pad USB
 capture: pad 0 829 frames / 40 touches / 40 releases / 0 dropped,
 pad 1 (split relay) 1084 / 42 / 42 / 0, no late releases, batch size
 1.00 on both. (LH pad was found dead before this test — see item a.)
-**Still owed (needs hands):** unplug/replug mid-touch, BLE profile switch
-mid-touch (no blip on the other host), rapid re-touch, claim expiry
-(quit the app mid-touch, then wait 30 s), and the feel check. Then: the
+**Test 9 (unplug mid-touch) PASSED 2026-09-14** — and taught something:
+because the app holds a claim on BOTH endpoints, a USB unplug mid-touch
+is a *handover*, not a stop: capture showed pad 1 over USB (198 frames,
+0 dropped, finger down), a 31 ms gap, then the same touch continuing
+over BLE (361 frames, 0 dropped) with the lift-off release delivered
+claimed; exactly one frame (the one flushed with the dying bus) lost at
+the switch. No runaway momentum. The host closes the USB gesture on
+device removal and starts a fresh one from the BLE frames, so the user
+sees a small hitch and then continuous scrolling. **Replug PASSED** (USB claim back, no double scroll). **Test 10 (BLE
+profile switch) PASSED 2026-09-14:** over BLE, switch to an empty
+profile and back, finger down across the switch-away. Capture: 2411
+frames, all claimed; the only missing seq is the firmware's trailing
+release for the gesture open at the switch, which was bound to the newly
+selected (empty) profile and discarded on the way back — the documented
+watchdog case; no stale frame delivered; frames resumed on the first
+touch after switching back. Host-side note: the Mac stays connected on
+its own profile while the keyboard talks to the other one, so the app
+keeps refreshing its claim and the menu keeps saying RawTouch mode —
+correct from the host's view, and why the switch-back was instant rather
+than <=10 s. Possible refinement (not a bug): bind that trailing release
+to the profile that HAD the gesture and deliver it over its still-live
+connection instead of leaving it to the watchdog. Test-procedure lesson:
+profile keys + System + Nav need three hands — drag in pointer context
+(frames stream for any touch while claimed). **Test 12 (rapid re-touch) PASSED:** 20/20, no joins. **Test 11 (hard
+kill, lease expiry) PASSED:** wheel scrolling back 18 s after `kill -9`
+(30 s lease measured from the last refresh, so 20–30 s after that
+refresh is the expected window). **Deferred to the next natural occurrence:** test 13, keyboard
+deep-sleep (60 min idle, `CONFIG_ZMK_IDLE_SLEEP_TIMEOUT`) and wake with
+the app running — expect RawTouch mode back on the first touch, no
+double scroll; wake is a re-enumeration, the same claim path the replug
+already passed. Check the first scroll after the next long idle. Then: the
 module history-squash decision (item p.4) before the public flip.
 
 Not done from the review (deliberately), now tracked in item p.8:
