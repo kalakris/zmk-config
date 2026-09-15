@@ -357,6 +357,19 @@ host instructions must point at RawTouch before the flip.
 - [ ] **Flip the repo public and un-vendor**: uncomment the `zmk-raw-touch`
   entry in `config/west.yml`, delete `vendor/`, drop the two `cmake-args`
   from `build.yaml`.
+- [x] ~~Independent release review~~ — DONE: Codex's review of 2026-09-05
+  (`docs/reviews/rawtouch-2026-09-05/`), all nine findings fixed, deployed
+  and hardware-verified 2026-09-14 (next-steps item r).
+- [ ] **CI workflows in both release repos** (surfaced by that review):
+  rawtouch `swift build` + `swift test` on macOS; module: a pinned
+  example firmware build (a west manifest pinning the MoErgo tree +
+  `cirque-input-module@intree-driver` that a stranger can reproduce).
+- [ ] **Protocol freeze decisions** (before v0.1.0): a distinctive
+  feature-report identification field / reserved-byte range checks
+  (squatter hardening); one-keyboard-at-a-time stays a documented
+  limitation unless host state is keyed by device-and-pad.
+- [ ] **Module history squash** + delete the merged `mode-gate` branch
+  (next-steps p.4).
 
 ## Recommended order (from publish-strategy.md)
 

@@ -20,6 +20,7 @@ actionable items extracted into docs/upstreaming-todo.md.
 | **VoodooInput / VoodooI2C** | Hackintosh kext that gives arbitrary touchpads *native* macOS gestures by impersonating a Magic Trackpad 2 | Same goal, same input (absolute touch) | Solves it at the **source** (fake Apple device, kernel) vs our **sink** (userspace CGEvent synthesis) | **Closest prior art in existence. Pre-empt it explicitly** (§6) |
 | **QMK digitizer (`quantum/digitizer.c`)** | Stylus: `{in_range, tip, barrel, x, y}`, coordinates normalized 0..1, single contact, no pressure | Abstract idea of absolute HID from a keyboard | Throws away resolution and pressure at the API boundary; it's an absolute *cursor*, not a touch surface | **Cite as baseline**, differentiate |
 | **QMK PR #24964 (george-norton, open since Feb 2025)** | Contact-based trackpad digitizer + firmware-side gesture detection + mouse fallback | Same problem space, same era | Firmware-side gestures; blocked on feature reports (QMK #23243) | **Cite as contemporaneous work.** Its author writes: *"Apple also do not support 3rd party trackpads, so it will only work on Linux hosts"* |
+| **minhe7735/zmk-trackball-gestures-module** ⭐ **added 2026-09-06** | ZMK module that **fabricates 2–5 virtual PTP contacts from one trackball's relative deltas** while a `&gesture` key is held. Real Digitizer TLC (Confidence/Tip/Contact ID/X/Y, Scan Time, Contact Count, Contact Count Max, Input Mode feature, PTPHQA blob at 0xC5), second USB HID interface (forces `CONFIG_USB_HID_DEVICE_COUNT=2`), no host software. Created 2026-06-08, last push 2026-06-15, 5 stars | **Closest ZMK-ecosystem work to ours.** Same transport trick (second HID interface); same insight that keyboard layer state is the only place that knows scroll-vs-point intent — they put the *whole gesture type* on the wire where we put one bit; both refuse firmware-side recognition | **Opposite direction on the core axis**: we stream one real contact for our host to interpret, they fabricate N contacts for the *OS* to interpret. Discrete triggers (swipe → desktop switch), not continuous scroll: no lift-off velocity, no momentum, 100 ms idle-timeout auto-lift. USB only — "BLE is currently not tested/supported". Relative trackball, not absolute pad | **Cite prominently — and fix §3 because of it** (it satisfies the contact-count and physical-size gates by *declaring* 5 contacts and a 32-inch pad). Its macOS row is independent corroboration of §2 (§2.7). Template candidate for the optional Linux digitizer collection, but **README claims MIT with no LICENSE file in the repo** — ask before copying |
 | **halfdane/cirque-input-module + zmk-input-gestures** | ZMK Cirque absolute mode + firmware gestures incl. an inertial *cursor* | Absolute mode in a ZMK Cirque driver; the idea of inertia | Clamps/rescales to screen dimensions at the driver (destroys sensor resolution); never crosses the HID boundary with touch data; inertia is cursor coast, not scroll momentum | **Cite prominently; best collaboration candidate** |
 | **petejohanson/cirque-input-module (our fork base)** | Relative-only: `input_report_rel` only, no `input_report_abs`, no Z | — | — | ⚠️ **CORRECTED 2026-08-26** — this survey originally called our abs-mode work "legitimately novel in ZMK". **It is not.** Zephyr's in-tree `input_pinnacle` has had `data-mode = "absolute"` with Z since Feb 2024 and reached ZMK main via the Zephyr 4.1 bump; pete's module is EOL. Never claim abs-mode novelty. See docs/pinnacle-driver-landscape.md |
 | **Zephyr in-tree `input_pinnacle` (ZMK main)** | Absolute mode with X/Y/Z, `idle-packets-count`, hw clipping/scaling, SW reset on init | **Supersedes our driver patch entirely** | Lacks: 0xFF STATUS1 glitch guard, ERA Z-min, secondary-tap control, activity-tied sleep. Its listener still never converts ABS→cursor, so a consumer module remains required | **Migrate to it**; upstream our small robustness fixes to Zephyr |
@@ -118,16 +119,39 @@ Scan run on macOS 26.5.2. Apple's only recent movement was the opposite directio
 | `MultitouchSupport.framework` is unreachable for third-party devices | **HIGH** (structural: VoodooInput's existence) |
 | Adding a Device Config collection would break our mouse fallback on macOS | **HIGH** on mechanism, **MEDIUM** untested |
 | Nothing changed in macOS 26 | **HIGH** for the driver-matching surface |
+| A ZMK dev shipping the PTP path independently reached the same conclusion | **HIGH** — see below, added 2026-09-06 |
+
+**Second independent corroboration (2026-09-06).**
+`minhe7735/zmk-trackball-gestures-module` (§1) is a ZMK module that actually
+ships a compliant PTP descriptor — Digitizer TLC, Scan Time, Contact Count
+Maximum, Input Mode, PTPHQA blob and all. Its own compatibility table reads
+Linux ✅ full support, Windows ⚠️ limited testing, **macOS ❓ untested —
+*"macOS does not natively support multi-touch HID over USB/BLE; may require
+third-party drivers."*** An independent developer building the PTP path in
+ZMK arrived at §2's conclusion from the opposite direction, without our kext
+scan. This is a better citation for the macOS claim than anything else in
+this section, because it is a practitioner's report rather than our analysis.
+Its shipping the PTPHQA blob also quietly confirms §3's "certification was
+never the obstacle."
 
 ## 3. Assessment: was vendor HID the right call?
 
-**Yes, and the justification is stronger than the one currently in the doc.** Three independent gates each rule out PTP/digitizer HID for this device:
+**Yes, and the justification is stronger than the one currently in the doc.** Three independent gates stand between this device and PTP/digitizer HID — one of which (gate 3) rules it out outright, while the other two rule out any *honest* PTP descriptor for it:
 
-1. **Contact count.** PTP requires 3–5 simultaneous contacts (HLK test `Device.Digitizer.PrecisionTouchPad.Performance.MinMaxContacts`). Apple's ADG requires 2–5. The Pinnacle reports one x/y/z per packet. Permanent hardware property.
-2. **Physical size.** PTP requires a sensor ≥32 × 64 mm via Physical Maximum. A 40 mm circular pad fails on both axes.
-3. **macOS.** Even a fully compliant PTP device gets nothing (§2).
+⚠️ **Gates 1 and 2 reworded 2026-09-06.** They previously read as absolute
+impossibilities. They are not — `minhe7735/zmk-trackball-gestures-module`
+(§1) clears both by *declaring* what it likes: five fabricated contacts and
+`TP_PHYSICAL_MAX = 3200`, a thirty-two-inch pad. Nothing in HID constrains a
+descriptor to describe real hardware. **Never state these gates as "PTP is
+impossible for this device"; state them as "PTP cannot honestly describe this
+device, and dishonest descriptors buy only discrete gestures."** A reviewer
+with that repo open will otherwise catch us.
 
-**Certification is *not* the reason** — the PTPHQA blob is presence-only on Windows 10/11 (Microsoft publishes a dummy blob), and Linux gates the Win8 class purely on descriptor shape with no validation. We're excluded on physics, not paperwork.
+1. **Contact count.** PTP requires 3–5 simultaneous contacts (HLK test `Device.Digitizer.PrecisionTouchPad.Performance.MinMaxContacts`); Apple's ADG requires 2–5. The Pinnacle reports one x/y/z per packet — a permanent hardware property. Firmware *can* fabricate the missing contacts (§1), but synthetic contacts only serve **discrete** recognizers: a 3-finger swipe needs a plausible pattern, whereas continuous scroll needs each contact to actually *be* a finger, with a real lift. Fabrication reintroduces the same missing finger-down bit (see "State the gap narrowly", below), in another costume.
+2. **Physical size.** PTP requires a sensor ≥32 × 64 mm via Physical Maximum. A 40 mm circular pad fails on both axes — *truthfully*. A fabricated touchpad can declare any Physical Maximum, at the cost of every reported coordinate being fiction.
+3. **macOS.** Even a fully compliant PTP device gets nothing (§2) — and this is the gate that survives fabrication entirely, since the failure is driver matching, not report content.
+
+**Certification is *not* the reason** — the PTPHQA blob is presence-only on Windows 10/11 (Microsoft publishes a dummy blob), and Linux gates the Win8 class purely on descriptor shape with no validation; `zmk-trackball-gestures-module` ships the blob and reports Windows gestures working. We're excluded by macOS driver matching and by what this sensor can truthfully report — not by paperwork, and (reworded 2026-09-06) not by anything a determined firmware author couldn't simply declare.
 
 Also genuinely novel: **there is no standard HID way to express gesture phase or scroll intent.** Nothing on page 0x0D; the `Gesture Character` usages are handwriting recognition; the only `Gesture State` usages live on the Sensors page (chassis flip/hinge fold). Our scroll-context bit fills a real gap.
 
@@ -217,7 +241,7 @@ macOS kext scan: on **0xFF00**, Apple claims usages 0x04, 0x0B, 0x0D, 0x16, 0x23
 ## 6. What would embarrass us (pre-emptions needed)
 
 1. **"You reinvented VoodooInput."** Highest risk. Answer: kernel extension (dead on Apple Silicon), spoofs Apple's VID (forbidden by Apple's own ADG), VoodooI2C is Intel-only, and MT2 emulation demands multi-finger input a single-touch Pinnacle cannot supply. **See §7 for the device-side variant of this question**, which dodges the kext objection and must be answered separately.
-2. **"Should have shipped a PTP descriptor."** The three gates (§3); certification was never the obstacle.
+2. **"Should have shipped a PTP descriptor."** The three gates (§3); certification was never the obstacle. ⚠️ **Sharpened 2026-09-06:** answer this with the *macOS* gate first, not the hardware gates — `minhe7735/zmk-trackball-gestures-module` proves a ZMK firmware can simply fabricate contacts and declare a 32-inch pad, so gates 1 and 2 are about honesty, not capability (§3). The durable answer: on macOS a compliant PTP collection is unmatched by any driver no matter what it claims (§2), and fabricated contacts serve discrete gestures rather than continuous scroll.
 3. **"Fork claims may be stale."** Upstream LinearMouse landed `SmoothedScrollingEngine` (PR #1108, 2026-03-21 → #1337, 2026-08-07). Defensible fork-specific claims are narrower: real touch edges vs staleness timeout; momentum from *measured* lift-off velocity; touch-to-catch on actual finger-down. Upstream also has a raw-HID input-report path (`InputReportHandler.swift`) — cite as an upstreaming seam.
 
    **✅ Verified 2026-09-05** against the installed `stock-inputscale` build (upstream `9843332`). The row above is accurate, and the engine is more capable than "fallback" framing suggests: 668 lines synthesizing `touchBegan/Changed/Ended` + `momentumBegan/Changed/Ended`, a `WheelInputVelocityEstimator` with projected input between ticks, momentum decay, re-engagement blending, and opposing-momentum cancellation — all from a plain wheel stream. Two measured specifics worth quoting rather than hand-waving: touch-end is inferred from `inputGrace = 1/25 s` of silence, and the transformer ticks on a **fixed `1.0/120.0` s timer** (`SmoothedScrollingTransformer.swift:12`), free-running rather than vsync-locked — so it beats against the display refresh where our `FrameResampler`/CVDisplayLink path does not. Note the comparison that now matters is **RawTouch vs stock upstream LinearMouse**, not vs our frozen fork; the fork is dead (see docs/raw-touch.md).

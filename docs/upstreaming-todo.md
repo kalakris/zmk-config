@@ -188,6 +188,19 @@ Protocol v3 candidates — **v3 shipped and bench-verified 2026-08-27**
 - [ ] Optional single-slot Linux digitizer collection on a SECOND USB HID
   interface (evdev touchpad w/ edge scroll for free); never on the same
   interface (macOS Device-Mode write would kill the pointer fallback)
+  - **Template found 2026-09-06:**
+    [`minhe7735/zmk-trackball-gestures-module`](https://github.com/minhe7735/zmk-trackball-gestures-module)
+    `src/hid_touchpad_descriptor.h` is a working ZMK PTP descriptor
+    (Digitizer TLC, Confidence/Tip/Contact ID/X/Y, Scan Time, Contact Count,
+    Contact Count Max, Input Mode feature, PTPHQA blob at 0xC5) plus the
+    second-HID-interface plumbing (it forces `CONFIG_USB_HID_DEVICE_COUNT=2`).
+    Two blockers before reusing any of it: (a) **README claims MIT but the
+    repo has NO LICENSE file** and the link is broken — ask the author before
+    copying; (b) it is **USB-only** ("BLE is currently not tested/supported"),
+    where we already solved a second HID instance over BLE. That asymmetry is
+    a differentiator worth stating, and a plausible collaboration seam.
+    Note we would then be at three HID interfaces (keyboard + raw touch +
+    digitizer) — check ZMK/Zephyr limits before committing. Survey §1, §3.
 
 Host-side tests before release:
 - [ ] Scroll Reverser interaction (may misclassify stream as mouse without

@@ -219,6 +219,14 @@ Two knock-on effects of the bursts:
   frames 2..n of a back-to-back burst hit a busy slot and drop
   (`-EAGAIN`, by design). The BLE path has a
   `CONFIG_ZMK_RAW_TOUCH_BLE_QUEUE_SIZE`-deep queue and drops nothing.
+  **Superseded 2026-09-05:** the USB path now queues too
+  (`CONFIG_ZMK_RAW_TOUCH_USB_QUEUE_SIZE`, default 4, drained from
+  `in_ready_cb`; shared ring `src/raw_touch_txq.h`), so bursts are
+  absorbed rather than dropped — hardware-verified 2026-09-14 (two-pad
+  USB, 0 dropped, every release delivered). The poll tuning below is
+  still worth keeping: it is what makes LH timestamps honest and
+  per-frame latency low; it just no longer decides whether frames
+  survive.
 - **LH device timestamps are relay-arrival times**: `seq` and the v3
   `timestamp` are stamped on the central in `raw_touch_process_frame()`
   (`src/raw_touch.c`) — measured 0 ms device-ts deltas within wired

@@ -141,6 +141,12 @@ Firmware side (same date): one shared transmit ring
 `in_ready_cb` (`CONFIG_ZMK_RAW_TOUCH_USB_QUEUE_SIZE`, default 4), BLE
 entries are bound to their profile and flushed on endpoint switch /
 disconnect — so releases survive a busy endpoint and never cross hosts.
+Hardware-verified 2026-09-14 (checklist + results: next-steps item r).
+Two behaviours to know when testing: a USB unplug mid-touch is a
+*handover* to BLE, not a stop (the app claims both endpoints); and a BT
+profile switch mid-touch discards the trailing release into the empty
+profile, so the host's watchdog closes that gesture — test switches in
+pointer context (profile keys + System + Nav need three hands).
 The scroll fallback is simply quitting RawTouch → Standard mode (no
 software needed). The old LinearMouse touch-stream fork is **obsolete
 as a fallback** since claim-gated emission (2026-08-31: it never
