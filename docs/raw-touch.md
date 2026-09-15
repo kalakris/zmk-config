@@ -51,9 +51,16 @@ Companion documents:
 ## Architecture
 
 Dual-mode design: the firmware always emits standard relative pointer
-reports (and, while the Nav overlay is active, ÷24 wheel events) so any host
-works driverless; a stream-aware host additionally opens the vendor HID
-device and takes over scrolling.
+reports (from the RH pad) and ÷24 two-axis wheel events (from the LH pad
+always, from the RH pad while the Nav overlay is active) so any host works
+driverless; a stream-aware host additionally opens the vendor HID device
+and takes over scrolling.
+
+**Per-pad roles since 2026-09-15:** the **left pad is a dedicated scroll
+pad** — the scroll marker is in its *base* listener chain, so every touch
+is scroll context on every layer; it produces no pointer motion and no
+taps. The **right pad** is unchanged: pointer + tap on the base layer,
+scroll while Nav is held. Both scroll chains are two-axis.
 
 **Where the firmware lives.** The device side is an out-of-tree ZMK
 module, `kalakris/zmk-raw-touch`, built on top of *stock* `moergo-sc/zmk`
@@ -74,8 +81,11 @@ still flashable as rollbacks, but superseded. See
 │   ▼                                                        │
 │ raw touch module (kalakris/zmk-raw-touch)                  │
 │   ├─ derives REL_X/REL_Y ──► input listener chains         │
-│   │                            ├─ pointer reports (0x03)   │
-│   │                            └─ Nav overlay: ÷24 wheel   │
+│   │                            ├─ RH base: pointer (0x03)  │
+│   │                            ├─ RH Nav overlay: ÷24      │
+│   │                            │    two-axis wheel         │
+│   │                            └─ LH base: ÷24 two-axis    │
+│   │                                 wheel (always)         │
 │   │                               (fallback scrolling)     │
 │   ├─ firmware tap-to-click ──► BTN_0 into listener chain   │
 │   └─ raw frames ──► vendor HID input report                │
@@ -88,7 +98,8 @@ still flashable as rollbacks, but superseded. See
 │          in the report descriptor (macOS-verified)         │
 │        scroll-mode flag set by the &zip_raw_touch_scroll   │
 │        marker when the chain that actually handles a pad's │
-│        events (its nav_scroll overlay) reaches it          │
+│        events reaches it (LH: its base chain, always;      │
+│        RH: its nav_scroll overlay)                         │
 └──────────────┬─────────────────────────────────────────────┘
                │ USB HID / BLE HID-over-GATT
                ▼
@@ -119,14 +130,15 @@ still flashable as rollbacks, but superseded. See
 Key design points:
 
 - **Scroll context is declared in the keymap**, not the host: the marker
-  input processor sits in each pad's `nav_scroll` listener overlay
-  (layers = Nav, layer 2) in `config/go60_rh.keymap`. It passes events
-  through untouched; its *presence* in the chain that actually handles the
-  pad's events is what sets the scroll-mode flag on streamed frames. The
-  marker latches a flag per input device that the pad's frame handler
-  consumes — the marker only runs if its chain really handled the event,
-  so overlay ordering and `process-next` shadowing come for free. Both
-  pads' overlays share the one `&zip_raw_touch_scroll` marker instance
+  input processor sits in the RH pad's `nav_scroll` listener overlay
+  (layers = Nav, layer 2) and in the LH pad's *base* chain (dedicated
+  scroll pad, no layer gate), both in `config/go60_rh.keymap`. It passes
+  events through untouched; its *presence* in the chain that actually
+  handles the pad's events is what sets the scroll-mode flag on streamed
+  frames. The marker latches a flag per input device that the pad's frame
+  handler consumes — the marker only runs if its chain really handled the
+  event, so overlay ordering and `process-next` shadowing come for free.
+  Both pads' chains share the one `&zip_raw_touch_scroll` marker instance
   (it is stateless per-event), but **each listener needs its own
   `zip_raw_touch_idle_filter` instance** — the filter's state is per
   devicetree node, so the left pad's chains use
@@ -138,7 +150,10 @@ Key design points:
   — VID/PID matching would wrongly suppress the Sofle's encoder scroll.
 - **Tap-to-click is firmware-side** (the Pinnacle's hardware taps are a
   relative-mode feature lost in abs-mode): `tap-click` on the
-  `raw_touch_rh` / `raw_touch_lh` nodes, off the driver binding entirely.
+  `raw_touch_rh` node, off the driver binding entirely. (`raw_touch_lh`
+  dropped it on 2026-09-15: the module suppresses the tap for any touch
+  that was in scroll context, and on a dedicated scroll pad that is every
+  touch.)
   The injected BTN_0 flows down the pad's listener chain, which must
   **not** contain `&zip_button_behaviors` — that processor maps BTN_0 to
   `&none` (it existed to mute the left pad's hardware taps) and would eat
@@ -155,7 +170,8 @@ Key design points:
   wins the scroll claim.
 - **Known limits**: the Pinnacle is single-touch, so two-finger gestures
   are impossible, ever. Driverless hosts get pointer, click, typing, and
-  ÷24-wheel fallback scrolling; firmware taps work everywhere. LH
+  ÷24 two-axis wheel fallback scrolling; firmware taps work everywhere the
+  touch is not scroll context (i.e. the RH pad off Nav). LH
   *pointer* choppiness under the wire was root-caused AND fixed
   2026-08-28 (wired-split poll cadence tuning, see "Split-link timing"
   below). A correction to an earlier claim survives the fix: v3 device
@@ -379,12 +395,13 @@ historical branches.
 |---|---|---|
 | Absolute mode | `data-mode = "absolute"` on `&glidepoint`, both halves, with `idle-packets-count = <3>` (**mandatory** — upstream defaults to 0: no lift-off packet means no release frame, no momentum, no tap) | on |
 | `sensitivity` | `&glidepoint`, per half — **deliberately asymmetric**: ADC gain is per-pad hardware; "2x" tames the RH pad's baseline-drift jitter (see MEMORY), but on the LH pad it caused light-touch dropouts, so LH stays at stock "1x" | RH "2x", LH "1x" |
-| Tap-to-click | `tap-click` / `tap-max-ms` / `tap-max-movement` on the `raw_touch_rh` / `raw_touch_lh` nodes | on (defaults: 180 ms, 30 counts) |
+| Tap-to-click | `tap-click` / `tap-max-ms` / `tap-max-movement` on the `raw_touch_rh` / `raw_touch_lh` nodes | RH on (defaults: 180 ms, 30 counts); **LH off since 2026-09-15** — the module suppresses taps for scroll-context touches (`tap_scroll_seen`), and every LH touch is scroll context, so the property would be inert |
 | Pad geometry / orientation | `rotate-90` / `y-invert` / `x-max` / `y-max` / `resolution` / `pad-id` on the `raw_touch_*` nodes (LH: `device = &cirque_split`) | rotate-90, y-invert; RH `pad-id` 0, LH `pad-id` 1 |
 | Enable | `CONFIG_ZMK_RAW_TOUCH=y` **plus `CONFIG_USB_HID_DEVICE_COUNT=2`** — mandatory, and it fails at *runtime*, not build time: without it `device_get_binding("HID_1")` returns NULL and the stream silently does not exist | on |
-| Scroll context | `&zip_raw_touch_scroll` in each pad's `nav_scroll` overlay | Nav layer (2) |
+| Scroll context | `&zip_raw_touch_scroll` — in the **LH listener's base chain** (dedicated scroll pad: every touch, every layer) and in the **RH `nav_scroll` overlay** | LH always; RH on Nav (layer 2) |
+| Scroll fallback chain | `&zip_xy_to_hvscroll_mapper` (X→`REL_HWHEEL`, Y→`REL_WHEEL`) → `&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT` → `&zip_scroll_scaler 1 72`. Two-axis since 2026-09-15; the mapper is local because ZMK's stock `zip_xy_to_scroll_mapper` label would collide. Only Y is inverted: derived deltas are oriented (+X = finger right, +Y = finger down), `REL_WHEEL`+ = up, `REL_HWHEEL`+ = right | both pads, Standard mode only |
 | Zero-report suppression | `&zip_raw_touch_idle_filter` (RH) / `&zip_raw_touch_idle_filter_lh` (LH), **last** in every chain (base and overlay); one instance per listener — the filter's state is per devicetree node | on |
-| Pointer scale | `&zip_xy_scaler 1 1` (abs-derived deltas run larger than relative-mode, so not the old 3:1) | 1:1 |
+| Pointer scale | `&zip_xy_scaler 1 1` on the **RH listener only** (abs-derived deltas run larger than relative-mode, so not the old 3:1); the LH listener has no pointer stage at all any more | 1:1 |
 | Input subsystem headroom | `go60.conf`: `CONFIG_INPUT_QUEUE_MAX_MSGS=64`, `CONFIG_INPUT_THREAD_STACK_SIZE=2048` — the 16-deep / 512-byte defaults silently dropped K_NO_WAIT-injected events (deltas, taps) under dual-pad ~100 Hz load | set |
 
 ## Operational loops

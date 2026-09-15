@@ -735,3 +735,84 @@ touch-down, `resampling.latencyMs` (USB/unknown, 0) vs the new
 device line says "connected over USB and Bluetooth". Backups of the
 pre-change config: `~/.config/rawtouch/config.json.pre-apple-defaults-2026-09-03`
 and `.pre-gain-2026-09-03`. rawtouch now lives at **github.com/kalakris/rawtouch (private, created 2026-09-04)**; the module README already links there.
+
+## s. Left pad as a dedicated two-axis scroll pad — IMPLEMENTED 2026-09-15, not yet flashed or hardware-tested
+
+The left Cirque is now a **scroll pad only** — no layer to hold — and
+both pads scroll in **two axes**.
+
+**Firmware** (`config/go60_rh.keymap`, the central; working tree only,
+nothing committed or pushed):
+
+- `&zip_raw_touch_scroll` moved into `&cirque_lh_listener`'s **base**
+  chain, so every LH touch is scroll context on every layer. The LH
+  `nav_scroll` overlay is deleted (it would have been a duplicate), and
+  the LH pointer stage (`&zip_xy_scaler 1 1`) is gone — that pad emits no
+  pointer motion any more.
+- `tap-click` removed from the `raw_touch_lh` node: the module suppresses
+  the firmware tap for any touch that was in scroll context
+  (`tap_scroll_seen` in `src/raw_touch.c`), so on an always-scroll pad the
+  property could only ever promise a click that never fires.
+- The one-axis `zip_xy_to_vscroll_mapper` (both axes → `REL_WHEEL`) is
+  replaced by `zip_xy_to_hvscroll_mapper` (`REL_X` → `REL_HWHEEL`,
+  `REL_Y` → `REL_WHEEL`), used by the LH base chain and the RH
+  `nav_scroll` overlay. The label is deliberately *not*
+  `zip_xy_to_scroll_mapper`: the pinned MoErgo ZMK
+  (`57a7b8e0`) already ships a node with that label and an identical map
+  in `app/dts/input/processors/code_mapper.dtsi`, and a duplicate label is
+  a build error. (Switching to the stock node instead would also work —
+  noted in case the local one ever becomes a maintenance burden.)
+- Fallback signs: `INPUT_TRANSFORM_Y_INVERT` only. The module's derived
+  deltas are already oriented (+X = finger right, +Y = finger down);
+  `REL_WHEEL` positive means scroll UP so Y is inverted for the old-school
+  direction, while `REL_HWHEEL` positive means scroll RIGHT, which already
+  matches finger-right. macOS Natural Scrolling then flips both.
+  **The horizontal fallback direction is a reasoned guess, unverified on
+  hardware** — checklist item 1 below is the test.
+- Verified against the pinned tree so no local shim was needed: its
+  `zip_scroll_scaler` already covers `<INPUT_REL_WHEEL INPUT_REL_HWHEEL>`
+  and `zip_scroll_transform` already has `x-codes = <INPUT_REL_HWHEEL>`;
+  `INPUT_REL_HWHEEL` exists in the pinned Zephyr (`v3.5.0+zmk-fixes`); and
+  ZMK's mouse report descriptor carries AC Pan, so horizontal wheel
+  reports have somewhere to go.
+- `config/go60_lh.keymap` (the peripheral) got the same mapper rename for
+  consistency only — its listeners are `status = "disabled"` and the
+  central does all processing, so **the LH half does not need
+  reflashing**.
+
+**Host** (RawTouch, done in parallel): two-axis synthesis, with config
+keys `axes`, `pads.<id>.axes` and `pads.<id>.invertHorizontal`.
+
+**Module README**: a "dedicated scroll pad" subsection under Scroll mode
+documents the pattern (marker in the base chain, `tap-click` inert,
+two-axis fallback chain); `vendor/zmk-raw-touch/` re-synced.
+
+**Flash instruction:** **right half only** — the change is entirely on the
+central. Follow the firmware loop in CLAUDE.md: push `main`, wait for the
+"Build and Draw" run, `./scripts/download-firmware.sh`, then
+`./scripts/flash-go60.sh firmware/main/firmware --halves rh` in the
+background (bootloader: RH T3 + `/`). No report-layout change, so no BLE
+forget/re-pair.
+
+**Hardware checklist (all open):**
+
+1. **Standard mode** (quit RawTouch): the LH pad scrolls **vertically and
+   horizontally** through the wheel fallback, with no layer held, and both
+   directions read sanely against the macOS Natural Scrolling setting.
+   This is the test that settles the unverified horizontal sign — if
+   sideways scrolling goes the wrong way, add `INPUT_TRANSFORM_X_INVERT`
+   to the LH (and RH `nav_scroll`) `&zip_scroll_transform` argument.
+2. **RawTouch mode**: the LH pad gives smooth two-axis scrolling with
+   lift-off momentum; diagonal drags track the finger; horizontal
+   direction is correct — if not, override `pads.1.invertHorizontal`
+   host-side rather than changing the firmware (the fallback sign and the
+   host sign are independent).
+3. **RH pad unchanged**: Nav-held scrolling still works and is now
+   two-axis; pointer and tap-to-click on the base layer are unaffected.
+4. **LH tap does nothing**: quick taps on the left pad produce no click,
+   anywhere, and no stray clicks during scroll gestures.
+5. **Cross-pad catch**: a fling on the LH pad caught by a touch on the RH
+   pad (and vice versa) still cancels momentum — the host's first-touch-
+   wins arbitration is unchanged, but the LH pad now enters scroll context
+   without a layer, so the arbitration sees it far more often.
+6. **Both transports**: run 1–5 over USB and over BLE.

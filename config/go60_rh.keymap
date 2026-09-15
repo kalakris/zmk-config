@@ -14,11 +14,22 @@
 
 / {
     input_processors {
-        zip_xy_to_vscroll_mapper: zip_xy_to_vscroll_mapper {
+        /* Two-axis scroll mapper for the Standard-mode wheel fallback:
+         * finger X -> horizontal wheel, finger Y -> vertical wheel.
+         * (It replaced a one-axis mapper that sent BOTH axes to
+         * REL_WHEEL, so sideways motion scrolled the page vertically.)
+         *
+         * Deliberately NOT called zip_xy_to_scroll_mapper: newer ZMK -
+         * including the pinned MoErgo tree - ships a node with exactly
+         * that label (and an identical map) in input/processors.dtsi, and
+         * a duplicate label is a build error. The stock node would do,
+         * but keeping our own keeps this file independent of which ZMK
+         * revision west resolves. */
+        zip_xy_to_hvscroll_mapper: zip_xy_to_hvscroll_mapper {
             compatible = "zmk,input-processor-code-mapper";
             #input-processor-cells = <0>;
             type = <INPUT_EV_REL>;
-            map = <INPUT_REL_X INPUT_REL_WHEEL
+            map = <INPUT_REL_X INPUT_REL_HWHEEL
                    INPUT_REL_Y INPUT_REL_WHEEL>;
         };
 
@@ -33,7 +44,8 @@
          * filter keeps per-node state, so the module's rule is one node
          * per listener - never share an instance across listeners. (The
          * scroll MARKER below is per-device-latched and safe to share;
-         * both nav_scroll overlays reuse &zip_raw_touch_scroll.) */
+         * the left pad's base chain and the right pad's nav_scroll
+         * overlay both reuse &zip_raw_touch_scroll.) */
         zip_raw_touch_idle_filter_lh: zip_raw_touch_idle_filter_lh {
             compatible = "zmk,input-processor-raw-touch-idle-filter";
             #input-processor-cells = <0>;
@@ -120,16 +132,22 @@
     };
 
     /* The left pad, streaming as pad-id 1. Its absolute frames arrive on
-     * the central via the split relay (&cirque_split); everything else is
-     * identical to the right pad - both pads are mounted the same way, so
-     * the orientation bits match, and the geometry defaults apply. */
+     * the central via the split relay (&cirque_split); the orientation
+     * bits match the right pad's (both pads are mounted the same way) and
+     * the geometry defaults apply.
+     *
+     * NO tap-click here, unlike the right pad: this is a dedicated scroll
+     * pad (see &cirque_lh_listener below), and the module deliberately
+     * suppresses the firmware tap for any touch that was ever in scroll
+     * context (`tap_scroll_seen` in the module's raw_touch.c). Every touch
+     * on this pad is scroll context, so tap-click would be inert - leaving
+     * it set would only promise a click that can never fire. */
     raw_touch_lh: raw_touch_lh {
         compatible = "zmk,raw-touch-pad";
         device = <&cirque_split>;    /* LH pad arrives via the split relay */
         pad-id = <1>;
         rotate-90;
         y-invert;
-        tap-click;
     };
 };
 
@@ -141,51 +159,75 @@
 
 /* Enable listeners with swapped device assignments.
  *
- * The left pad's chain mirrors the right pad's below: 1:1 scaler (not the
- * relative-mode 3x - pointer deltas are derived from absolute counts by
- * the touch-stream module and run ~3x larger than the ASIC's
- * relative-mode output the 3x was tuned for), no &zip_button_behaviors
- * (it would swallow the firmware tap's BTN_0), and its OWN idle-filter
- * instance last - the filter keeps per-node state and must not be shared
- * with the right pad's listener. */
+ * ── The LEFT pad is a DEDICATED SCROLL PAD (2026-09-15) ──
+ *
+ * &zip_raw_touch_scroll lives in its BASE chain, so every touch on this
+ * pad is scroll context on every layer - no layer to hold, and no pointer
+ * motion from this pad at all any more. There is no nav_scroll overlay:
+ * it would be an exact duplicate of the base chain.
+ *
+ * The chain is dual-purpose exactly as the right pad's overlay is:
+ *   - &zip_raw_touch_scroll marks the scroll context, so the streamed
+ *     frames carry the scroll-mode flag and RawTouch synthesizes smooth
+ *     two-axis scrolling with lift-off momentum from them. In RawTouch
+ *     mode the module does not inject scroll-context deltas at all, so
+ *     everything after the marker falls silent - no doubled scrolling.
+ *   - The wheel chain is the Standard-mode fallback (no host software):
+ *     X -> REL_HWHEEL, Y -> REL_WHEEL, scaled 1:72. See the right pad's
+ *     comment for where the divisor comes from.
+ *
+ * Fallback signs, Y_INVERT only: the module's derived deltas are already
+ * oriented (logical +X = finger right, +Y = finger down). REL_WHEEL
+ * positive means scroll UP, so Y is inverted to get the old-school
+ * direction (finger down -> scroll down); REL_HWHEEL positive means
+ * scroll RIGHT, which already matches finger-right, so X is left alone.
+ * macOS Natural Scrolling then flips both. The HORIZONTAL direction is
+ * still UNVERIFIED on hardware - see docs/next-steps.md item s.
+ *
+ * As on the right pad: no &zip_button_behaviors, and this listener's OWN
+ * idle-filter instance stays LAST - the filter keeps per-node state and
+ * must not be shared with the right pad's listener. (The pad's
+ * tap-to-click is off on the raw_touch_lh node above: the module
+ * suppresses taps for scroll-context touches, so it would be inert.) */
 &cirque_lh_listener {
     status = "okay";
     device = <&cirque_split>;
-    input-processors = <&zip_xy_scaler 1 1>,
+    input-processors = <&zip_raw_touch_scroll>,
+                       <&zip_xy_to_hvscroll_mapper>,
+                       <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
+                       <&zip_scroll_scaler 1 72>,
                        <&zip_raw_touch_idle_filter_lh>;
-    nav_scroll {
-        layers = <2>;
-        /* Same dual-purpose overlay as the right pad's: the shared scroll
-         * marker flags the streamed frames, the wheel chain is the
-         * driverless fallback (1:24 for abs-derived deltas). */
-        input-processors = <&zip_raw_touch_scroll>,
-                           <&zip_xy_to_vscroll_mapper>,
-                           <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                           <&zip_scroll_scaler 1 72>,
-                           <&zip_raw_touch_idle_filter_lh>;
-    };
 };
 
-/* The base chain below sees the REL_X/REL_Y deltas the touch-stream
+/* The RIGHT pad keeps the classic arrangement: pointer + tap on the base
+ * layer, scrolling while Nav (layer 2) is held.
+ *
+ * The base chain below sees the REL_X/REL_Y deltas the touch-stream
  * module derives from the absolute frames (plus the ABS frames
  * themselves, which zip_xy_scaler ignores). No zip_button_behaviors
  * here: it would swallow the firmware tap's BTN_0 (see &glidepoint
- * comment); same on the left pad's chain above.
+ * comment). The left pad's chain above has no pointer stage at all.
  *
- * nav_scroll is dual-purpose while Nav (layer 2) is held:
+ * nav_scroll is dual-purpose while Nav is held:
  *   - &zip_raw_touch_scroll marks the scroll context for the raw
  *     touch stream — frames stream with the scroll-mode flag set and the
- *     host (patched LinearMouse fork) synthesizes smooth scrolling with
- *     lift-off momentum from them, suppressing the wheel events below.
- *   - The wheel chain still runs as a standard fallback for hosts
- *     without a stream consumer: REL deltas map to REL_WHEEL, inverted
- *     for natural scrolling and scaled 1:24 for a sane uncooked rate.
- *     (1:24, not the 1:8 tuned on 2026-08-19: that divisor was calibrated
- *     against relative-mode deltas, and the deltas derived from absolute
- *     counts run ~3x larger - the same ratio that took the pointer scaler
- *     from 3:1 to 1:1. The divisor only affects this driverless fallback;
- *     the streamed frames bypass the processor chain entirely and
- *     LinearMouse does its own scaling on them.)
+ *     host (RawTouch, ~/src/rawtouch) synthesizes smooth two-axis
+ *     scrolling with lift-off momentum from them. In RawTouch mode the
+ *     module stops injecting scroll-context deltas, so the wheel chain
+ *     below falls silent on its own.
+ *   - The wheel chain still runs as a Standard-mode fallback for hosts
+ *     without a stream consumer: X -> REL_HWHEEL and Y -> REL_WHEEL
+ *     (two-axis since 2026-09-15; it used to send both axes to
+ *     REL_WHEEL), Y inverted for the old-school direction and scaled
+ *     1:72 for a sane uncooked rate. See the left pad's comment above
+ *     for why only Y is inverted.
+ *     (1:24 of the pointer rate, not the 1:8 tuned on 2026-08-19: that
+ *     divisor was calibrated against relative-mode deltas, and the deltas
+ *     derived from absolute counts run ~3x larger - the same ratio that
+ *     took the pointer scaler from 3:1 to 1:1, hence 1:72 written out
+ *     against the raw deltas. The divisor only affects this driverless
+ *     fallback; the streamed frames bypass the processor chain entirely
+ *     and RawTouch does its own scaling on them.)
  */
 &cirque_rh_listener {
     status = "okay";
@@ -197,13 +239,14 @@
                        <&zip_raw_touch_idle_filter>;
     nav_scroll {
         layers = <2>;
-        /* Order matters: the mapper rewrites REL_X/REL_Y to REL_WHEEL, so
-         * anything after it must target wheel codes (zip_scroll_transform
-         * and zip_scroll_scaler do). zip_raw_touch_scroll is a pure
-         * pass-through marker; position is irrelevant, but keep it first
-         * for visibility. */
+        /* Order matters: the mapper rewrites REL_X/REL_Y to
+         * REL_HWHEEL/REL_WHEEL, so anything after it must target wheel
+         * codes (zip_scroll_transform and zip_scroll_scaler both do, and
+         * both cover BOTH wheel axes in the pinned ZMK).
+         * zip_raw_touch_scroll is a pure pass-through marker; position is
+         * irrelevant, but keep it first for visibility. */
         input-processors = <&zip_raw_touch_scroll>,
-                           <&zip_xy_to_vscroll_mapper>,
+                           <&zip_xy_to_hvscroll_mapper>,
                            <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
                            <&zip_scroll_scaler 1 72>,
                            <&zip_raw_touch_idle_filter>;

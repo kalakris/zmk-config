@@ -279,6 +279,36 @@ chain. In RawTouch mode the firmware does not inject scroll-context
 deltas at all, so the wheel processors after the marker fall silent
 without any host-side filtering.
 
+### A dedicated scroll pad
+
+On a keyboard with two pads you may want one of them to be *only* a
+scroll pad — no layer to hold. Put the marker in that pad's **base**
+chain instead of an overlay and drop the overlay entirely: every touch is
+then scroll context, on every layer, and the pad stops producing pointer
+motion. Map both axes if you want the Standard-mode fallback to scroll
+sideways too:
+
+```dts
+&scroll_pad_listener {
+    input-processors = <&zip_raw_touch_scroll>,
+                       /* Standard-mode wheel scrolling, two axes */
+                       <&zip_xy_to_scroll_mapper>,
+                       <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
+                       <&zip_scroll_scaler 1 24>,
+                       <&zip_raw_touch_idle_filter>;
+};
+```
+
+`zip_xy_to_scroll_mapper` is ZMK's own (from `input/processors.dtsi`): it
+sends `REL_X` to `REL_HWHEEL` and `REL_Y` to `REL_WHEEL`, where the
+one-axis mapper in the snippet above sends both to `REL_WHEEL`. Only `Y`
+needs inverting: the module's derived deltas are oriented (+X = finger
+right, +Y = finger down), `REL_WHEEL` positive means scroll *up*, and
+`REL_HWHEEL` positive already means scroll *right*.
+
+Leave `tap-click` off such a pad: taps are deliberately suppressed for any
+touch that was in scroll context, so the property would be inert.
+
 ## `&zip_raw_touch_idle_filter`
 
 Put this **last** in every chain on a streaming pad. An input listener

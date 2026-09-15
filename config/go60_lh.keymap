@@ -13,11 +13,15 @@
 
 / {
     input_processors {
-        zip_xy_to_vscroll_mapper: zip_xy_to_vscroll_mapper {
+        /* Two-axis scroll mapper, kept name-for-name in sync with
+         * go60_rh.keymap so the two files do not drift. Nothing on this
+         * half actually uses it: the listeners below are disabled and the
+         * central does all the input processing. */
+        zip_xy_to_hvscroll_mapper: zip_xy_to_hvscroll_mapper {
             compatible = "zmk,input-processor-code-mapper";
             #input-processor-cells = <0>;
             type = <INPUT_EV_REL>;
-            map = <INPUT_REL_X INPUT_REL_WHEEL
+            map = <INPUT_REL_X INPUT_REL_HWHEEL
                    INPUT_REL_Y INPUT_REL_WHEEL>;
         };
 
@@ -38,23 +42,28 @@
     input-processors = <&zip_xy_scaler 3 1>, <&zip_button_behaviors>;
     nav_scroll {
         layers = <2>;
-        input-processors = <&zip_xy_to_vscroll_mapper>, <&zip_xy_scaler 1 16>;
+        input-processors = <&zip_xy_to_hvscroll_mapper>, <&zip_xy_scaler 1 16>;
     };
 };
 
-/* Left pad, under Zephyr's in-tree Cirque driver, configured identically
- * to the right pad: absolute mode, 2x sensitivity, lift-off packets. The
- * absolute frames are forwarded to the central over the split link, where
- * the raw_touch_lh node (go60_rh.keymap) streams them as pad-id 1 and
- * derives the pointer deltas.
+/* Left pad, under Zephyr's in-tree Cirque driver: absolute mode,
+ * lift-off packets, and its own sensitivity (see below). The absolute
+ * frames are forwarded to the central over the split link, where the
+ * raw_touch_lh node (go60_rh.keymap) streams them as pad-id 1 and derives
+ * the relative deltas. Since 2026-09-15 this pad is a DEDICATED SCROLL
+ * PAD: the central's &cirque_lh_listener carries the scroll marker in its
+ * base chain, so those deltas become two-axis wheel events (Standard
+ * mode) or nothing at all (RawTouch mode, where the host scrolls from the
+ * frames) - never pointer motion.
  *
- * sensitivity "2x" lowers the ADC gain from the stock maximum ("1x" =
- * most sensitive) for parity with the right pad: at max gain the
- * capacitive baseline drifts under sustained touch and shows up as a
- * jumpy cursor. "2x" matches MoErgo's "medium" sensitivity snippet.
+ * sensitivity stays at the stock maximum "1x" here, unlike the right
+ * pad's "2x" — the asymmetry is deliberate; see the inline comment on the
+ * property below.
  *
- * Tap-to-click and the pad's geometry/orientation live on the
- * raw_touch_lh node on the central, not here. */
+ * The pad's geometry/orientation live on the raw_touch_lh node on the
+ * central, not here — and that node deliberately has NO tap-click: the
+ * module suppresses taps for scroll-context touches, so tap-to-click is
+ * inert on a dedicated scroll pad. */
 &glidepoint {
     /* MoErgo's Go60 board DTS sets these four on &glidepoint under the
      * forked driver's names. Zephyr 3.5's edtlib errors on properties a

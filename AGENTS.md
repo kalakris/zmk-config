@@ -74,7 +74,7 @@ The keymap is shared between Sofle and Go60 using preprocessor macros that handl
 ### Layers
 0. **Base** — QWERTY with home-row mods (urob timerless HRM pattern)
 1. **Graphite** — Graphite alpha overlay on Base
-2. **Nav** — Navigation, function keys, mouse keys. While held, the Go60's trackpads become scrollers: each pad's `nav_scroll` listener overlay carries the `&zip_raw_touch_scroll` scroll-context marker plus a ÷24 wheel fallback chain (the LH overlay uses its own `zip_raw_touch_idle_filter_lh` — one filter instance per listener)
+2. **Nav** — Navigation, function keys, mouse keys. While held, the Go60's RIGHT trackpad becomes a scroller: its `nav_scroll` listener overlay carries the `&zip_raw_touch_scroll` scroll-context marker plus a two-axis ÷24 wheel fallback chain. The LEFT pad needs no layer — since 2026-09-15 the marker lives in its BASE chain, making it a dedicated two-axis scroll pad (no pointer, no tap, ÷24 wheel fallback, its own `zip_raw_touch_idle_filter_lh` — one filter instance per listener)
 3. **System** — Bluetooth, system controls, bootloader
 4. **Numpad** — Number pad layout, RGB controls
 5. **Tmux** — Tmux tab switching via `tmux_tab` macro (Ctrl+A then number)
@@ -118,7 +118,7 @@ cases. **The host is RawTouch** (`~/src/rawtouch`, standalone
 SwiftPM daemon; since 2026-08-30). Two scrolling modes — this naming is
 canonical (2026-08-31; never "legacy/basic/fallback mode"): **Standard
 mode** — no host software; the firmware scrolls on its own (pointer,
-tap, Nav-layer ÷24 wheel) and the touch stream is silent; and **RawTouch
+tap, ÷24 two-axis wheel) and the touch stream is silent; and **RawTouch
 mode** — RawTouch holds the stream claim (SET feature report,
 refreshed, endpoint-scoped), the firmware emits frames only while
 claimed (since 2026-08-31; flags bit 2 = `host_claimed`, implied-set)
@@ -160,6 +160,16 @@ applied to the fork build only. macOS
 quirk: USB feature-report GETs arrive report-ID-prefixed, BLE bare.
 Tap-to-click is firmware-side; the pads' chains must NOT contain
 `&zip_button_behaviors`, which would eat the injected BTN_0.
+**Per-pad roles (2026-09-15):** the LEFT pad is a **dedicated two-axis
+scroll pad** — `&zip_raw_touch_scroll` sits in its BASE listener chain, so
+every touch is scroll context on every layer, with no pointer motion and
+no tap (`tap-click` is off on `raw_touch_lh`: the module suppresses taps
+for scroll-context touches). The RIGHT pad is unchanged — pointer + tap on
+the base layer, scroll while Nav is held. Both fallback chains are
+two-axis (X→`REL_HWHEEL`, Y→`REL_WHEEL`, `INPUT_TRANSFORM_Y_INVERT` only);
+the host is two-axis too (`axes`, `pads.<id>.axes`,
+`pads.<id>.invertHorizontal`). **Not yet flashed or hardware-tested** —
+see next-steps item s.
 
 Two gotchas that have each cost real debugging time: (1) macOS caches the
 BLE HOGP report map — ANY report-layout change needs forget + re-pair, and

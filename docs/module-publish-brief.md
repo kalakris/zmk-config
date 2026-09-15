@@ -370,6 +370,10 @@ host instructions must point at RawTouch before the flip.
   limitation unless host state is keyed by device-and-pad.
 - [ ] **Module history squash** + delete the merged `mode-gate` branch
   (next-steps p.4).
+- [x] ~~Document the dedicated-scroll-pad pattern~~ — DONE 2026-09-15: the
+  README's Scroll mode section now has a "A dedicated scroll pad"
+  subsection (marker in the base chain, `tap-click` inert there, two-axis
+  wheel fallback), from the Go60's own left-pad change (next-steps item s).
 
 ## Recommended order (from publish-strategy.md)
 
