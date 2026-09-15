@@ -204,6 +204,30 @@ Palm detection exists in silicon but no driver acts on it. Irrelevant at
 `prior-art-survey.md:33`, which claimed absolute per-finger data never
 leaves the IQS572. That is UHK's *firmware* choice, not a chip limit.)
 
+### Finger count: chip tracks 5, gesture engine resolves 2
+
+Azoteq lists **"Multi-touch support up to 5 fingers"** for the IQS550. The
+on-chip *gesture engine* is narrower: 1-finger (tap, swipe, press-and-hold)
+and 2-finger (tap, scroll, pan, pinch/zoom) only. That split is mirrored in
+the two gesture registers — `SINGLE_FINGER_GESTURES` 0x06B7 and
+`MULTI_FINGER_GESTURES` 0x06B8, whose bits are two-finger-tap / scroll /
+zoom and nothing else.
+
+**Three fingers work, but you implement them.** `NUM_FINGERS` (0x0011)
+carries the live count every frame, and beekeeb keys its `three-finger-swipe`
+off `num_fingers == 3` (`tps43.c:448`) — shipping proof that 3-contact
+*detection* is reliable on this sensor. What beekeeb does *not* do is read
+past contact 1: their header defines no per-finger stride, so the
+coordinates consumed are always ABS_X/ABS_Y of finger 1 and the count only
+disambiguates gestures.
+
+For per-contact coordinates the finger blocks are 7 bytes (ABS_X 2 + ABS_Y 2
++ STRENGTH 2 + AREA 1), so contacts 2-5 should sit at **0x001D, 0x0024,
+0x002B, 0x0032**. That is arithmetic from the 0x0016-0x001C layout, not read
+off the datasheet — confirm it on the bench with a 35-byte burst read from
+0x0016 and three fingers down. Do this first: protocol v3's frame format
+depends on it.
+
 ### Power
 
 From `toucan_right.conf` comments — beekeeb's own measurements:
@@ -272,7 +296,8 @@ pinout, 3.333V rail, absence of pull-ups, free TWIM1, driver event types,
 register map, EOL part list, DigiKey stock, kit contents.
 
 Inferred, not measured: I2C rise-time margin (arithmetic, not scoped);
-that the Go60's EXT rail is 3.3V; Cirque Gen4 raw-access limitation.
+that the Go60's EXT rail is 3.3V; Cirque Gen4 raw-access limitation;
+the 7-byte per-finger register stride (0x001D/0x0024/0x002B/0x0032).
 
 [eol]: https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/6284/EOL_TPR-TPE_TPS_May2024.pdf
 [kit]: https://shop.beekeeb.com/products/toucan-upgrade-kit
