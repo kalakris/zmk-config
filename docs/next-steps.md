@@ -736,7 +736,7 @@ device line says "connected over USB and Bluetooth". Backups of the
 pre-change config: `~/.config/rawtouch/config.json.pre-apple-defaults-2026-09-03`
 and `.pre-gain-2026-09-03`. rawtouch now lives at **github.com/kalakris/rawtouch (private, created 2026-09-04)**; the module README already links there.
 
-## s. Left pad as a dedicated two-axis scroll pad — FLASHED + VERIFIED 2026-09-15 (items 1–3 passed; 4–6 open)
+## s. Left pad as a dedicated two-axis scroll pad — DONE, FULLY HARDWARE-VERIFIED 2026-09-15
 
 The left Cirque is now a **scroll pad only** — no layer to hold — and
 both pads scroll in **two axes**.
@@ -797,7 +797,7 @@ central. Follow the firmware loop in CLAUDE.md: push `main`, wait for the
 background (bootloader: RH T3 + `/`). No report-layout change, so no BLE
 forget/re-pair.
 
-**Hardware checklist (1–3 PASSED 2026-09-15 over USB; 4–6 open):**
+**Hardware checklist (ALL PASSED 2026-09-15, USB and BLE):**
 
 1. ✅ **Standard mode** (quit RawTouch): the LH pad scrolls **vertically and
    horizontally** through the wheel fallback, with no layer held, and both
@@ -817,13 +817,13 @@ forget/re-pair.
    Every other app scrolls normally.*
 3. ✅ **RH pad unchanged**: Nav-held scrolling still works and is now
    two-axis; pointer and tap-to-click on the base layer are unaffected.
-4. **LH tap does nothing**: quick taps on the left pad produce no click,
+4. ✅ **LH tap does nothing**: quick taps on the left pad produce no click,
    anywhere, and no stray clicks during scroll gestures.
-5. **Cross-pad catch**: a fling on the LH pad caught by a touch on the RH
+5. ✅ **Cross-pad catch**: a fling on the LH pad caught by a touch on the RH
    pad (and vice versa) still cancels momentum — the host's first-touch-
    wins arbitration is unchanged, but the LH pad now enters scroll context
    without a layer, so the arbitration sees it far more often.
-6. **Both transports**: run 1–5 over USB and over BLE.
+6. ✅ **Both transports**: run 1–5 over USB and over BLE.
 
 **Known, deliberately left alone (2026-09-15):** both pads are mounted
 angled inwards, and two-axis scrolling makes the skew visible (a straight

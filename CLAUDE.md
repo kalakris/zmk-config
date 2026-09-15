@@ -168,7 +168,7 @@ for scroll-context touches). The RIGHT pad is unchanged — pointer + tap on
 the base layer, scroll while Nav is held. Both fallback chains are
 two-axis (X→`REL_HWHEEL`, Y→`REL_WHEEL`, `INPUT_TRANSFORM_Y_INVERT` only);
 the host is two-axis too (`axes`, `pads.<id>.axes`,
-`pads.<id>.invertHorizontal`). **RH flashed + verified 2026-09-15** (items 4–6 of the checklist still open) —
+`pads.<id>.invertHorizontal`). **RH flashed + fully hardware-verified 2026-09-15** (USB and BLE) —
 see next-steps item s.
 
 Two gotchas that have each cost real debugging time: (1) macOS caches the
