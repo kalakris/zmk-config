@@ -824,3 +824,15 @@ forget/re-pair.
    wins arbitration is unchanged, but the LH pad now enters scroll context
    without a layer, so the arbitration sees it far more often.
 6. **Both transports**: run 1–5 over USB and over BLE.
+
+**Known, deliberately left alone (2026-09-15):** both pads are mounted
+angled inwards, and two-axis scrolling makes the skew visible (a straight
+vertical drag leaks a little horizontal). The pointer shows about half the
+tilt the overlay's dots suggest, so the electrode grid sits at a smaller
+angle than the module — the number would have to be MEASURED, not read off
+the case. Nothing in MoErgo's firmware, ZMK's processors or the Pinnacle
+compensates for it (checked the pinned tree: only rotate-90/y-invert
+exist), and it is identical with RawTouch and LinearMouse off. User's
+call: not worth a `rotationDegrees` knob. If it ever is, the host is the
+place (per-pad rotation of the 2-D delta after orientation mapping) plus
+a `--calibrate` drag-along-a-ruler mode in `scripts/raw-touch-monitor.swift`.
