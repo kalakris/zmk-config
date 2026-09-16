@@ -29,7 +29,7 @@ user confirmed the lockout is gone. **The bundle ID changed to
 `io.github.kalakris.RawTouch` (rawtouch `4e7c553`), so that deploy needs
 a fresh Accessibility grant even with `RAWTOUCH_SIGN_ID`** (TCC keys on
 the bundle ID). Item p sub-items 2, 4, 5, 8 await the user's decisions;
-signing/notarization (item f) is deferred by the user. Everything before that: item q (physical-1:1
+signing/notarization (item f) is DONE (2026-09-16: Developer ID + notarized DMG/zip releases on tag push). Everything before that: item q (physical-1:1
 gain defaults, per-transport latency) is deployed; all three repos are
 pushed (rawtouch is now a private GitHub repo). RawTouch app runs with
 **display-rate resampling, carry semantics, latency 0** (item o) — feel
@@ -186,6 +186,50 @@ future RawTouch GitHub repo. Optional: provenance via
 `actions/attest-build-provenance`. Promoted from optional-polish to
 release prerequisite when the standalone-host decision landed
 (next-steps k, 2026-08-28/30).
+
+**2026-09-16 — mostly done.** Paid membership active; Developer ID
+Application cert in the keychain (Team ID `7WBD7URF58`, distinct from
+the free personal team's `L2ZD95Z272`; .p12 backup in ~/Documents).
+`make-app.sh` signs with `--timestamp`; the installed app was notarized
+by hand (first submission took ~30 min, Accepted), stapled, and `spctl`
+reports "Notarized Developer ID". The Team-ID change cost the one
+expected Accessibility re-grant. Pipeline in rawtouch `e4193e1`:
+`scripts/notarize.sh` + `.github/workflows/release.yml` — **`v*` tags
+only**, `release` environment secrets (cert, ASC API key `2VP94428ZG`),
+throwaway keychain, SHA-pinned actions, `attest-build-provenance`,
+`gh release create`. **End-to-end verified the same evening:** the .p12
+was re-exported with a fresh password (the first one was reused
+elsewhere), both password-bearing secrets set by the user at a `gh
+secret set` prompt (never via chat), and tag `v0.1.0` (rawtouch
+`2548d31`) produced GitHub release "RawTouch v0.1.0" in 52 s — CI
+notarization is seconds, not the 30 min of the first manual
+submission. The downloaded zip, quarantined as if from Safari, passes
+`codesign --verify --strict`, `stapler validate` and `spctl` ("Notarized
+Developer ID"). The attestation step is gated `if: !private` because
+GitHub does not store attestations for private user-owned repos (first
+run failed there) — it becomes live at the public flip, and
+`gh attestation verify RawTouch-<tag>.zip --owner kalakris` is the
+check. **Universal build** (rawtouch `966f76a`): `make-app.sh` runs
+`swift build --arch arm64 --arch x86_64`, whose product lives under
+`.build/apple/Products/Release/` (xcbuild backend); release `v0.1.1`
+verified the same way, both slices hardened-runtime signed. Local
+deploys use the same path, ~17 s clean. **App icon** (rawtouch
+`e09adca`): graphite tile, white fingertip contact with a soft cyan glow,
+five cyan frames fading with age — SVG sources in `resources/icon/`, a
+two-frame variant for the 16/32 px slots, `scripts/make-icon.sh` (needs
+`rsvg-convert`) renders the committed `resources/RawTouch.icns`;
+DESIGN.md records it. The user rejected the impeccable-pass palette
+(moss green) and oval contact; the original A-trace look won. **DMG**
+(rawtouch `b74bc41` + `8cfe0cd`): `notarize.sh` now also builds a DMG
+(stapled app + Applications symlink, `hdiutil` UDZO, signed with the
+identity read back from the app, notarized as a second submission,
+stapled); the workflow stamps `${GITHUB_REF_NAME#v}` into both plist
+version fields via `RAWTOUCH_VERSION` and attaches DMG + zip. First
+`v0.1.2` run shipped `CFBundleVersion = "v0.1.2"` (prefix not stripped);
+release + tag deleted, fixed, re-tagged. Not done: the workflow runs no
+tests (`xcodebuild test` raises TCC prompts); no DMG background art
+(`create-dmg` if the bare window bothers anyone); Homebrew cask after the
+public flip.
 
 ## g. Upstream patches
 
@@ -570,7 +614,7 @@ host and firmware can be updated in either order.
    `net.mrinal.*` by the user; the reverse-DNS of a namespace he
    controls. Consequence: next deploy = fresh Accessibility grant;
    `log stream --predicate 'subsystem == "io.github.kalakris.RawTouch"'`.
-   Developer ID signing + notarization (item f) deferred by the user.
+   Developer ID signing + notarization (item f) done 2026-09-16.
 4. Module git history: squash before going public (commits name the
    `-wip` repo, the LinearMouse fork, "item-k agent"); delete the
    `mode-gate` branch on origin. RawTouch has no remote yet and two

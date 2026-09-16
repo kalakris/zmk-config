@@ -351,9 +351,9 @@ host instructions must point at RawTouch before the flip.
 - [ ] **RawTouch public repo + menubar app** (next-steps item k) — the
   release's host artifact.
 - [ ] **Demo video** (shot list above) — the release leads with it.
-- [ ] **Notarized RawTouch releases** (next-steps item f — now a
-  prerequisite, not optional: a background tool demanding Accessibility
-  needs Developer ID + notarization to be installable).
+- [x] **Notarized RawTouch releases** (next-steps item f) — done 2026-09-16:
+  tag push → Developer ID-signed, notarized, stapled DMG + zip on a GitHub
+  release (universal binary, app icon, version stamped from the tag).
 - [ ] **Flip the repo public and un-vendor**: uncomment the `zmk-raw-touch`
   entry in `config/west.yml`, delete `vendor/`, drop the two `cmake-args`
   from `build.yaml`.
