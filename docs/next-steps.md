@@ -613,8 +613,8 @@ host and firmware can be updated in either order.
    identification field and range checks on reserved bytes (accidental
    0xFF00/0x01 squatter hardening, not authentication); either select
    one physical keyboard and leave others in Standard mode or key host
-   state by device-and-pad (today two RawTouch keyboards collide —
-   documented as a limitation); decide Fast User Switching behaviour
+   state by device-and-pad (host side DONE 2026-09-15, uncommitted —
+   see item t); decide Fast User Switching behaviour
    (the instance lock is per home directory).
 
 ## r. Codex release review — fixes applied 2026-09-05 (UNCOMMITTED in all three repos; not deployed, not flashed)
@@ -836,3 +836,76 @@ exist), and it is identical with RawTouch and LinearMouse off. User's
 call: not worth a `rotationDegrees` knob. If it ever is, the host is the
 place (per-pad rotation of the 2-D delta after orientation mapping) plus
 a `--calibrate` drag-along-a-ruler mode in `scripts/raw-touch-monitor.swift`.
+
+## t. Multiple RawTouch keyboards on one Mac — IMPLEMENTED + DEPLOYED 2026-09-15 (rawtouch working tree, UNCOMMITTED; single-keyboard checks 1–3 PASSED)
+
+Host-only change in `~/src/rawtouch` (16 files, +1411/−430, six new
+files; wire protocol untouched). Built by a Fable subagent, independently
+reviewed (7 findings, all fixed), verified by the main agent: `swift test`
+349/349 (301 original + 48 new), `scroll-bench --offline` tables
+byte-identical to HEAD. The README rewrite drafts under
+`/private/tmp/rawtouch-readme-drafts.ocsu3G/` were updated to match.
+
+Design: runtime identity = `RawTouchEndpointID` (one IOHIDDevice
+appearance, generation allocated by `RawTouchEndpointRegistry`, never
+reused) × pad ID = `RawTouchSourceID`, keying clock, seq, 150 ms watchdog,
+geometry/orientation and gesture ownership in the pipeline; stale
+timers/capability reads/claim completions carry the endpoint ID (claims
+also the `GateClaimState` generation) and are dropped for departed
+endpoints. Arbitration generalised from pad to source: first touch owns
+the drag, any other scroll-context source may catch momentum, pointer
+touches never steal. Removing an inactive endpoint leaves the owner's
+gesture and timing alone; removing the owner cancels without momentum
+(`endGesture()`), global transitions still `interrupt()`. Claims are per
+endpoint with their own serial report queue (shutdown releases run
+concurrently under the 2 s bound); `devices.<key>.enabled=false` releases
+that endpoint (Standard mode, "switched off" menu line). Persistent
+identity `RawTouchDeviceKey` = `usb:<serial>` (unless a known placeholder:
+`0123456789AB`, `0.01`, `moergo.com:GO60-0123456789ABCDEF`, empty) or
+`bt:<address>` — nothing is common to both transports (live `ioreg`: USB
+has SerialNumber+LocationID, BLE has DeviceAddress+PhysicalDeviceUniqueID,
+no serial), so one keyboard on USB+BLE = two keys and NO automatic
+grouping; product name/VID/PID/geometry never merge devices. The Go60's
+USB serial is hwinfo-derived (`usb_serial_number.c` in MoErgo's board
+dir); whether stock ZMK boards get a unique serial is NOT verified (Zephyr
+may derive one from hwinfo) — READMEs hedge accordingly. Config:
+`devices.<key>.pads.<id>` > `pads.<id>` > global, field by field; old
+files parse identically; the app never persists an empty `devices` entry.
+CLI exits 2 only when every present endpoint is unsupported AND none is
+still validating (`status.validatingEndpointCount`).
+
+Single-keyboard-visible changes after deploy: "RawTouch mode" if EITHER
+transport's claim landed (a failed transport gets its own line); two
+endpoint lines for USB+BLE instead of "connected over USB and Bluetooth";
+Settings gains a Keyboards section and titles pad sections "Pad N — all
+keyboards"; saved configs gain `"devices": {}`.
+
+DEPLOYED 2026-09-15 evening on the user's request (uncommitted tree; both
+endpoints admitted: USB endpoint#1 `usb:moergo.com:GO60-A856ED2AC49F3E97`,
+BLE endpoint#2 `bt:de-3c-19-f8-23-05`). User ran and PASSED the same day:
+(1) both endpoints RawTouch mode, scroll on each; (2) USB unplug
+mid-drag → clean stop, fresh BLE gesture, no double scroll, replug
+re-claims; (3) per-transport Enabled off → Standard mode on that
+transport (wheel back, pads not dead), other transport unaffected.
+Grouping USB+BLE into one device was discussed and declined for now: it
+only buys one config entry + one menu row; revisit only alongside the
+p.8 magic-field decision (a chip ID could ride in the same revision).
+Remaining: commit; checks 4–7 below (4 per-transport override, 5 AX
+revoke/re-grant, 6 old-firmware neighbour, 7 two physical keyboards —
+the last two need hardware not owned). Original checklist: (1) Go60 USB+BLE: two endpoint lines both
+RawTouch mode, scroll on each, per-transport latency still switches;
+(2) USB unplug mid-drag: gesture ends w/o momentum, next touch scrolls
+over BLE fresh, no double scroll, replug re-claims; (3) BT profile switch
+mid-touch closes via watchdog as before; (4) Settings → Keyboards: USB and
+BLE rows with key tails, "Customize pads" on one row adds per-keyboard
+pad sections whose gain applies to that transport only, "Enabled" off on
+one row → that transport goes to Standard mode (wheel scrolling returns,
+pads NOT dead) while the other keeps RawTouch mode; (5) TWO physical
+keyboards (needs a second RawTouch board — none owned): both listed and
+distinguishable, first-touch ownership + cross-keyboard catch, unplug idle
+one mid-drag leaves the drag intact, unplug the scrolling one ends it and
+the other scrolls immediately, each pad 0 on its own orientation; (6) an
+old-firmware keyboard alongside: listed as unsupported, Go60 unaffected,
+warning clears on unplug; (7) revoke/grant Accessibility: all claims drop
+and return together. Then update CLAUDE.md's "301 unit tests" and README
+claims once hardware-verified.
