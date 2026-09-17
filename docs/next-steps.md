@@ -953,3 +953,74 @@ old-firmware keyboard alongside: listed as unsupported, Go60 unaffected,
 warning clears on unplug; (7) revoke/grant Accessibility: all claims drop
 and return together. Then update CLAUDE.md's "301 unit tests" and README
 claims once hardware-verified.
+
+## u. RawTouch app UI rework from an `/impeccable critique` — DONE + DEPLOYED 2026-09-16 (rawtouch, committed locally, NOT pushed)
+
+Baseline critique (dual-agent, snapshot
+`~/src/rawtouch/.impeccable/critique/2026-09-16T23-17-29Z__sources-rawtouchapp.md`):
+23/40, four P1s — one 2,146-pt scroll in a fixed 640-pt window with no
+navigation; accessibility defects (Bluetooth row switches announced as the
+USB row's, gain slider announcing its log10 track position, per-section
+Reset buttons); "Customize pads" acting off-screen and deleting overrides
+without asking; physics vocabulary on the two sections that decide feel.
+User direction: structure first, then accessibility and vocabulary; hide
+the per-pad orientation matrix; keep "RawTouch mode / Standard mode";
+wanted live per-keyboard readouts for tuning.
+
+What changed (all in `~/src/rawtouch`, 360/360 tests, deployed to
+`~/Applications/RawTouch.app`):
+- Settings is now the `Settings` scene: toolbar tabs **Scrolling**
+  (last-gesture readout, gain/axes/direction, momentum), **Advanced**
+  (acceleration, display sync, config-file row with Show in Finder),
+  **Keyboards** (one section per endpoint with a live status row, its own
+  pad sections directly below when customized, then shared Pad N
+  sections). Each tab is one screen, sized per tab (724/770/704 pt);
+  only Keyboards scrolls. Opened via `openSettings` on macOS 14+, the
+  app-menu item's own action on 13 (`showSettingsLegacy`; the by-name
+  `showSettingsWindow:` selector is NOT handled on macOS 26).
+- One confirmed "Restore Defaults…" per tab (`restoreScrollingDefaults` /
+  `restoreAdvancedDefaults` / `restoreKeyboardDefaults`); per-section
+  Reset rows gone. "Customize pads" off with saved overrides asks first
+  (`hasSavedDeviceOverrides`); disconnected entries confirm before
+  removal.
+- Pad sections: "Use this pad", "Custom gain" (off = inherited-gain
+  readout, on = slider seeded with it), and an "Orientation" disclosure
+  row — a hand-rolled button, because `DisclosureGroup` in a grouped Form
+  exposes nothing to VoiceOver — holding the axes/axis/direction pickers
+  as pop-ups; opens by itself only when something inside is set.
+- Slider rows: fixed 58-pt unit column ("×", "s", "pt/s", "ms",
+  "counts/s") so every row's slider/field/unit align; plain labels
+  ("Coasting time", "Minimum flick speed", "Speed for 1× gain", "Lowest /
+  Highest gain", "Curve steepness"); every control's `.help` names its
+  config key; one-line footers; nothing focused on open.
+- Accessibility: sliders carry `accessibilityValue` in real units; the
+  Bluetooth-row identity collision is gone with one Section per endpoint;
+  toggles are scoped by keyboard/pad in their labels. NOTE: System
+  Events' `name` only reports AXTitle, which SwiftUI buttons never set —
+  their label is AXDescription. Verify with the AX API
+  (`/tmp/claude-501/ax-dump.swift` this session), not `name of button`.
+- Live tuning readout: `RawTouchGestureSummary` (peak finger speed in
+  counts/s, peak gain, touch distance, lift-off speed in pt/s, coast
+  distance + duration, `complete`) built by `TouchScrollEngine`
+  (`lastGestureSummary`), forwarded by `TouchScrollPipeline.onGestureSummary`
+  tagged with the owning source (the coast half keeps its touch half's
+  tag across a cross-source catch), published as `RawTouchStatus.lastGesture`,
+  shown on the Scrolling tab as "Finger: Peak 1,240 counts/s · gain up to
+  3.2×" / "Lift-off: 1,850 pt/s · coasted 1,900 pt in 0.8 s". NOT yet
+  seen with a real flick (user was away) — first thing to eyeball.
+- Menu: "Enable Scrolling" (verb phrase); `.pending` reads "Switching to
+  RawTouch mode…", `.failed` "Standard mode — switch failed, reconnect to
+  retry"; a config error reads "config.json couldn't be read — last good
+  settings in use" instead of the decoder message. Status lines stay
+  disabled items (system convention) despite 2.2:1 contrast — documented
+  in DESIGN.md.
+- Onboarding: says exactly where to click (+ under the Accessibility
+  list), "Not Now" instead of a disabled Done, Done once granted.
+- Docs: DESIGN.md components section rewritten; README menubar/keyboards
+  paragraphs updated.
+
+Not done / decided against: option-click slider reset (promise removed
+from DESIGN.md); light-appearance screenshots (would flip the user's
+system appearance); two-keyboard and empty/disconnected states only
+code-reviewed, not seen live. Next: user flicks a pad and checks the
+readout, then push.
