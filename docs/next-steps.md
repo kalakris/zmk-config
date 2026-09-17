@@ -1031,9 +1031,24 @@ gain and Highest gain live on different tabs; pop-up capsules sit ~4 pt
 left of other right-aligned content; "Customize pads" is session state;
 Lowest gain / Bluetooth latency default to the end of their tracks.
 
+Third pass, same evening, on the user's direction: the shared `pads.<id>`
+config layer is GONE (pad IDs mean nothing across keyboards) — every pad
+setting is `devices.<key>.pads.<id>`, an old top-level `pads` key is
+reported unknown and ignored; the core tests write per-pad settings via
+a `RawTouchTestSupport` shorthand (`configuration[pad: "0"]` under
+`testDeviceKey`, and the single-endpoint `configure(capabilities:…)` takes
+a `deviceKey:`). The Keyboards tab is a pop-up naming each connection
+(plus "not connected" saved entries) that follows the last-scrolled
+connection (`AppModel.lastScrolledEndpointID`) until picked, with that
+connection's status, switch and pad sections always shown below; no
+Customize toggle; Restore Defaults restores the selected connection
+(`removeDevice`). The Advanced tab's config-file row was dropped;
+the USB/Bluetooth latency sliders stay (user: fine as an advanced
+experiment knob). Three local commits in rawtouch, 361 tests.
+
 Not done / decided against: option-click slider reset (promise removed
 from DESIGN.md); light-appearance screenshots (would flip the user's
 system appearance); two-keyboard and empty/disconnected states only
-code-reviewed, not seen live. Next: user flicks a pad and checks the
-readout, then push (two local commits in rawtouch: `18287d9`, the
-follow-up on top).
+code-reviewed, not seen live; Orientation "Automatic" still does not
+show the resolved value. Next: user flicks a pad and checks the readout
+and the pop-up following the pad's connection, then push.
