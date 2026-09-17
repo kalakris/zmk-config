@@ -1052,3 +1052,31 @@ system appearance); two-keyboard and empty/disconnected states only
 code-reviewed, not seen live; Orientation "Automatic" still does not
 show the resolved value. Next: user flicks a pad and checks the readout
 and the pop-up following the pad's connection, then push.
+
+## v. RawTouch live readout: graphical add-ons — IDEAS, NOT STARTED (2026-09-16)
+
+The last-gesture readout now lives in the bottom bar of every settings
+tab (pad · connection / peak finger speed + gain / lift-off speed + coast),
+so tuning reads its effect on whichever tab the knob is. Three graphical
+follow-ons the user liked the sound of, in value = build order:
+
+1. **Gain curve on Advanced** (pure UI, Swift Charts, macOS 13 floor):
+   gain vs finger speed from the current parameters, a vertical rule at
+   "Speed for 1× gain", floors at lowest/highest gain; sliders reshape it
+   live (≤200 ms); the last gesture drops a dot at its peak speed/gain.
+   The one that makes the exponent legible (RawAccel-style).
+2. **Per-gesture trace** (small core addition): at lift-off, finger speed
+   over time with gain shaded behind it and the coast as a decaying tail
+   — shows where acceleration kicked in, lift-off sharpness, coast length.
+   Redraws once per gesture; the engine already buffers the samples it
+   needs for the velocity fit, so expose a compact per-gesture sample
+   array alongside `RawTouchGestureSummary`.
+3. **Live finger canvas on Keyboards** (needs a telemetry channel): one
+   rectangle per pad in the pad's aspect ratio, raw finger position with a
+   fading trail — the honest orientation check (raw axes vs screen
+   direction) and "which pad is which" by touch. Needs a 100 Hz stream
+   separate from the gesture-granular `RawTouchStatus`, throttled to the
+   display link, published only while the window is visible.
+
+Not doing: speedometers, sliding momentum balls, anything animating at
+rest (PRODUCT.md's gaming-control-panel anti-reference).
