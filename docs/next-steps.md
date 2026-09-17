@@ -1080,3 +1080,27 @@ follow-ons the user liked the sound of, in value = build order:
 
 Not doing: speedometers, sliding momentum balls, anything animating at
 rest (PRODUCT.md's gaming-control-panel anti-reference).
+
+## w. Firmware-declared scroll axes (protocol addition) — IDEA, NOT STARTED (2026-09-16)
+
+Context: the same evening the host lost its global `axes` and
+`followSystemNaturalScrolling` keys (rawtouch commit after `a0f9cd3`):
+Natural scrolling is always followed (macOS applies it to the firmware's
+wheel events in Standard mode, so following it is what makes RawTouch mode
+scroll the same way), and "which directions a pad scrolls in" is per pad
+only (`devices.<key>.pads.<id>.axes`, default both). The Scrolling tab is
+gain + Reverse scrolling + momentum.
+
+The lens (user's): enabling RawTouch mode should change nothing but
+momentum and smoothness. Today a dedicated vertical scroll pad is
+configured in the keymap's Standard-mode chain (the LH pad's two-axis
+÷24 wheel chain, or a one-axis one), and that knowledge does not reach
+RawTouch mode — the user has to repeat it per connection on the
+Keyboards tab. Proposal: let each pad's slot in the feature report carry
+a scroll-axes hint (both / vertical / horizontal) next to the orientation
+byte, declared on the `zmk,raw-touch-pad` node alongside `rotate-90` /
+`y-invert`; the host's per-pad default becomes "Automatic (from
+firmware)" the way orientation already is, and the Keyboards control a
+rarely needed override. Module + host change, feature-report version
+bump (spec appendix), tests on both sides. Firmware is the single source
+of truth for what a pad is for; the host owns feel only.
