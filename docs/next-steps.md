@@ -1104,3 +1104,37 @@ firmware)" the way orientation already is, and the Keyboards control a
 rarely needed override. Module + host change, feature-report version
 bump (spec appendix), tests on both sides. Firmware is the single source
 of truth for what a pad is for; the host owns feel only.
+
+## x. RawTouch began-direction rule vs. app axis latching — IN PROGRESS 2026-09-17 (rawtouch, 4 local commits `46a99ea`..`9bd4e0f`, deployed, NOT pushed)
+
+Symptom: some scrolls "missed" although the live readout showed them.
+Recorded with two passive recorders — the app's debug log (`log stream
+--level debug --predicate 'subsystem == "io.github.kalakris.RawTouch"'`,
+which prints every posted event) and a listen-only session-level scroll
+tap (`bench/recordings-2026-09-17/scrolltap.swift`) — event for event
+identical, so nothing is lost between RawTouch and the apps. Cause:
+WebKit AND Chromium (Claude Code, Electron) latch a gesture to the
+dominant axis of its first event; with two-axis scrolling the began went
+out at the first whole point on either axis, and the finger's landing
+produces 1–5 pt of purely sideways centroid slide (contact flattening)
+over 1–4 frames before a vertical flick, so the began named horizontal
+and the vertical motion + momentum were delivered and ignored. The Magic
+Trackpad has the same latching; two-finger centroid averaging hides it.
+
+Rule as of `9bd4e0f` (`RawTouchScrollPoster.releasedBegan()`): a
+flick-sized FRAME (≥6 pt on one axis, other < 1/3) releases at once on
+that axis; else a 3-frame landing window; then vertical at 2 pt (3:1) or
+4 pt (2:1), horizontal only at 8 pt (3:1) or 12 pt (2:1); ambiguous at
+8 frames → vertical unless horizontal ≥ 8 pt at 2:1. The began carries
+one axis; the held minor-axis motion rides on the next changed event.
+Trial results (begans on the wrong axis): old rule 12/103; 2-frame rule
+6/48; landing window 7/64 (all horizontal); the asymmetric rule was
+deployed at 01:14 and NOT yet trialled — first thing tomorrow: user
+scrolls, then tally with the script pattern in this session (group
+"post scroll" lines by phase=1; began axis vs. sign of the gesture's
+dominant sum). Recordings of all trials: `bench/recordings-2026-09-17/`
+(log 36,956 lines / tap 18,445 lines; trial boundaries at lines
+1519/1470, 10104/5194, 15606/9996, 24793/10950, 32096/15067,
+36956/18445). If misses persist, the remaining lever is the user's pad
+config (Pad 0 Vertical-only removes the problem entirely) or the
+firmware axes hint (item w).
