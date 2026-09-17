@@ -1019,8 +1019,21 @@ What changed (all in `~/src/rawtouch`, 360/360 tests, deployed to
 - Docs: DESIGN.md components section rewritten; README menubar/keyboards
   paragraphs updated.
 
+Follow-up critique after the rework: **30/40** (trend 23 → 30), no P0/P1;
+the AX API confirmed every prior accessibility defect gone. Its cheap
+fixes were applied the same session (Keep as the confirmations' default,
+"connection" wording on per-transport rows, last-touch line repeated
+under Acceleration, one Accessibility line in the menu, no "re-grant after
+every update", reduce-motion chevron). Open P2/P3s (in the second snapshot
+under `.impeccable/critique/`): Orientation "Automatic" should say what it
+resolves to (needs the pad orientation in `RawTouchStatus.Endpoint`); Scroll
+gain and Highest gain live on different tabs; pop-up capsules sit ~4 pt
+left of other right-aligned content; "Customize pads" is session state;
+Lowest gain / Bluetooth latency default to the end of their tracks.
+
 Not done / decided against: option-click slider reset (promise removed
 from DESIGN.md); light-appearance screenshots (would flip the user's
 system appearance); two-keyboard and empty/disconnected states only
 code-reviewed, not seen live. Next: user flicks a pad and checks the
-readout, then push.
+readout, then push (two local commits in rawtouch: `18287d9`, the
+follow-up on top).
