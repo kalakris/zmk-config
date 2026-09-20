@@ -136,6 +136,20 @@ config ZMK_INPUT_PROCESSOR_RAW_TOUCH_IDLE_FILTER
       all-zero mouse HID reports (which on BLE compete with the raw
       frames for connection events).
 
+config ZMK_INPUT_PROCESSOR_RAW_TOUCH_SPLIT_STAMP
+    bool "Peripheral sample-time stamp for relayed raw touch pads"
+    default y
+    depends on DT_HAS_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SPLIT_STAMP_ENABLED
+    # Peripheral-only: it reports through the split link's peripheral API,
+    # which does not exist on the central. The central side needs nothing
+    # enabled - raw_touch.c always understands the stamp.
+    depends on ZMK_INPUT_SPLIT && !ZMK_SPLIT_ROLE_CENTRAL
+    help
+      Chained on a split peripheral's zmk,input-split relay, sends the
+      peripheral's own sample time along with every absolute frame, so a
+      relayed pad's frame timestamps stop carrying the split link's
+      delivery jitter (up to one poll cycle on a polled wired link).
+
 module = ZMK_RAW_TOUCH
 module-str = ZMK_RAW_TOUCH
 source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"

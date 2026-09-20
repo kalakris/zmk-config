@@ -105,9 +105,31 @@
 };
 
 /* ── Override: left half is now peripheral ── */
-/* Forward local trackpad to central via split */
+/* Forward local trackpad to central via split.
+ *
+ * The relay's processor chain runs on this half, before each event is
+ * forwarded. The module's split-stamp processor sits there so every
+ * absolute frame crosses the link with THIS half's sample time (one extra
+ * vendor-typed input event, sent just ahead of the frame's sync). Without
+ * it the central stamps the frame when it gets there, after the polled
+ * wired hop, and the poll cadence shows up in the timestamps the host
+ * derives velocity from (measured 2026-09-20 on captures/: RH pad
+ * inter-frame spacing sd 0.3 ms, LH pad sd 1.4 ms with ~8% of pairs off
+ * by a full 5 ms poll cycle - bimodal 0.3/22.8 ms at stock polling). The
+ * central needs no change: raw_touch.c always understands the stamp. */
+/ {
+    input_processors {
+        zip_raw_touch_split_stamp: zip_raw_touch_split_stamp {
+            compatible = "zmk,input-processor-raw-touch-split-stamp";
+            #input-processor-cells = <0>;
+            input-split = <&cirque_split>;
+        };
+    };
+};
+
 &cirque_split {
     device = <&glidepoint>;
+    input-processors = <&zip_raw_touch_split_stamp>;
 };
 
 /* Disable listeners (central handles all input processing) */

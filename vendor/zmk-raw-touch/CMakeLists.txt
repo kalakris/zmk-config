@@ -8,7 +8,7 @@
 # <zmk/keymap.h> or <drivers/input_processor.h>. Compiling into `app` is
 # the same approach cirque-input-module uses for its ZMK-aware source.
 
-if(CONFIG_ZMK_RAW_TOUCH OR CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL OR CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_IDLE_FILTER)
+if(CONFIG_ZMK_RAW_TOUCH OR CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL OR CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_IDLE_FILTER OR CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SPLIT_STAMP)
   target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
   # Sources are prefixed raw_touch_ so they never share a basename with ZMK
@@ -36,4 +36,6 @@ if(CONFIG_ZMK_RAW_TOUCH OR CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL OR CONFIG
                        ${CMAKE_CURRENT_SOURCE_DIR}/src/input_processor_raw_touch_scroll.c)
   target_sources_ifdef(CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_IDLE_FILTER app PRIVATE
                        ${CMAKE_CURRENT_SOURCE_DIR}/src/input_processor_raw_touch_idle_filter.c)
+  target_sources_ifdef(CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SPLIT_STAMP app PRIVATE
+                       ${CMAKE_CURRENT_SOURCE_DIR}/src/input_processor_raw_touch_split_stamp.c)
 endif()

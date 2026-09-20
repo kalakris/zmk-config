@@ -1138,3 +1138,71 @@ dominant sum). Recordings of all trials: `bench/recordings-2026-09-17/`
 36956/18445). If misses persist, the remaining lever is the user's pad
 config (Pad 0 Vertical-only removes the problem entirely) or the
 firmware axes hint (item w).
+
+## y. Peripheral sample-time stamp for the LH pad — BUILT 2026-09-20 (module `5d891bb`, vendored + pushed; NOT flashed, NOT hardware-tested)
+
+Why: the LH pad is relayed over the polled wired split and was stamped
+on the central after the hop, so its frame timestamps carried the poll
+cadence. Measured on `captures/` (2026-08-28 session, same-touch
+consecutive-seq pairs): RH pad inter-frame device-ts spacing sd 0.3 ms;
+LH pad sd 1.4 ms at the current 3/5 ms cadence (92% at 10 ms, ~5% at
+15 ms, ~3% at 4–5 ms — one pair in twelve off by a full poll cycle,
+i.e. 50% instantaneous velocity error) and bimodal 0.3/22.8 ms at stock
+cadence. Analysis script pattern: group by (dev, pad), keep pairs with
+seq+1 and both touched, wrap the 16-bit ts delta.
+
+What was built (all in the module, no ZMK core change, no host change):
+- `src/input_processor_raw_touch_split_stamp.c` +
+  `include/zmk/raw_touch/split_stamp.h` + binding
+  `zmk,input-processor-raw-touch-split-stamp` (property `input-split`
+  = the relay node, for its `reg`). Peripheral-only Kconfig
+  `ZMK_INPUT_PROCESSOR_RAW_TOUCH_SPLIT_STAMP` (depends on
+  `ZMK_INPUT_SPLIT && !ZMK_SPLIT_ROLE_CENTRAL`). Hook: the peripheral's
+  `zmk,input-split` node runs its `input-processors` before forwarding
+  each event (`app/src/pointing/input_split.c`, `ZIS_INST` peripheral
+  branch), so an event reported from inside the processor reaches the
+  wire ahead of the frame's sync. On each `INPUT_EV_ABS` sync it reports
+  `{type INPUT_EV_VENDOR_START (0xf0), code 0x5453, value = uptime/100 µs,
+  sync 0}` with the relay's reg.
+- `src/raw_touch.c`: latches the stamp (latest wins), consumes it at the
+  top of `raw_touch_process_frame()` (before the idle early-return), and
+  uses it in both send sites instead of `raw_touch_timestamp()`.
+- Verified by reading, not by running: ZMK's central listener switch
+  handles only REL/ABS/KEY (unknown type + sync 0 = no-op); the stock
+  scaler and both module processors pass unknown types through.
+- `config/go60_lh.keymap`: declares `zip_raw_touch_split_stamp` and
+  chains it on `&cirque_split` (`cirque_split@0`, reg 0, in MoErgo's
+  `go60_lh.dts`). This is the FIRST time the module compiles anything on
+  the LH build (`raw_touch_log.c` + the processor) — CI is the compile
+  check, there is no local west workspace.
+- Cost: one extra 23-byte wired envelope per frame (~2.3 kB/s at 100 Hz
+  on a 921600-baud link); 4 bytes of pad state.
+- Clock domains: the stamp is LH uptime, unsynchronised with the RH. The
+  host keeps one `RawTouchDeviceClock` per (endpoint, pad) source
+  (`TouchScrollPipeline.SourceStreamState`), anchored to arrival and
+  advanced by device deltas, and cross-pad catch is state-based — so no
+  host change. README appendix now says hosts MUST NOT compare
+  timestamps across pads.
+- Module README (the WIP rewrite in the working tree, uncommitted) got
+  the peripheral snippet, a timing-section update and the appendix rule;
+  the vendored README is the committed pre-rewrite one, so it lacks them.
+
+To test (flash BOTH halves from the same build — the wire format
+between halves gained an event type; a mismatched LH/RH pair is
+harmless but stamps nothing):
+1. `./scripts/download-firmware.sh` (done for the build below) →
+   `./scripts/flash-go60.sh firmware/main/firmware --halves both`.
+2. Keys on both halves, RH pointer + tap, LH scroll in Standard mode
+   (quit RawTouch): the stamp must not disturb the relay (a broken
+   ordering would show as LH scroll dropping frames or none at all).
+3. RawTouch mode: capture frames (passive monitor or the app's debug
+   log) while scrolling on the LH, rerun the pair analysis: LH spacing
+   sd should drop to ≈ RH's 0.3 ms with no 5/15 ms modes. If the LH
+   column is unchanged, the stamp is not arriving — check the LH build
+   log for `ZMK_INPUT_PROCESSOR_RAW_TOUCH_SPLIT_STAMP=y` and that the
+   relay's `input-processors` made it into the LH devicetree.
+4. Feel: LH flick momentum consistency vs RH. Then decide whether to
+   relax the poll cadence (item c's 3/5 ms) — with honest stamps it
+   only trades delivery latency and LH battery; a per-pad resampling
+   latency in the host would be needed before going back to stock
+   (`RawTouchConfiguration.latencyMs` is per transport, not per pad).

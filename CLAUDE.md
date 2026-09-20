@@ -142,6 +142,13 @@ Firmware side (same date): one shared transmit ring
 entries are bound to their profile and flushed on endpoint switch /
 disconnect — so releases survive a busy endpoint and never cross hosts.
 Hardware-verified 2026-09-14 (checklist + results: next-steps item r).
+**Split stamp (2026-09-20, built, NOT yet flashed — next-steps item y):**
+the LH pad's frames now carry the LH's own sample time — the module's
+peripheral-only `zip_raw_touch_split_stamp` processor on the LH's
+`&cirque_split` relay sends one extra vendor-typed input event per frame
+ahead of its sync, and `raw_touch_process_frame()` on the central prefers
+it over its own clock; the host needs no change (one clock per source).
+Both halves must be flashed from the same build.
 Two behaviours to know when testing: a USB unplug mid-touch is a
 *handover* to BLE, not a stop (the app claims both endpoints); and a BT
 profile switch mid-touch discards the trailing release into the empty

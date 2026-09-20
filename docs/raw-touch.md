@@ -249,6 +249,21 @@ Two knock-on effects of the bursts:
   bursts. The device-clock reconstruction that makes RH velocity immune
   to host-link batching cannot help the LH pad over the wire; over the
   radio the residual error is ±4 ms and it feels fine.
+  **Superseded 2026-09-20 (built, NOT yet flashed — next-steps item y):**
+  the LH now stamps its own frames. The module's new peripheral-only
+  processor `zip_raw_touch_split_stamp` sits in the `&cirque_split`
+  relay's `input-processors` chain on the LH (`config/go60_lh.keymap`);
+  on every absolute frame's sync it reports one extra vendor-typed input
+  event (type `INPUT_EV_VENDOR_START`, code 0x5453) through the split
+  link just ahead of that sync, value = LH uptime in 100 µs units, and
+  `raw_touch_process_frame()` on the central uses it instead of its own
+  clock. The stamp is in the LH's clock domain (no cross-half sync); the
+  host keeps one clock reconstruction per source, so it needs no change.
+  Measured before the change on `captures/` (2026-08-28 tuning session):
+  RH pad inter-frame device-ts spacing sd 0.3 ms; LH pad sd 1.4 ms with
+  the current 3/5 ms cadence (92% at 10 ms, ~5% at 15 ms, ~3% at 4–5 ms)
+  and bimodal 0.3/22.8 ms at stock cadence. With the stamp, the poll
+  cadence decides only delivery latency and LH battery, not velocity.
 
 Tooling (both new 2026-08-28, in `scripts/`): `raw-touch-monitor.swift`
 is a **passive, read-only** HID monitor for the vendor collection — it

@@ -65,6 +65,7 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 #include <zmk/raw_touch/gate.h>
 #include <zmk/raw_touch/hid.h>
 #include <zmk/raw_touch/scroll.h>
+#include <zmk/raw_touch/split_stamp.h>
 #include <zmk/raw_touch/transport.h>
 
 struct raw_touch_pad_config {
@@ -99,6 +100,12 @@ struct raw_touch_pad_data {
     /* Scroll-context marks seen while accumulating the current frame. */
     bool frame_open;
     bool frame_scroll;
+
+    /* Peripheral sample time for the frame that closes next, when the pad
+     * is relayed from a split peripheral running the split-stamp processor
+     * (see zmk/raw_touch/split_stamp.h). Latest wins; consumed per frame. */
+    bool stamp_valid;
+    uint16_t stamp;
 
     /* Previous frame state for release dedup and delta derivation. */
     bool prev_touched;
@@ -135,13 +142,26 @@ static void raw_touch_emit_tap(const struct raw_touch_pad_config *cfg) {
 /* Device-side sample time (HID Scan Time convention, 100 us units): hosts
  * derive finger velocity from this rather than from arrival time, which
  * BLE connection-interval batching distorts. Only computed when a report
- * actually goes out - the 64-bit divide is not free on a Cortex-M. */
+ * actually goes out - the 64-bit divide is not free on a Cortex-M.
+ *
+ * This is the local pad's clock, read when the frame is processed. A pad
+ * relayed from a split peripheral is processed here too, after the split
+ * hop, so for it this reading would carry the link's delivery jitter; the
+ * peripheral can send its own reading along with the frame instead (see
+ * zmk/raw_touch/split_stamp.h), and raw_touch_process_frame() prefers
+ * that when it arrived. */
 static uint16_t raw_touch_timestamp(void) {
     return (uint16_t)(k_ticks_to_us_floor64(k_uptime_ticks()) / 100);
 }
 
 static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
                                     struct raw_touch_pad_data *data, bool scroll_mode) {
+    /* Take the peripheral stamp for this frame, if one arrived, before any
+     * early return below: left pending, it would misdate a later frame. */
+    bool have_stamp = data->stamp_valid;
+    uint16_t stamp = data->stamp;
+    data->stamp_valid = false;
+
     /* An absolute-mode pad marks lift-off with an all-zeros idle frame. */
     bool touched = !(data->cur_x == 0 && data->cur_y == 0 && data->cur_z == 0);
 
@@ -178,7 +198,7 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
          * re-sending it would go nowhere either, and the host's silence
          * watchdog covers them. */
         zmk_raw_touch_hid_set(cfg->pad_id, data->cur_x, data->cur_y, data->cur_z, flags,
-                              data->seq++, raw_touch_timestamp());
+                              data->seq++, have_stamp ? stamp : raw_touch_timestamp());
         zmk_raw_touch_send_report();
         data->stream_touched = touched;
     } else if (data->stream_touched) {
@@ -192,7 +212,7 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
          * again, so it must not add lift-off momentum on top. */
         zmk_raw_touch_hid_set(cfg->pad_id, 0, 0, 0,
                               scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0, data->seq++,
-                              raw_touch_timestamp());
+                              have_stamp ? stamp : raw_touch_timestamp());
         zmk_raw_touch_send_report();
         data->stream_touched = false;
     }
@@ -275,6 +295,19 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
 
 static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
                                   struct raw_touch_pad_data *data, struct input_event *evt) {
+    if (evt->type == ZMK_RAW_TOUCH_SPLIT_STAMP_TYPE) {
+        if (evt->code == ZMK_RAW_TOUCH_SPLIT_STAMP_CODE) {
+            /* The peripheral's sample time, sent just ahead of the frame's
+             * sync (see zmk/raw_touch/split_stamp.h). Latest wins: if the
+             * stamped frame's own sync were lost on the link, the next
+             * frame's stamp supersedes this one instead of the stale one
+             * misdating that frame. */
+            data->stamp = (uint16_t)evt->value;
+            data->stamp_valid = true;
+        }
+        return;
+    }
+
     if (evt->type != INPUT_EV_ABS) {
         /* Ignore everything else, including our own injected REL/KEY events. */
         return;
