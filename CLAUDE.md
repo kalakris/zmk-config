@@ -142,7 +142,8 @@ Firmware side (same date): one shared transmit ring
 entries are bound to their profile and flushed on endpoint switch /
 disconnect — so releases survive a busy endpoint and never cross hosts.
 Hardware-verified 2026-09-14 (checklist + results: next-steps item r).
-**Split stamp (2026-09-20, built, NOT yet flashed — next-steps item y):**
+**Split stamp (2026-09-20, both halves flashed 16:29, hardware checks
+still to run — next-steps item y):**
 the LH pad's frames now carry the LH's own sample time — the module's
 peripheral-only `zip_raw_touch_split_stamp` processor on the LH's
 `&cirque_split` relay sends one extra vendor-typed input event per frame

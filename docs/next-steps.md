@@ -1139,7 +1139,7 @@ dominant sum). Recordings of all trials: `bench/recordings-2026-09-17/`
 config (Pad 0 Vertical-only removes the problem entirely) or the
 firmware axes hint (item w).
 
-## y. Peripheral sample-time stamp for the LH pad — BUILT 2026-09-20 (module `1911f70`, vendored + pushed; NOT flashed, NOT hardware-tested)
+## y. Peripheral sample-time stamp for the LH pad — BUILT + BOTH HALVES FLASHED 2026-09-20 16:29 (module `1911f70`, zmk-config `6bcdbe8`; hardware checks below NOT yet run)
 
 Why: the LH pad is relayed over the polled wired split and was stamped
 on the central after the hop, so its frame timestamps carried the poll
@@ -1191,11 +1191,11 @@ What was built (all in the module, no ZMK core change, no host change):
   the peripheral snippet, a timing-section update and the appendix rule;
   the vendored README is the committed pre-rewrite one, so it lacks them.
 
-To test (flash BOTH halves from the same build — the wire format
-between halves gained an event type; a mismatched LH/RH pair is
-harmless but stamps nothing):
-1. `./scripts/download-firmware.sh` (done for the build below) →
-   `./scripts/flash-go60.sh firmware/main/firmware --halves both`.
+To test (BOTH halves must run the same build — the wire format between
+halves gained an event type; a mismatched LH/RH pair is harmless but
+stamps nothing):
+1. ~~Flash both halves~~ DONE 2026-09-20: RH 16:28:47, LH 16:29:29 from
+   the `6bcdbe8` CI build (`./scripts/flash-go60.sh ... --halves both`).
 2. Keys on both halves, RH pointer + tap, LH scroll in Standard mode
    (quit RawTouch): the stamp must not disturb the relay (a broken
    ordering would show as LH scroll dropping frames or none at all).
