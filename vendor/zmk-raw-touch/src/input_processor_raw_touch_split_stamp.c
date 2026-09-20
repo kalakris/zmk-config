@@ -33,16 +33,14 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
 #include <zmk/raw_touch/split_stamp.h>
 
-struct rtss_config {
-    /* The relay's `reg`: the central dispatches relayed events to its
-     * matching `zmk,input-split` node by this address, so the stamp must
-     * carry the same one as the frame it belongs to. */
-    uint8_t reg;
-};
-
+/* param1 is the relay's `reg`: the central dispatches relayed events to its
+ * matching `zmk,input-split` node by this address, so the stamp must carry
+ * the same one as the frame it belongs to. A cell parameter rather than a
+ * phandle property on the processor node, because relay -> processor ->
+ * relay would be a devicetree dependency cycle (gen_defines.py rejects it). */
 static int rtss_handle_event(const struct device *dev, struct input_event *event, uint32_t param1,
                              uint32_t param2, struct zmk_input_processor_state *state) {
-    ARG_UNUSED(param1);
+    ARG_UNUSED(dev);
     ARG_UNUSED(param2);
     ARG_UNUSED(state);
 
@@ -54,12 +52,10 @@ static int rtss_handle_event(const struct device *dev, struct input_event *event
         return ZMK_INPUT_PROC_CONTINUE;
     }
 
-    const struct rtss_config *cfg = dev->config;
-
     struct zmk_split_transport_peripheral_event ev = {
         .type = ZMK_SPLIT_TRANSPORT_PERIPHERAL_EVENT_TYPE_INPUT_EVENT,
         .data = {.input_event = {
-                     .reg = cfg->reg,
+                     .reg = (uint8_t)param1,
                      .type = ZMK_RAW_TOUCH_SPLIT_STAMP_TYPE,
                      .code = ZMK_RAW_TOUCH_SPLIT_STAMP_CODE,
                      .value = (int32_t)zmk_raw_touch_split_stamp_now(),
@@ -87,10 +83,7 @@ static int rtss_init(const struct device *dev) {
 }
 
 #define RTSS_INST(n)                                                                               \
-    static const struct rtss_config rtss_config_##n = {                                            \
-        .reg = DT_REG_ADDR(DT_INST_PHANDLE(n, input_split)),                                       \
-    };                                                                                             \
-    DEVICE_DT_INST_DEFINE(n, &rtss_init, NULL, NULL, &rtss_config_##n, POST_KERNEL,                \
+    DEVICE_DT_INST_DEFINE(n, &rtss_init, NULL, NULL, NULL, POST_KERNEL,                            \
                           CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, &rtss_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(RTSS_INST)

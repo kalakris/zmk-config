@@ -116,20 +116,23 @@
  * derives velocity from (measured 2026-09-20 on captures/: RH pad
  * inter-frame spacing sd 0.3 ms, LH pad sd 1.4 ms with ~8% of pairs off
  * by a full 5 ms poll cycle - bimodal 0.3/22.8 ms at stock polling). The
- * central needs no change: raw_touch.c always understands the stamp. */
+ * central needs no change: raw_touch.c always understands the stamp.
+ *
+ * The cell is the relay's reg (cirque_split@0 -> 0), which the central
+ * routes relayed events by. A cell, not a phandle back to the relay: that
+ * would be a devicetree dependency cycle. */
 / {
     input_processors {
         zip_raw_touch_split_stamp: zip_raw_touch_split_stamp {
             compatible = "zmk,input-processor-raw-touch-split-stamp";
-            #input-processor-cells = <0>;
-            input-split = <&cirque_split>;
+            #input-processor-cells = <1>;
         };
     };
 };
 
 &cirque_split {
     device = <&glidepoint>;
-    input-processors = <&zip_raw_touch_split_stamp>;
+    input-processors = <&zip_raw_touch_split_stamp 0>;
 };
 
 /* Disable listeners (central handles all input processing) */

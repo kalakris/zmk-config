@@ -16,19 +16,25 @@ description: |
   handler uses it in place of its own. Nothing is needed on the central,
   and the wire protocol is unchanged - the timestamp just gets better.
 
+  The one cell parameter is the relay's `reg` (the unit address of the
+  zmk,input-split node, e.g. 0 for `trackpad_split@0`): the central
+  routes relayed events to its matching relay node by that address, so
+  the stamp must carry the same one as the frames it belongs to. It is a
+  cell rather than a phandle property so the relay -> processor ->
+  relay reference does not form a devicetree dependency cycle.
+
   The processor is built only on a split peripheral; declare its node in
-  the peripheral's overlay. One node per relay.
+  the peripheral's overlay:
+
+    zip_raw_touch_split_stamp: zip_raw_touch_split_stamp {
+        compatible = "zmk,input-processor-raw-touch-split-stamp";
+        #input-processor-cells = <1>;
+    };
+
+    &trackpad_split {
+        input-processors = <&zip_raw_touch_split_stamp 0>;
+    };
 
 compatible: "zmk,input-processor-raw-touch-split-stamp"
 
-include: ip_zero_param.yaml
-
-properties:
-  input-split:
-    type: phandle
-    required: true
-    description: |
-      The zmk,input-split relay node this processor is chained on. The
-      stamp is sent through the split link with that relay's `reg`, which
-      is how the central routes it to the same input device as the pad's
-      frames.
+include: ip_one_param.yaml

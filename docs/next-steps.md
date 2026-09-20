@@ -1139,7 +1139,7 @@ dominant sum). Recordings of all trials: `bench/recordings-2026-09-17/`
 config (Pad 0 Vertical-only removes the problem entirely) or the
 firmware axes hint (item w).
 
-## y. Peripheral sample-time stamp for the LH pad — BUILT 2026-09-20 (module `5d891bb`, vendored + pushed; NOT flashed, NOT hardware-tested)
+## y. Peripheral sample-time stamp for the LH pad — BUILT 2026-09-20 (module `1911f70`, vendored + pushed; NOT flashed, NOT hardware-tested)
 
 Why: the LH pad is relayed over the polled wired split and was stamped
 on the central after the hop, so its frame timestamps carried the poll
@@ -1154,8 +1154,9 @@ seq+1 and both touched, wrap the 16-bit ts delta.
 What was built (all in the module, no ZMK core change, no host change):
 - `src/input_processor_raw_touch_split_stamp.c` +
   `include/zmk/raw_touch/split_stamp.h` + binding
-  `zmk,input-processor-raw-touch-split-stamp` (property `input-split`
-  = the relay node, for its `reg`). Peripheral-only Kconfig
+  `zmk,input-processor-raw-touch-split-stamp` (one cell = the relay's
+  `reg`; a phandle back to the relay was the first attempt and
+  gen_defines.py rejected it as a devicetree cycle). Peripheral-only Kconfig
   `ZMK_INPUT_PROCESSOR_RAW_TOUCH_SPLIT_STAMP` (depends on
   `ZMK_INPUT_SPLIT && !ZMK_SPLIT_ROLE_CENTRAL`). Hook: the peripheral's
   `zmk,input-split` node runs its `input-processors` before forwarding
@@ -1174,7 +1175,10 @@ What was built (all in the module, no ZMK core change, no host change):
   chains it on `&cirque_split` (`cirque_split@0`, reg 0, in MoErgo's
   `go60_lh.dts`). This is the FIRST time the module compiles anything on
   the LH build (`raw_touch_log.c` + the processor) — CI is the compile
-  check, there is no local west workspace.
+  check, there is no local west workspace. First CI run failed twice
+  over: the cycle above, and `.gitignore`'s unanchored `zmk/` silently
+  dropped the new `vendor/.../include/zmk/raw_touch/split_stamp.h`
+  (the older headers had been force-added); now anchored as `/zmk/`.
 - Cost: one extra 23-byte wired envelope per frame (~2.3 kB/s at 100 Hz
   on a 921600-baud link); 4 bytes of pad state.
 - Clock domains: the stamp is LH uptime, unsynchronised with the RH. The

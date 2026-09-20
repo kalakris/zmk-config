@@ -1,8 +1,10 @@
-build/
-zmk/
-modules/
-tools/
-.west/
+# West workspace checkouts at the repo root only (anchored: an unanchored
+# `zmk/` also swallowed vendor/zmk-raw-touch/include/zmk/, 2026-09-20).
+/build/
+/zmk/
+/modules/
+/tools/
+/.west/
 firmware/.DS_Store
 firmware
 .DS_Store
