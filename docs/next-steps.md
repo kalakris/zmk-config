@@ -1512,6 +1512,18 @@ outside; false drops (a dropped frame followed by a kept one) 1/61 at
 200 ms and the gate reaches back before falling back (1/61 left); the
 ungated fit still uses 100 ms.
 
+**Other pads:** the floor is a property of the pad + overlay, not the
+algorithm (relative reference makes gain/scale irrelevant; a pad whose
+strength holds until release just never trips the gate; a pad with
+noisy in-touch strength would drop good frames; a pad whose strength
+is not contact area wants 0). `rawtouch/bench/lift-strength.py
+<capture.csv> [--pad N]` re-runs the whole validation on any
+raw-touch-monitor capture — strength profile, motion-vs-strength bins,
+false drops / fallbacks / seed shift per floor. On the Go60 the two
+pads (2× and 1× gain) independently land on 0.5–0.6. If a pad ever
+needs its own floor, add `liftStrengthFloor` to the per-pad config
+layer (`devices.<key>.pads.<id>`) — not done, no need yet.
+
 To test: deploy (quit → `make-app.sh` → open), flick the same way
 repeatedly and watch the readout's lift-off speed: it should be more
 consistent (and on average a bit higher) than with
