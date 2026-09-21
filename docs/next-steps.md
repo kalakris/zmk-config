@@ -1477,7 +1477,24 @@ stamps nothing):
    latency in the host would be needed before going back to stock
    (`RawTouchConfiguration.latencyMs` is per transport, not per pad).
 
-## aa. RawTouch: strength-gated lift-off fit — DEPLOYED 2026-09-21 (rawtouch `29a8b18`, `momentum.liftStrengthFloor` 0.6, Advanced slider + readout count; 395 tests; feel A/B pending)
+## aa. RawTouch: lift-off strength floor → flick carry-through — SIMPLIFIED + DEPLOYED 2026-09-21 (rawtouch `3c16c8a`, `momentum.liftStrengthFloor` 0.6; 397 tests; feel test pending)
+
+**FINAL SHAPE (2026-09-21, the user asked for fewer conditionals;
+rawtouch `3c16c8a`, deployed):** one decision at the first weak frame
+(z < floor × the touch's p75 strength, after ≥ 10 firm frames): flick
+(firm velocity would coast AND along-track a/v ≥ −5/s) → carry that
+velocity through the fade and coast from it; else → follow positions
+and seed from the plain fit = pre-gate behaviour. A carry ends on
+strength recovery or after 120 ms. REMOVED: the gate on the seed,
+reach-back, fallbacks, continuity cap, `liftCarryThrough` (the floor is
+the one switch, 0 = off). Strength *weighting* of the followed fit was
+tried and dropped: a weight can't tell a leaping fade from a stalled
+one → it raised stalled landings' seeds above what was shown (147 pt/s
+where the display had stopped) while barely clipping leaps (leverage).
+Readout: "carried through N fading frames" / "followed to the lift"
+(`liftFramesCarried`). Known trade-off: flick-then-plant (braking only
+during the fade) gets ≤ 50 ms carry + a coast. Earlier history below
+is superseded.
 
 Why (recordings, 61 touches across both pads, USB + BLE): the reported
 touch strength collapses over the last 30–50 ms before the release
