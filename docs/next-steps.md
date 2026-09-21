@@ -1534,6 +1534,20 @@ floor on any pad without a script: always "every frame" → floor below
 the pad's fade; many skipped on a plain lift → too high. Advanced tab
 height 480 → 580.
 
+**Feel test 2026-09-21 (first deploy of the gate): flicks started fast
+for a few frames then settled; gone with the floor at 0** (readout
+example: 1,062 pt/s, skipped 3). Cause: the gated seed is the
+full-contact speed 30–50 ms before the release, but the display had
+followed the fading frames' slower positions, so the coast started
+faster than what was shown — on the recordings > 25 % faster on 24/53
+fast lifts, up to 2.4×. **Fix (rawtouch, commit after `29a8b18`,
+redeployed):** continuity rule — when the gate changes the fit, the
+seed's magnitude is capped at the fit through every recent frame (what
+was shown); the gated fit keeps supplying the direction. The gate now
+only clips the upward spikes the fade causes (ungated/gated p90
+1.18–1.26 on the recordings) and fixes direction; it never adds a step.
+Net effect is smaller than first hoped, by design.
+
 To test: deploy (quit → `make-app.sh` → open), flick the same way
 repeatedly and watch the readout's lift-off speed: it should be more
 consistent (and on average a bit higher) than with
