@@ -1201,7 +1201,85 @@ Findings:
   2026-09-21 and verified (row 6). The wired split is immune (ring
   buffer, no blocking).
 
-## z. RawTouch: adaptive per-source resampling latency — DECIDED 2026-09-21, bench replay + latency sweep IN PROGRESS
+## z. RawTouch: adaptive per-source resampling latency — IMPLEMENTED 2026-09-21 (rawtouch `d2b4571`, 389 tests pass; NOT deployed, feel test pending)
+
+**Built 2026-09-21 while the user was away (rawtouch commit `d2b4571`,
+local only — rawtouch has unpushed commits from before, so nothing was
+pushed; README.md carries the user's uncommitted rewrite plus this
+work's two hunks, deliberately left uncommitted):**
+- **Bench first, to pick the percentile.** `scroll-bench --offline
+  --replay <csv>` (repeatable, `--pad N`) drives the bench's finger
+  models with a capture's own device timestamps and arrival lateness;
+  `--sweep` (`--latencies`, `--trials`) prints the stutter-vs-latency
+  curve per trace with an automatic knee (≤ 0.5 % empty display frames
+  and CV within 2 points of the sweep's best). The five 2026-09-21
+  captures live in `rawtouch/bench/captures/` (README there has the
+  table) — `capture9` (3 TX bufs) is kept as the corrupted-stamps case.
+  Knee vs lateness percentiles, 1 ms steps, 8 starts:
+
+  | Path | Pad | p75 | p85 | p90 | Knee |
+  |---|---|---|---|---|---|
+  | USB / wire | RH | 0.8 | 0.9 | 0.9 | 0 ms |
+  | USB / wire | LH | 4.2 | 4.7 | 4.9 | 3 ms |
+  | USB / BLE split | LH | 6.8 | 8.6 | 10.0 | 10 ms |
+  | BLE / wire | RH | 11.6 | 13.1 | 13.9 | 13 ms |
+  | BLE / wire | LH | 13.2 | 14.7 | 15.6 | 14 ms |
+  | BLE / BLE | RH | 11.5 | 12.9 | 13.7 | 14 ms |
+  | BLE / BLE | LH | 12.1 | 13.5 | 14.2 | 15 ms |
+
+  p90 lands at or within 1 ms of the knee everywhere; p85 is ~1 ms under
+  on the BLE paths with CV 5–6 % vs 3 %. **Target: p90 + 0.5 ms
+  headroom.** The synthetic "LH jitter" bench model is gone (stamps are
+  honest); "wired relay" (5 ms poll) replaces it.
+- **`RawTouchLatencyEstimator`** (RawTouchCore): per source, ring of the
+  last 200 touched frames' offsets; lateness = offset − the minimum of
+  the frame's *epoch* (breaks on the clock's 2 s gap rule, and every
+  10 s of continuous device time so crystal drift never reads as
+  lateness); p90 + 0.5 ms clamped to 0–25 ms; 15 ms seed until 20
+  samples. The estimate is computed over the window as it stands, so
+  early frames are measured against the minimum their epoch eventually
+  found (short windows err low, never high — verified on the traces).
+- **Pipeline:** `SourceStreamState.latencyEstimator`, fed in `process()`
+  from the ORIGINAL arrival (before the clock rewrite), touched frames
+  only. `adoptLatency(for:transport:)` at touch-down sets the resampler
+  latency for the whole gesture; live config edits leave it alone while
+  adaptive is on; logged at debug when the whole-ms value or transport
+  changes. Source loss drops the estimator with the rest of the state.
+- **Config:** `resampling.adaptive` (default true). `latencyMs` /
+  `bluetoothLatencyMs` stay as the manual override (sliders disabled in
+  Settings while adaptive is on); `latencyRange` widened to 0–25 ms.
+  **Remove the override + sliders once the feel test passes** (user's
+  call: keep for the experimentation phase only).
+- **Readout:** gesture summary + Settings "Last gesture" gained a fourth
+  line — `Latency 5.0 ms · measured 4.9 · held 0 of 138 frames`
+  (`FrameResampler.tickCount` / `heldTickCount` per touch; held = the
+  tick's target was more than one sample period past the newest frame —
+  the stutter, as a number).
+- **Tests:** `RawTouchLatencyEstimatorTests` (seed/window/epochs/drift/
+  clamp + `testSettlesWhereTheRecordedTracesSay` replaying the five
+  fixtures via `CaptureTrace`, now in RawTouchTestSupport),
+  `TouchScrollPipelineAdaptiveLatencyTests`, `FrameResamplerCountersTests`,
+  `StatusFormatterTimingTests`; the existing pipeline suites pin
+  `adaptive = false` (they set latency by hand). 389 pass.
+- **CPU:** negligible (the app used ~65 s CPU in 4 days; the estimator
+  adds a subtraction + ring write per frame and one sort of ≤ 200
+  doubles per touch-down).
+
+**To do when the user is back:**
+1. Deploy: quit RawTouch → `cd ~/src/rawtouch && ./scripts/make-app.sh`
+   → `open ~/Applications/RawTouch.app` (config needs no change:
+   adaptive is the default; an existing `latencyMs`/`bluetoothLatencyMs`
+   in config.json is now ignored unless `"adaptive": false`).
+2. Feel test on all four paths (USB/wire, USB/BLE split, BLE/wire,
+   BLE/BLE), watching the Settings readout's new line: the first gesture
+   per connection runs at 15 ms, the next at the measurement (~1 / 5 /
+   10 / 14 ms); "held" should be 0 or near it once measured. Logs:
+   `log show --last 2m --info --predicate 'subsystem == "io.github.kalakris.RawTouch"' | grep latency`.
+3. If the LH-over-USB feel is back to RH parity: remove the override
+   (`adaptive`, `latencyMs`, `bluetoothLatencyMs`, the two sliders +
+   toggle, `resolvedLatency(for:)`), then push rawtouch.
+4. Review findings from the background review agent (if any survived)
+   are recorded below this item when they arrive.
 
 **Decisions (user, 2026-09-21):** cold-start seed 15 ms; the percentile
 target is NOT decided — find the knee of the stutter-vs-latency curve

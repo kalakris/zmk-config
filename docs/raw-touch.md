@@ -268,9 +268,11 @@ Two knock-on effects of the bursts:
   cadence decides only delivery latency and LH battery, not velocity.
   Two follow-ups from the same day (next-steps item y, four-config
   table): (1) honest stamps expose the split hop's delivery lateness
-  to the resampler — the LH over USB now needs ~6 ms of resampling
-  latency, which the host cannot give per pad yet (item z: adaptive
-  per-source latency); (2) over a BLE split, ZMK's peripheral
+  to the resampler — the LH over USB now needs ~5 ms (p90) of resampling
+  latency, which the host could not give per pad → item z, **adaptive
+  per-source latency, implemented in rawtouch `d2b4571` on 2026-09-21
+  (p90 + 0.5 ms of each source's own measured lateness, adopted per
+  gesture; not yet deployed / feel-tested)**; (2) over a BLE split, ZMK's peripheral
   `bt_gatt_notify()`s each relayed event from the input thread with an
   unbounded buffer wait, so the stamp's 4th notification per frame
   blocked the thread on the stock 3 buffers and delayed the next stamp
