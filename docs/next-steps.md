@@ -1163,6 +1163,17 @@ min-anchored per touch = the resampling latency that pad needs:
 | BLE | wire | LH | 0.35 ms | 9.3 / 17.1 / 30.0 ms |
 | BLE | BLE (3 TX bufs) | LH | **2.92 ms** | 9.4 / 16.6 / 28.9 ms |
 | BLE | BLE (8 TX bufs) | LH | 0.43 ms | 8.3 / 15.3 / 23.3 ms |
+| USB | BLE (8 TX bufs) | RH | 0.38 ms | 0.6 / 1.0 / 1.1 ms |
+| USB | BLE (8 TX bufs) | LH | 0.42 ms | 4.9 / 11.5 / 17.2 ms (p90 10.0) |
+
+Lateness p90 by path, the number an estimator would settle on: local pad
+over USB ≈ 1 ms; relayed pad over USB ≈ 5 ms (wired split) or ≈ 10 ms
+(BLE split); anything over a BLE host link ≈ 14–16 ms regardless of the
+split. Estimator convergence (replayed on these captures, window reset
+on >2 s gaps): small windows err LOW, never high (the minimum is not
+found yet); BLE paths are within ~2 ms after 20 frames; the USB relayed
+pad needs 50–100 frames (20 frames reads anywhere in 1.7–5.3 ms). So:
+growing window capped at 100–200 frames, conservative seed.
 
 Findings:
 - **Feel regression on the LH over USB is expected** and is the BLE
