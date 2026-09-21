@@ -1524,6 +1524,16 @@ pads (2× and 1× gain) independently land on 0.5–0.6. If a pad ever
 needs its own floor, add `liftStrengthFloor` to the per-pad config
 layer (`devices.<key>.pads.<id>`) — not done, no need yet.
 
+**Exposed (rawtouch `29a8b18`):** Advanced tab → "Lift-off" section,
+one slider "Lift-off strength floor" (`momentum.liftStrengthFloor`,
+0–0.95, 0 = every frame; Advanced Restore Defaults resets it, Scrolling
+Restore leaves it). The gesture readout's lift-off line now ends with
+"skipped N fading frames" / "used every frame"
+(`RawTouchGestureSummary.liftFramesSkipped`), so a user can judge the
+floor on any pad without a script: always "every frame" → floor below
+the pad's fade; many skipped on a plain lift → too high. Advanced tab
+height 480 → 580.
+
 To test: deploy (quit → `make-app.sh` → open), flick the same way
 repeatedly and watch the readout's lift-off speed: it should be more
 consistent (and on average a bit higher) than with
