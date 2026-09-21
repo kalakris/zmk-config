@@ -266,6 +266,15 @@ Two knock-on effects of the bursts:
   the current 3/5 ms cadence (92% at 10 ms, ~5% at 15 ms, ~3% at 4–5 ms)
   and bimodal 0.3/22.8 ms at stock cadence. With the stamp, the poll
   cadence decides only delivery latency and LH battery, not velocity.
+  Two follow-ups from the same day (next-steps item y, four-config
+  table): (1) honest stamps expose the split hop's delivery lateness
+  to the resampler — the LH over USB now needs ~6 ms of resampling
+  latency, which the host cannot give per pad yet (item z: adaptive
+  per-source latency); (2) over a BLE split, ZMK's peripheral
+  `bt_gatt_notify()`s each relayed event from the input thread with an
+  unbounded buffer wait, so the stamp's 4th notification per frame
+  blocked the thread on the stock 3 buffers and delayed the next stamp
+  — `config/go60_lh.conf` now sets 8 TX buffers (verified).
 
 Tooling (both new 2026-08-28, in `scripts/`): `raw-touch-monitor.swift`
 is a **passive, read-only** HID monitor for the vendor collection — it

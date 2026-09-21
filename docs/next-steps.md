@@ -1150,6 +1150,63 @@ spacing sd unchanged at ~1.2 ms, as expected: the stamp fixes what the
 timestamps say, not when frames arrive. Keys, RH pointer/tap and LH
 Standard-mode scroll all fine (check 1).
 
+**Four-configuration survey (2026-09-21, `scripts/analyze-touch-lateness.py`
+over `captures/capture7..10*.csv`, local only).** Stamp spacing = are
+the stamps honest; arrival lateness = arrival minus stamped time,
+min-anchored per touch = the resampling latency that pad needs:
+
+| Host link | Split link | Pad | stamp spacing sd | lateness p50 / p95 / max |
+|---|---|---|---|---|
+| USB | wire | RH | 0.34 ms | 0.6 / 1.0 / 1.1 ms |
+| USB | wire | LH | 0.36 ms | 2.8 / 5.3 / 6.1 ms |
+| BLE | wire | RH | 0.36 ms | 8.1 / 14.8 / 19.9 ms |
+| BLE | wire | LH | 0.35 ms | 9.3 / 17.1 / 30.0 ms |
+| BLE | BLE (3 TX bufs) | LH | **2.92 ms** | 9.4 / 16.6 / 28.9 ms |
+| BLE | BLE (8 TX bufs) | LH | 0.43 ms | 8.3 / 15.3 / 23.3 ms |
+
+Findings:
+- **Feel regression on the LH over USB is expected** and is the BLE
+  problem in a new place: honest stamps + 0 ms USB resampling latency
+  means the resampler runs at the edge of a timeline whose frames
+  arrive up to 6 ms late (one poll cycle). The LH needs ~6 ms over USB.
+  `RawTouchConfiguration.resampling.latencyMs` is per TRANSPORT, so
+  there is no per-pad path today → host change (item z).
+- The current constants are guesses: BLE's 10 ms covers only the RH
+  median (p95 is 15 ms) yet feels fine, while USB's 0 ms with a 2.8 ms
+  LH median feels worse. Target is between p50 and p90, tuned by feel.
+- The relay adds ~2–3 ms at p95 on BLE vs ~5 on USB (the poll wait and
+  the connection-interval wait overlap in the queue), so a fixed
+  "relay latency" added to the transport latency over-corrects; measure.
+- **BLE split trap, FIXED in `5a2e0b5`:** ZMK's BLE split peripheral
+  `bt_gatt_notify()`s each relayed input event straight from the input
+  thread (`app/src/split/bluetooth/service.c`,
+  `zmk_split_bt_report_input`), and Zephyr allocates that buffer with
+  K_FOREVER (att.c: only responses/confirmations get a timeout). With
+  the stock 3 TX buffers, the stamp's 4th notification per frame blocked
+  the input thread until the next 7.5 ms connection event, so the NEXT
+  frame's stamp was late (p90 4.6 / max 15 ms, ~10% of frames). Fix:
+  `CONFIG_BT_L2CAP_TX_BUF_COUNT=8`, `CONFIG_BT_CONN_TX_MAX=8`,
+  `CONFIG_BT_BUF_ACL_TX_COUNT=8` in `config/go60_lh.conf`; LH reflashed
+  2026-09-21 and verified (row 6). The wired split is immune (ring
+  buffer, no blocking).
+
+## z. RawTouch: adaptive per-source resampling latency — NEXT, NOT STARTED (2026-09-21)
+
+Replace the per-transport latency constants (0 USB / 10 BLE) with a
+live, per-source estimate: lateness of each frame against the
+anchor-tightened device timeline (`RawTouchDeviceClock` already tracks
+the running minimum, so lateness is one subtraction), kept as a decaying
+~p90 with headroom, clamped [floor, cap], adopted at touch-down only
+(never mid-gesture), seeded from the transport default or — better —
+persisted per source key (`usb:<serial>` / `bt:<address>`) so a known
+keyboard starts converged. Keep a manual per-pad override
+(`pads.<id>.latencyMs`) and show the live estimate in the gesture
+readout. This subsumes the "relayed pad" feature-report bit idea (slot
+byte +7 is reserved; firmware could set it from
+`DT_NODE_HAS_COMPAT(pad device, zmk_input_split)`) — persistence seeds
+better than a flag. First step to confirm the diagnosis cheaply: the
+per-pad override alone, pad 1 at 6 ms over USB, then a feel check.
+
 Why: the LH pad is relayed over the polled wired split and was stamped
 on the central after the hop, so its frame timestamps carried the poll
 cadence. Measured on `captures/` (2026-08-28 session, same-touch

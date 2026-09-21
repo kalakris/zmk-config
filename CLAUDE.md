@@ -150,7 +150,12 @@ peripheral-only `zip_raw_touch_split_stamp` processor on the LH's
 `&cirque_split` relay sends one extra vendor-typed input event per frame
 ahead of its sync, and `raw_touch_process_frame()` on the central prefers
 it over its own clock; the host needs no change (one clock per source).
-Both halves must be flashed from the same build.
+Both halves must be flashed from the same build. Over a BLE split the
+LH needs `CONFIG_BT_*_TX_*=8` (go60_lh.conf) or the 4th notification
+per frame blocks the input thread and delays the next stamp. Honest
+stamps expose split-hop delivery lateness to the resampler (LH over USB
+needs ~6 ms; latency is per transport in the host today) — next-steps
+item z (adaptive per-source latency) is the follow-up.
 Two behaviours to know when testing: a USB unplug mid-touch is a
 *handover* to BLE, not a stop (the app claims both endpoints); and a BT
 profile switch mid-touch discards the trailing release into the empty
