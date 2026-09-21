@@ -8,6 +8,41 @@ v3, both pads streaming, USB + BLE verified) — see
 [module-publish-brief.md](module-publish-brief.md) for the publish plan.
 Each item below is self-contained enough to start cold.
 
+**Current state (2026-09-21, end of a long day — START HERE):** the
+host is on rawtouch `0fa146b` (+ an uncommitted README rewrite of the
+user's, with my config-table/display-sync/readout hunks inside it),
+deployed and running. Firmware unchanged since the split stamp + 8 TX
+buffers (items y, `5a2e0b5`). Landed today, all in the host: **item z**
+adaptive per-source resampling latency (p90 + 0.5 ms of measured
+lateness, 15 ms seed, `resampling.adaptive` override kept for the
+evaluation phase); **item aa** lift-off: `momentum.liftStrengthFloor`
+0.6 → a flick is carried through its strength fade at the firm
+velocity and coasts from it, anything else is followed (one decision,
+no cascade — the user dislikes conditional cascades); **the momentum
+seed** is now the raw finger velocity × gain at lift (was fitted on
+gain-scaled positions since the 2026-08-25 ballistics commit: 0.69 of
+peak × gain, now 0.96 — user: "so much better"). Closed by
+measurement, no product change: acceleration modelling for lower
+latency (quadratic/capped/bent: tail too fat), strength weighting of
+the seed (can't tell leap from stall), strength gating the resampler
+fit, lift-off prediction, edge-compression compensation (edge lifts
+seed at ~0.46 of peak but are rare). Bench: `plot-sweep.py`
+(latency-sweep.html), `lift-strength.py` (per-pad floor validation),
+`--replay/--sweep/--recorded-finger` and the extrapolation experiment
+knobs; six captures in `rawtouch/bench/captures/`. **Open:** (1) feel
+verdict on adaptive latency across the four paths, then REMOVE the
+override (`adaptive`, `latencyMs`, `bluetoothLatencyMs`, the two
+sliders + toggle); (2) feel-check the carry-through's known trade-off
+(flick-then-plant → ≤ 50 ms carry + coast); (3) the user asked how to
+reach gain 16× — answer: the curve can't at 1,500 ref / 0.9 exp
+(needs ~32k counts/s); raise the exponent to ~1.1–1.2 for top-end
+reach, lower the reference for uniform speed-up — their call, live
+sliders; (4) rawtouch is 23 commits ahead of origin (13 of the
+user's own since 2026-09-16) — pushed at wrap-up unless told
+otherwise, see the wrap-up report; my `3c16c8a` also swept the user's
+untracked `NoEventTapsTests.swift` in (it passes; README references it).
+Detailed trail: items z and aa below.
+
 **Current state (2026-09-04, evening):** item p pass 2 (sub-items 1, 6, 7)
 is committed and pushed in all three repos and CI-green. **RH flashed
 with `e689a8c` at 20:43** (undroppable release frames, queue 8, per-pad
