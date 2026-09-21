@@ -45,11 +45,10 @@ evening** (publish-brief punch-list item, now ticked there with the
 details): rawtouch `ci.yml` green in 77 s and gating `release.yml`;
 module `216634a` = `examples/` as README-verified files +
 `scripts/check-readme-examples.py` + `ci/` Go60 build of the examples
-against the pinned trees, both halves green first try. **Open (5):**
-the module's `readme-examples` CI job is red until the user commits
-the module README rewrite (their uncommitted WIP; the 11 example
-markers sit on top of it) — the check must not be "fixed" by
-committing that README for them. Detailed trail: items z and aa below.
+against the pinned trees, both halves green first try; the module
+README rewrite (with the 11 example markers) committed as `68ab7fc` at
+the user's request → run 35669110158 fully green. Detailed trail:
+items z and aa below.
 
 **Current state (2026-09-04, evening):** item p pass 2 (sub-items 1, 6, 7)
 is committed and pushed in all three repos and CI-green. **RH flashed

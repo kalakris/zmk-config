@@ -376,9 +376,9 @@ host instructions must point at RawTouch before the flip.
   `#define` the README's generic labels onto the board's nodes and reach
   `examples/` via `-DDTS_EXTRA_CPPFLAGS=-I$GITHUB_WORKSPACE`). First run:
   both firmware builds green (RH: USB+BLE+gate+scroll+idle filter; LH:
-  split stamp; zero module warnings). **The README check is red until the
-  README rewrite (uncommitted in the module repo, with the example
-  markers on top) is committed.** No upstream-main canary by design.
+  split stamp; zero module warnings). README rewrite + markers committed
+  as `68ab7fc`; run 35669110158 fully green. No upstream-main canary by
+  design.
 - [ ] **Protocol freeze decisions** (before v0.1.0): a distinctive
   feature-report identification field / reserved-byte range checks
   (squatter hardening); one-keyboard-at-a-time stays a documented
