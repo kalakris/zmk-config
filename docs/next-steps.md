@@ -1201,7 +1201,7 @@ Findings:
   2026-09-21 and verified (row 6). The wired split is immune (ring
   buffer, no blocking).
 
-## z. RawTouch: adaptive per-source resampling latency — IMPLEMENTED 2026-09-21 (rawtouch `d2b4571`, 389 tests pass; NOT deployed, feel test pending)
+## z. RawTouch: adaptive per-source resampling latency — IMPLEMENTED + REVIEWED 2026-09-21 (rawtouch `d2b4571` + review fixes `577f519`, 393 tests pass; NOT deployed, feel test pending)
 
 **Built 2026-09-21 while the user was away (rawtouch commit `d2b4571`,
 local only — rawtouch has unpushed commits from before, so nothing was
@@ -1278,8 +1278,27 @@ work's two hunks, deliberately left uncommitted):**
 3. If the LH-over-USB feel is back to RH parity: remove the override
    (`adaptive`, `latencyMs`, `bluetoothLatencyMs`, the two sliders +
    toggle, `resolvedLatency(for:)`), then push rawtouch.
-4. Review findings from the background review agent (if any survived)
-   are recorded below this item when they arrive.
+4. ~~Review~~ DONE: an independent review agent went over `d2b4571`;
+   all five findings were fixed in `577f519` with regression tests:
+   - **CONFIRMED (bad):** the summary tagging re-delivered the previous
+     gesture's summary on every tick of the next gesture with its live
+     counts spliced in (the engine never clears `lastGestureSummary`) →
+     120 Hz status publishes. Same-touch summaries now always keep the
+     tags of the last report.
+   - Taps/brushes (epochs < 10 frames) read as on time and dragged the
+     percentile down → left out of the estimate (still in the window),
+     matching how `CaptureTrace` cut the runs the p90 was chosen on.
+   - A same-pad catch during coast now adopts the latest measurement.
+   - A claim lapse mid-series keeps the source's measurement (only
+     clock/seq bookkeeping is dropped).
+   - `--sweep` sorts its latencies; `--replay` without `--pad` takes the
+     CSV's own pads.
+   Suggested-and-skipped: caching `measuredLatency` (only evaluated per
+   touch-down + per new summary now, ≤ 200-element sort — not worth it).
+5. Deploy path verified 2026-09-21: `make-app.sh` to a throwaway
+   `/tmp/claude/rawtouch-check/RawTouch.app` built a universal binary
+   signed with the Developer ID team — the real deploy is the recipe in
+   step 1.
 
 **Decisions (user, 2026-09-21):** cold-start seed 15 ms; the percentile
 target is NOT decided — find the knee of the stutter-vs-latency curve

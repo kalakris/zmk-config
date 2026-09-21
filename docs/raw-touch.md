@@ -270,7 +270,7 @@ Two knock-on effects of the bursts:
   table): (1) honest stamps expose the split hop's delivery lateness
   to the resampler — the LH over USB now needs ~5 ms (p90) of resampling
   latency, which the host could not give per pad → item z, **adaptive
-  per-source latency, implemented in rawtouch `d2b4571` on 2026-09-21
+  per-source latency, implemented in rawtouch `d2b4571` + `577f519` on 2026-09-21
   (p90 + 0.5 ms of each source's own measured lateness, adopted per
   gesture; not yet deployed / feel-tested)**; (2) over a BLE split, ZMK's peripheral
   `bt_gatt_notify()`s each relayed event from the input thread with an
