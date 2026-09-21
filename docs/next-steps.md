@@ -37,11 +37,19 @@ sliders + toggle); (2) feel-check the carry-through's known trade-off
 reach gain 16× — answer: the curve can't at 1,500 ref / 0.9 exp
 (needs ~32k counts/s); raise the exponent to ~1.1–1.2 for top-end
 reach, lower the reference for uniform speed-up — their call, live
-sliders; (4) rawtouch is 23 commits ahead of origin (13 of the
-user's own since 2026-09-16) — pushed at wrap-up unless told
-otherwise, see the wrap-up report; my `3c16c8a` also swept the user's
-untracked `NoEventTapsTests.swift` in (it passes; README references it).
-Detailed trail: items z and aa below.
+sliders; (4) ~~rawtouch is 23 commits ahead of origin~~ — pushed
+2026-09-21 evening with the CI commit (`aeef810`); my `3c16c8a` also
+swept the user's untracked `NoEventTapsTests.swift` in (it passes;
+README references it). **CI landed in both release repos 2026-09-21
+evening** (publish-brief punch-list item, now ticked there with the
+details): rawtouch `ci.yml` green in 77 s and gating `release.yml`;
+module `216634a` = `examples/` as README-verified files +
+`scripts/check-readme-examples.py` + `ci/` Go60 build of the examples
+against the pinned trees, both halves green first try. **Open (5):**
+the module's `readme-examples` CI job is red until the user commits
+the module README rewrite (their uncommitted WIP; the 11 example
+markers sit on top of it) — the check must not be "fixed" by
+committing that README for them. Detailed trail: items z and aa below.
 
 **Current state (2026-09-04, evening):** item p pass 2 (sub-items 1, 6, 7)
 is committed and pushed in all three repos and CI-green. **RH flashed

@@ -360,10 +360,25 @@ host instructions must point at RawTouch before the flip.
 - [x] ~~Independent release review~~ — DONE: Codex's review of 2026-09-05
   (`docs/reviews/rawtouch-2026-09-05/`), all nine findings fixed, deployed
   and hardware-verified 2026-09-14 (next-steps item r).
-- [ ] **CI workflows in both release repos** (surfaced by that review):
-  rawtouch `swift build` + `swift test` on macOS; module: a pinned
-  example firmware build (a west manifest pinning the MoErgo tree +
-  `cirque-input-module@intree-driver` that a stranger can reproduce).
+- [x] ~~**CI workflows in both release repos**~~ — DONE 2026-09-21.
+  rawtouch `aeef810`: `.github/workflows/ci.yml` on `macos-26` (swift
+  build, swift test, `scroll-bench --offline`, `make-app.sh` ad-hoc
+  signed, `nm -u` event-tap check; push to main / PR / dispatch /
+  `workflow_call`), and `release.yml` now `needs` it — first run green in
+  77 s, so no SwiftPM cache. Module `216634a`: `examples/` holds the
+  README's config blocks as files (before/after pairs; the peripheral one
+  now includes the split stamp, the dedicated-scroll one drops
+  `tap-click`), `scripts/check-readme-examples.py` keeps the README's
+  blocks identical (diff blocks generated; `--write` refreshes), and
+  `ci/` is a ZMK config dir that compiles the after-files on both Go60
+  halves through ZMK's `build-user-config.yml@v0.3` against the pinned
+  moergo-sc/zmk + cirque-input-module SHAs (`ci/west.yml`; the ci keymaps
+  `#define` the README's generic labels onto the board's nodes and reach
+  `examples/` via `-DDTS_EXTRA_CPPFLAGS=-I$GITHUB_WORKSPACE`). First run:
+  both firmware builds green (RH: USB+BLE+gate+scroll+idle filter; LH:
+  split stamp; zero module warnings). **The README check is red until the
+  README rewrite (uncommitted in the module repo, with the example
+  markers on top) is committed.** No upstream-main canary by design.
 - [ ] **Protocol freeze decisions** (before v0.1.0): a distinctive
   feature-report identification field / reserved-byte range checks
   (squatter hardening); one-keyboard-at-a-time stays a documented
