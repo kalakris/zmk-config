@@ -1319,9 +1319,26 @@ work's two hunks, deliberately left uncommitted):**
   going below it means extrapolating over the delivery gap every tick,
   and the carry rule turns every overshoot into a permanent forward
   offset (never retracted), so ±8-count errors per frame would ratchet
-  the scroll ahead of the finger over a drag. Not pursued; if ever
-  tried, it needs a bench experiment (replay + quadratic extrapolator +
-  relaxed horizon, watch the `carried` column), not a code change.
+  the scroll ahead of the finger over a drag. **Bench-tested 2026-09-21**
+  (rawtouch commit after `90cfb10`: `scroll-bench --offline --sweep
+  --recorded-finger --extrapolation quadratic --horizon 25`, the
+  recording's own motion through the real pipeline, jitter = RMS change
+  of the per-frame error vs the non-causal ideal, carried = drift at
+  lift; 8 starts × 4 paths × 0–16 ms). Jitter-wise the quadratic fit
+  does halve the latency for equal jitter (USB/BLE-split relayed: quad
+  6 ms ≈ linear 10 ms; wireless relayed: quad 8 ≈ linear 14). But the
+  tail is bad below the knee: max position error 30–45 px vs 8 px at
+  the product point, carried drift 10–25 px vs 1–5 (BLE local pad at
+  8 ms: 123 px excursion) — the carry rule freezes every overshoot and
+  a quadratic overshoots harder when wrong (reversals, stops,
+  strength-collapse frames). Relaxing the horizon alone (linear/25)
+  trades jitter for drift, a wash. Even AT the knee the quadratic cuts
+  BLE jitter ~35 % (0.81 vs 1.21 px) and carried drift, but with rare
+  40–120 px excursions on BLE/wire local. Verdict: product stays
+  linear/10 ms at the estimator's p90. A "guarded quadratic at the knee"
+  (acceleration term clamped to a fraction of the velocity term, ≥ 5
+  samples) is the only follow-up worth a look, and only after the feel
+  tests of items z/aa.
 - *Touch strength before lift-off* → **done**: `momentum.liftStrengthFloor`
   (rawtouch, commit after `ed4803b`), see item aa.
 
