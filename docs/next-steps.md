@@ -1477,7 +1477,7 @@ stamps nothing):
    latency in the host would be needed before going back to stock
    (`RawTouchConfiguration.latencyMs` is per transport, not per pad).
 
-## aa. RawTouch: strength-gated lift-off fit — IMPLEMENTED 2026-09-21 (rawtouch, `momentum.liftStrengthFloor` 0.6; 394 tests; NOT deployed, feel A/B pending)
+## aa. RawTouch: strength-gated lift-off fit — DEPLOYED 2026-09-21 (rawtouch `29a8b18`, `momentum.liftStrengthFloor` 0.6, Advanced slider + readout count; 395 tests; feel A/B pending)
 
 Why (recordings, 61 touches across both pads, USB + BLE): the reported
 touch strength collapses over the last 30–50 ms before the release
