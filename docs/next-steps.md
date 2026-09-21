@@ -1548,6 +1548,24 @@ only clips the upward spikes the fade causes (ungated/gated p90
 1.18–1.26 on the recordings) and fixes direction; it never adds a step.
 Net effect is smaller than first hoped, by design.
 
+**Carry-through (user's idea, 2026-09-21, rawtouch commit after
+`e1f8411`, deployed):** the intended velocity is the firm-contact one and
+the fade is the sensor losing the finger — so instead of capping the seed
+to the (corrupted) display, keep the display moving. Recordings: flicks
+(firm speed ≥ 1500 counts/s, 37/61) are still accelerating at fade
+onset (a/v median +5.9/s) and the display travelled only 64–85 % of
+firm-velocity × fade time; landings (medium speed, 14) brake hard (a/v
+median −10/s). Detector at the first weak frame (after ≥ 10 firm
+frames): firm-contact velocity would coast AND along-track a/v ≥ −5/s
+→ carry: fading frames scroll at the firm velocity regardless of their
+positions, release coasts from it; strength recovering or a fade
+> 120 ms ends the carry (follow from the current position, carried
+distance kept as an offset). Landings follow positions + clipped seed
+as before. `momentum.liftCarryThrough` (default true, Advanced toggle);
+readout "carried through N fading frames". Trade-off accepted: a
+flick-then-plant (decelerating only *during* the fade) gets ≤ 50 ms of
+carry + a coast the user may not want — watch for it in the feel test.
+
 To test: deploy (quit → `make-app.sh` → open), flick the same way
 repeatedly and watch the readout's lift-off speed: it should be more
 consistent (and on average a bit higher) than with
