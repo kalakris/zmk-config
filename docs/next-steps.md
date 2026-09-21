@@ -1295,10 +1295,17 @@ work's two hunks, deliberately left uncommitted):**
      CSV's own pads.
    Suggested-and-skipped: caching `measuredLatency` (only evaluated per
    touch-down + per new summary now, ≤ 200-element sort — not worth it).
-5. Deploy path verified 2026-09-21: `make-app.sh` to a throwaway
-   `/tmp/claude/rawtouch-check/RawTouch.app` built a universal binary
-   signed with the Developer ID team — the real deploy is the recipe in
-   step 1.
+5. ~~Deploy~~ DONE 2026-09-21 08:10: RawTouch quit, `make-app.sh`,
+   relaunched (signed, Developer ID team) — adaptive latency is LIVE on
+   the user's Mac, feel test in the user's hands (step 2).
+6. The knee, visible: `rawtouch/bench/plot-sweep.py` renders a
+   `--sweep` run as `bench/captures/latency-sweep.html` (7 small
+   multiples: CV % + empty-frame % vs latency, p75–p95 band, p90
+   hairline, knee dot; hover readout, table view, per-panel or shared y
+   scale, light/dark). Regenerate after any new capture — recipe in
+   `bench/captures/README.md`. Palette validated with the dataviz
+   skill's script; rendered and eyeballed headlessly via Chrome
+   (`--headless=new --screenshot`, kill it after — it does not exit).
 
 **Decisions (user, 2026-09-21):** cold-start seed 15 ms; the percentile
 target is NOT decided — find the knee of the stutter-vs-latency curve
