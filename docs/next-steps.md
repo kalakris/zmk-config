@@ -1498,6 +1498,20 @@ remain. Config key `momentum.liftStrengthFloor` (0–0.95, default 0.6,
 sample's z, so it works with display sync on. Test:
 `testCollapsingStrengthBeforeTheReleaseIsLeftOutOfTheSeed`.
 
+**Floor validated 2026-09-21 on the 61 recorded touches:** in the body
+of a touch strength stays ≥ 0.63× reference for 95 % of frames; in the
+last 100 ms the median is 0.67 with a quarter of frames below 0.33.
+Binned by strength, the final frames' motion matches the finger's
+earlier motion down to ~0.5–0.6× and degrades below (along-track
+median 0.93 at 0.4–0.5, 0.68 at 0.3–0.4, 0.44 under 0.2; cross-track
+error doubles under 0.7). Seed flat for floors 0.5–0.7, diverges
+outside; false drops (a dropped frame followed by a kept one) 1/61 at
+0.5 or 0.6, 4/61 at 0.7. **0.6 stays.** Weakness found and fixed: at
+0.6, 7/61 touches had < 2 full-contact frames in the 100 ms window
+(slow lifts) and fell back to the weak frames → the engine now retains
+200 ms and the gate reaches back before falling back (1/61 left); the
+ungated fit still uses 100 ms.
+
 To test: deploy (quit → `make-app.sh` → open), flick the same way
 repeatedly and watch the readout's lift-off speed: it should be more
 consistent (and on average a bit higher) than with
