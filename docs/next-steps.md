@@ -1201,7 +1201,39 @@ Findings:
   2026-09-21 and verified (row 6). The wired split is immune (ring
   buffer, no blocking).
 
-## z. RawTouch: adaptive per-source resampling latency — NEXT, NOT STARTED (2026-09-21)
+## z. RawTouch: adaptive per-source resampling latency — DECIDED 2026-09-21, bench replay + latency sweep IN PROGRESS
+
+**Decisions (user, 2026-09-21):** cold-start seed 15 ms; the percentile
+target is NOT decided — find the knee of the stutter-vs-latency curve
+with the offline bench replaying the real captures, then tune (the user
+does not want to add more latency than the knee needs); keep a manual
+latency override during the experimentation phase, remove it once the
+estimator is trusted. CPU cost was asked about and is negligible (one
+subtraction + ring write per frame at 100 Hz, one partial sort of ≤200
+doubles per touch-down; the app has used ~65 s CPU in 4 days). No
+persistence and no path/topology inference: the host cannot see whether
+the split is wired or wireless (that changes mid-session when the cable
+comes out), so the estimate must come from the frames themselves.
+
+**Agreed shape:** per-source estimator next to `RawTouchDeviceClock` —
+ring of the last 200 lateness samples (arrival minus reconstructed device
+time, minus the running minimum offset), report p<target> + 1 ms
+headroom, clamped [0, 25] ms; ring resets on the 2 s re-anchor gap and on
+source loss; estimate used once ≥20 samples are in (small windows err
+LOW, never high, so the seed sits high); latency read at touch-down only,
+never changed mid-gesture (carry rule). Remove both transport latency
+keys + the Settings control at the end; the bench's `--latency` flag
+stays. Gesture readout: latency used, live estimate, per-gesture
+zero-motion and double-delta display-frame counts. Bench: replay input
+model drawing (device ts, host arrival) pairs from a capture CSV, the
+five 2026-09-21 captures checked into rawtouch as fixtures, latency sweep
+0–20 ms per path with the existing zero/multi/CV/latency columns.
+Firmware: nothing more. Order: bench replay + sweep → estimator + tests
+→ pipeline wiring + readout → config removal after a feel test on all
+paths.
+
+Original notes (2026-09-21, before the decisions above; persistence and
+the per-pad override as a first step are superseded):
 
 Replace the per-transport latency constants (0 USB / 10 BLE) with a
 live, per-source estimate: lateness of each frame against the
