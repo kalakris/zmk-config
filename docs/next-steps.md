@@ -1334,11 +1334,22 @@ work's two hunks, deliberately left uncommitted):**
   strength-collapse frames). Relaxing the horizon alone (linear/25)
   trades jitter for drift, a wash. Even AT the knee the quadratic cuts
   BLE jitter ~35 % (0.81 vs 1.21 px) and carried drift, but with rare
-  40–120 px excursions on BLE/wire local. Verdict: product stays
-  linear/10 ms at the estimator's p90. A "guarded quadratic at the knee"
-  (acceleration term clamped to a fraction of the velocity term, ≥ 5
-  samples) is the only follow-up worth a look, and only after the feel
-  tests of items z/aa.
+  40–120 px excursions on BLE/wire local. **Capping tested the same day
+  (`--acceleration-cap F`, and `--extrapolation bent` = linear velocity
+  + capped quadratic acceleration):** capping the pure quadratic changes
+  NOTHING (the 123 px excursion survives cap 1.0 untouched → the
+  runaway is the quadratic fit's *velocity* term at the newest sample,
+  not the acceleration term). "Bent" with cap ≤ 1.0 tames the tail
+  completely (BLE/wire local 8 ms: max err 6.9 px vs 123 quad vs 8.1
+  linear; carried −0.1 vs 12 vs 0.2) but keeps almost none of the
+  jitter gain — within 5–10 % of linear everywhere (USB/BLE relayed
+  6 ms: 1.79 vs 1.92 linear vs 1.33 quad; wireless relayed 10 ms: 1.88
+  vs 1.99 vs 1.36). The responsiveness that cut the jitter and the
+  excursions were the same thing. Bent + horizon 25 ms is a mild win
+  at 0–4 ms latency only (USB/BLE 4 ms: 1.60 vs 2.45 linear, tail
+  tame) — irrelevant at the knee. **Verdict: product stays linear /
+  10 ms at the estimator's p90; the experiment is closed.** The knobs
+  stay in `FrameResampler` (bench-only, never configuration).
 - *Touch strength before lift-off* → **done**: `momentum.liftStrengthFloor`
   (rawtouch, commit after `ed4803b`), see item aa.
 
