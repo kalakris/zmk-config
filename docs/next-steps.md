@@ -1350,6 +1350,14 @@ work's two hunks, deliberately left uncommitted):**
   tame) — irrelevant at the knee. **Verdict: product stays linear /
   10 ms at the estimator's p90; the experiment is closed.** The knobs
   stay in `FrameResampler` (bench-only, never configuration).
+  Also asked: is the strength gate (item aa) applied to the resampler's
+  extrapolation fit? No — seed only. Tested with recorded strength
+  replayed (`--fit-strength-floor 0.6`): linear unchanged within noise,
+  the quadratic's 123 px excursions untouched (so they are NOT the
+  collapse frames), and the wireless relayed pad got worse (carried
+  2.6 → 10.4 px). The seed persists for a whole coast; the resampler's
+  fit only steers the last 10 ms before a release. Gate stays on the
+  seed only.
 - *Touch strength before lift-off* → **done**: `momentum.liftStrengthFloor`
   (rawtouch, commit after `ed4803b`), see item aa.
 
