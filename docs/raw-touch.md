@@ -249,8 +249,9 @@ Two knock-on effects of the bursts:
   bursts. The device-clock reconstruction that makes RH velocity immune
   to host-link batching cannot help the LH pad over the wire; over the
   radio the residual error is ±4 ms and it feels fine.
-  **Superseded 2026-09-20 (both halves flashed 16:29, hardware checks
-  still to run — next-steps item y):**
+  **Superseded 2026-09-20 (both halves flashed; hardware-verified
+  2026-09-21 with `captures/capture7-split-stamp.csv`, local only: LH inter-frame
+  ts sd 1.44 → 0.36 ms vs RH 0.34, no 5/15 ms modes — next-steps item y):**
   the LH now stamps its own frames. The module's new peripheral-only
   processor `zip_raw_touch_split_stamp` sits in the `&cirque_split`
   relay's `input-processors` chain on the LH (`config/go60_lh.keymap`);

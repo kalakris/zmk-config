@@ -1139,7 +1139,16 @@ dominant sum). Recordings of all trials: `bench/recordings-2026-09-17/`
 config (Pad 0 Vertical-only removes the problem entirely) or the
 firmware axes hint (item w).
 
-## y. Peripheral sample-time stamp for the LH pad — BUILT + BOTH HALVES FLASHED 2026-09-20 16:29 (module `1911f70`, zmk-config `6bcdbe8`; hardware checks below NOT yet run)
+## y. Peripheral sample-time stamp for the LH pad — DONE, HARDWARE-VERIFIED 2026-09-21 (module `1911f70`, zmk-config `6bcdbe8`; checks 1–2 passed, feel check 4 pending)
+
+**Result (2026-09-21, `captures/capture7-split-stamp.csv` — local only,
+`captures/` is git-ignored — 90 s passive capture over USB with RawTouch
+holding the claim):** LH inter-frame
+device-ts spacing sd 1.44 → 0.36 ms (RH 0.34 ms), histogram 9:14% /
+10:84% / 11:2% — the 5 ms and 15 ms modes are gone. LH host-arrival
+spacing sd unchanged at ~1.2 ms, as expected: the stamp fixes what the
+timestamps say, not when frames arrive. Keys, RH pointer/tap and LH
+Standard-mode scroll all fine (check 1).
 
 Why: the LH pad is relayed over the polled wired split and was stamped
 on the central after the hop, so its frame timestamps carried the poll
@@ -1196,15 +1205,14 @@ halves gained an event type; a mismatched LH/RH pair is harmless but
 stamps nothing):
 1. ~~Flash both halves~~ DONE 2026-09-20: RH 16:28:47, LH 16:29:29 from
    the `6bcdbe8` CI build (`./scripts/flash-go60.sh ... --halves both`).
-2. Keys on both halves, RH pointer + tap, LH scroll in Standard mode
-   (quit RawTouch): the stamp must not disturb the relay (a broken
-   ordering would show as LH scroll dropping frames or none at all).
-3. RawTouch mode: capture frames (passive monitor or the app's debug
-   log) while scrolling on the LH, rerun the pair analysis: LH spacing
-   sd should drop to ≈ RH's 0.3 ms with no 5/15 ms modes. If the LH
-   column is unchanged, the stamp is not arriving — check the LH build
-   log for `ZMK_INPUT_PROCESSOR_RAW_TOUCH_SPLIT_STAMP=y` and that the
-   relay's `input-processors` made it into the LH devicetree.
+2. ~~Keys on both halves, RH pointer + tap, LH scroll in Standard mode~~
+   PASSED 2026-09-21 (user).
+3. ~~RawTouch mode: capture frames while scrolling on the LH, rerun the
+   pair analysis~~ PASSED 2026-09-21 — see the result above. Recipe:
+   `swiftc -O scripts/raw-touch-monitor.swift -o /tmp/raw-touch-monitor`,
+   run it passively (no `--claim`) into a CSV for ~90 s, then the pair
+   analysis (group by dev+pad, consecutive seq, both touched, wrapped
+   16-bit ts delta).
 4. Feel: LH flick momentum consistency vs RH. Then decide whether to
    relax the poll cadence (item c's 3/5 ms) — with honest stamps it
    only trades delivery latency and LH battery; a per-pad resampling
