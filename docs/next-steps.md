@@ -1496,6 +1496,24 @@ Readout: "carried through N fading frames" / "followed to the lift"
 during the fade) gets ≤ 50 ms carry + a coast. Earlier history below
 is superseded.
 
+**Coast speed (2026-09-21, after the user felt swipes coasting slower
+than expected, inconsistently; readout showed lift-off ≈ peak/3 — that
+part is UNITS: peak is counts/s, lift-off is pt/s, ≈ 0.11 pt/count ×
+gain ~3):** a fresh 60 s edge-swipe capture (`captures/capture12-edge-
+swipes.csv`, RH only) ruled out edge compression (long swipes seed at
+0.78–0.93 of peak like short ones) and the braking test (all fast
+lifts accelerating, none fail even on gain-scaled positions). Real
+cause: the seed was fitted through gain-scaled positions, blending the
+acceleration gain's 40 ms EMA lag over the 100 ms window → seed median
+0.69 of peak × peak gain (0.70 on fast flicks). Fix (rawtouch commit
+"seed from the raw finger velocity"): samples hold RAW positions, seed =
+raw fit × gain at lift × pt/count → 0.96 (0.98 fast); the carry keeps
+the gain in force at onset; the braking test runs on raw counts as its
+−5/s was derived. Readout phrase shortened ("carried 4 frames" /
+"followed") — the lift-off line was clipping. Deployed. Edge lifts
+(within ~100 counts) do seed lower (0.46 of peak on 8+2 samples) but
+are rare; not pursued.
+
 Why (recordings, 61 touches across both pads, USB + BLE): the reported
 touch strength collapses over the last 30–50 ms before the release
 (median 3–5 frames below 60 % of the touch's mid-run strength, up to 10
