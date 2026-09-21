@@ -1307,6 +1307,24 @@ work's two hunks, deliberately left uncommitted):**
    skill's script; rendered and eyeballed headlessly via Chrome
    (`--headless=new --screenshot`, kill it after — it does not exit).
 
+**Two follow-up questions answered from the recordings (2026-09-21):**
+- *Can acceleration modelling buy lower latency?* Measured on 7,511
+  real frames (61 touches, moving > 100 counts/s), position prediction
+  error H ms ahead from a 60 ms recency-weighted fit, p50/p90 counts:
+  hold 7.9/22 (5 ms) → 39.7/108 (25 ms); linear 4.4/15.7 → 15.6/57;
+  quadratic 1.8/5.4 → 11.1/32.8. A quadratic fit roughly halves the
+  error at a given horizon, i.e. the same error at about twice the
+  horizon — in principle BLE 14 → ~7 ms, relayed USB 5 → ~2.5 ms. But
+  today at the knee the resampler *interpolates* (zero model error);
+  going below it means extrapolating over the delivery gap every tick,
+  and the carry rule turns every overshoot into a permanent forward
+  offset (never retracted), so ±8-count errors per frame would ratchet
+  the scroll ahead of the finger over a drag. Not pursued; if ever
+  tried, it needs a bench experiment (replay + quadratic extrapolator +
+  relaxed horizon, watch the `carried` column), not a code change.
+- *Touch strength before lift-off* → **done**: `momentum.liftStrengthFloor`
+  (rawtouch, commit after `ed4803b`), see item aa.
+
 **Decisions (user, 2026-09-21):** cold-start seed 15 ms; the percentile
 target is NOT decided — find the knee of the stutter-vs-latency curve
 with the offline bench replaying the real captures, then tune (the user
@@ -1422,3 +1440,32 @@ stamps nothing):
    only trades delivery latency and LH battery; a per-pad resampling
    latency in the host would be needed before going back to stock
    (`RawTouchConfiguration.latencyMs` is per transport, not per pad).
+
+## aa. RawTouch: strength-gated lift-off fit — IMPLEMENTED 2026-09-21 (rawtouch, `momentum.liftStrengthFloor` 0.6; 394 tests; NOT deployed, feel A/B pending)
+
+Why (recordings, 61 touches across both pads, USB + BLE): the reported
+touch strength collapses over the last 30–50 ms before the release
+(median 3–5 frames below 60 % of the touch's mid-run strength, up to 10
+on the LH) and the centroid wanders as the contact patch shrinks; the
+speed in the last 50 ms scatters from 0.4× to 2× the prior 100 ms.
+Fitting the lift-off velocity through those frames vs through the
+full-contact frames only: ratio median 0.86, p10 0.36, p25 0.53, p75
+1.13, p90 1.26 (fast lifts, n=56) — i.e. the collapse frames randomly
+move the momentum seed by ±30–60 %.
+
+What: `TouchScrollEngine` keeps each sample's strength (z) and a
+per-touch 256-bin histogram; the lift-off fit uses samples ≥
+`liftStrengthFloor` × the touch's p75 strength (relative — the pads
+report ~24 vs ~49 at their gains), falling back to all samples if < 2
+remain. Config key `momentum.liftStrengthFloor` (0–0.95, default 0.6,
+**0 = off** for the A/B). Resampled frames inherit the newest real
+sample's z, so it works with display sync on. Test:
+`testCollapsingStrengthBeforeTheReleaseIsLeftOutOfTheSeed`.
+
+To test: deploy (quit → `make-app.sh` → open), flick the same way
+repeatedly and watch the readout's lift-off speed: it should be more
+consistent (and on average a bit higher) than with
+`"momentum": {"liftStrengthFloor": 0}` in config.json (live-reloads).
+Lift-off *prediction* from strength was rejected: the firmware already
+sends the release immediately, so ≤ 10–20 ms of momentum start is all
+it could buy, against false lifts on light touches.
