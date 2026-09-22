@@ -1521,7 +1521,7 @@ stamps nothing):
    latency in the host would be needed before going back to stock
    (`RawTouchConfiguration.latencyMs` is per transport, not per pad).
 
-## bb. RawTouch UI: third `/impeccable critique` → lift-off floor to Momentum, readout vocabulary, "Use RawTouch Scrolling", then the whole P2/P3 backlog — DONE + DEPLOYED 2026-09-22 (rawtouch `a83a5b5` + `4aac6ec`, local, NOT pushed)
+## bb. RawTouch UI: third `/impeccable critique` → lift-off floor to Momentum, readout vocabulary, "Use RawTouch Scrolling", then two backlog passes — DONE + DEPLOYED 2026-09-22 (rawtouch `a83a5b5`, `4aac6ec`, `e004c24`, local, NOT pushed; 4th critique 30/40)
 
 Snapshot `~/src/rawtouch/.impeccable/critique/2026-09-22T08-11-17Z__sources-rawtouchapp.md`
 (dual-agent; trend 23 → 30 → 27). The 2026-09-21 additions (item z's
@@ -1567,6 +1567,34 @@ width), Restore Defaults not `.destructive`, `$UID` expanded via
 tab, onboarding window "RawTouch Setup" / "RawTouch can scroll". Verified
 by screenshot + AX dump. Next: re-run `/impeccable critique` after the
 user's next feel session to record the trend (expect ≥ 30).
+
+**Fourth run, 2026-09-22T09-01Z: 30/40, no P1 (trend 23 → 30 → 27 → 30).**
+Five P2s + two P3s, all fixed in rawtouch `e004c24` (403 tests):
+`devices.<key>.name` records the connection's display name whenever an
+entry is written for a connected keyboard (and is backfilled when an
+unnamed entry's keyboard connects), so saved entries read "Go60 Right ·
+Bluetooth — not connected" with the key in a "Saved as" row; the
+Orientation row uses a down chevron, insets its disclosed rows 16 pt and
+re-evaluates its open state on `keyPath` change (the pad sections keep
+identity across a USB↔BT switch); the readout keeps the "Last gesture"
+caption + age (`AppModel.lastGestureAt`, stamped at lift-off via
+`isSameTouch`), is one AX element, `minimumScaleFactor(0.85)` instead
+of truncating; "Gain for Pad 0 on …" VoiceOver title on the pad gain
+slider; `loginItemError` → attention line + needs-attention icon;
+onboarding opens once (`UserDefaults` `onboardingShown`) and again on
+grant loss, Esc = Not Now. Deployed; the screen locked mid-verification,
+so the screenshot check of this build is the first thing to do next.
+
+Open from the fourth snapshot (P3/minor, not done): the Connection pop-up
+cannot return to follow-last-used once picked; no version/About/README
+link; "Scrolling" stacked three times; Lowest/Highest gain thumbs read
+inverted because their ranges differ; the menu's "Not claimed —
+Accessibility needed" line is dead (both flags mirror one another);
+"reconnect to retry" does not say what to reconnect; Custom gain on
+stores an override equal to the global that stops following later
+Scrolling edits. Provocations worth a decision: rename the tab
+"Connections" vs a firmware identity byte; a detachable readout panel;
+per-slider default ticks instead of Restore Defaults.
 
 **Critique tooling (reusable, `/tmp/claude/rt-critique/`, rebuild from
 the transcript if gone):** `wid` (CG window list), `ax` (AX API tool:
