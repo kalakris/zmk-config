@@ -8,10 +8,12 @@ v3, both pads streaming, USB + BLE verified) — see
 [module-publish-brief.md](module-publish-brief.md) for the publish plan.
 Each item below is self-contained enough to start cold.
 
-**Current state (2026-09-21, end of a long day — START HERE):** the
-host is on rawtouch `0fa146b` (+ an uncommitted README rewrite of the
-user's, with my config-table/display-sync/readout hunks inside it),
-deployed and running. Firmware unchanged since the split stamp + 8 TX
+**Current state (2026-09-22 wrap-up — START HERE):** the host is on
+rawtouch `0fa146b`, deployed and running; the repo tip is `6f00d21`
+(the user's README rewrite, committed 2026-09-22 with my
+config-table/display-sync/readout hunks inside it, plus the CI commit
+`aeef810` — nothing in the app changed after `0fa146b`). All three
+repos are pushed and clean. Firmware unchanged since the split stamp + 8 TX
 buffers (items y, `5a2e0b5`). Landed today, all in the host: **item z**
 adaptive per-source resampling latency (p90 + 0.5 ms of measured
 lateness, 15 ms seed, `resampling.adaptive` override kept for the
