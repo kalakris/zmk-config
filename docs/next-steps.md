@@ -1521,7 +1521,7 @@ stamps nothing):
    latency in the host would be needed before going back to stock
    (`RawTouchConfiguration.latencyMs` is per transport, not per pad).
 
-## cc. About panel + versioning scheme (app, module, protocol) — DONE, PUSHED, BOTH HALVES FLASHED + HARDWARE-VERIFIED 2026-09-22 (central byte over USB and BLE; LH first-touch check pending); NOT tagged yet
+## cc. About panel + versioning scheme (app, module, protocol) — DONE, PUSHED, FLASHED, FULLY HARDWARE-VERIFIED 2026-09-22 (USB + BLE, both halves, live re-read); NOT tagged yet
 
 Shaped with `/impeccable shape`; the user confirmed the brief. Facts that
 shaped it: rawtouch already has GitHub releases v0.1.0–v0.1.2 (pipeline
@@ -1597,12 +1597,23 @@ per-pad slot reads 0 before the LH's first touch, exactly as designed.
 The LH announce WORKS on the wire (after the LH's first touch, restarting
 the app made the row read "0.1 · protocol 3") — but the host read the
 feature report only once, at discovery, so without a restart the row
-stayed on "unknown". Host fix in progress (rawtouch, subagent): re-read
-the report when a frame arrives from a pad whose slot version is
-unknown while the central's is known (throttled per touch, gives up
-after a few touches against old firmware). Reproduce the unknown state
-by power-cycling the RIGHT half (the central caches the LH's version;
-an app restart or USB replug does not clear it).
+stayed on "unknown". Host fix rawtouch `5100af7`
+(`RawTouchFirmwareVersionProbe`: re-read the report on the first frame
+of a touch from a pad whose slot version is unknown while the central's
+is known; ≥ 2 s between re-reads per endpoint; gives up after 5 touches
+per pad against old firmware; only the version fields are adopted from
+a re-read, geometry differences are logged and refused). 440 tests.
+**USER-VERIFIED 2026-09-22:** power-cycled the RH → "Pad 1 half
+unknown"; one LH touch → "0.1 · protocol 3" live, no restart; same over
+Bluetooth. Reproduce the unknown state by power-cycling the RIGHT half
+(an app restart or USB replug does not clear the central's cache).
+
+**Only remaining step: tags.** Module `git -C ~/src/zmk-raw-touch tag
+v0.1.0 && git push origin v0.1.0` (CI's `version-tag` job checks it
+against `version.h`), then app `git -C ~/src/rawtouch tag v0.1.0 && git
+push origin v0.1.0` (release workflow → notarized DMG + zip stamped
+"0.1.0 (N)"). Verify the DMG with `spctl --assess --type open --context
+context:primary-signature -v`.
 
 **Remaining, user's hands (superseded list follows):** push zmk-config (CI builds), flash both
 halves, verify the row on USB and BLE + the unknown state; push
