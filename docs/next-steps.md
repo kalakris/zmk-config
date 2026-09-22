@@ -1521,7 +1521,7 @@ stamps nothing):
    latency in the host would be needed before going back to stock
    (`RawTouchConfiguration.latencyMs` is per transport, not per pad).
 
-## cc. About panel + versioning scheme (app, module, protocol) — HOST DONE + DEPLOYED, MODULE COMMITTED + VENDORED 2026-09-22; NOT pushed, NOT flashed, NOT tagged
+## cc. About panel + versioning scheme (app, module, protocol) — DONE, PUSHED, BOTH HALVES FLASHED + HARDWARE-VERIFIED 2026-09-22 (central byte over USB and BLE; LH first-touch check pending); NOT tagged yet
 
 Shaped with `/impeccable shape`; the user confirmed the brief. Facts that
 shaped it: rawtouch already has GitHub releases v0.1.0–v0.1.2 (pipeline
@@ -1589,7 +1589,15 @@ unknown" until the first LH touch (per-touch announce); with the LH
 powered off, the same "unknown". A right-half-only flash of a future
 version shows "0.2 · protocol 3 · Pad 1 half 0.1".
 
-**Remaining, user's hands:** push zmk-config (CI builds), flash both
+**Hardware result 2026-09-22 15:30:** CI compiled the module on the
+first try (run 35792352220); both halves flashed (LH 15:29:50). Live
+Keyboards row over USB AND over Bluetooth: "0.1 · protocol 3 · Pad 1
+half unknown" — the central's byte works on both transports and the
+per-pad slot reads 0 before the LH's first touch, exactly as designed.
+The LH announce (row → "0.1 · protocol 3" after one left-pad touch) was
+not yet observed when this was written.
+
+**Remaining, user's hands (superseded list follows):** push zmk-config (CI builds), flash both
 halves, verify the row on USB and BLE + the unknown state; push
 zmk-raw-touch and rawtouch; tag module `v0.1.0` (CI checks it against
 `version.h`) and app `v0.1.0` (release workflow → notarized DMG with
