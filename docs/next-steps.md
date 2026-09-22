@@ -1521,6 +1521,51 @@ stamps nothing):
    latency in the host would be needed before going back to stock
    (`RawTouchConfiguration.latencyMs` is per transport, not per pad).
 
+## cc. About panel + versioning scheme (app, module, protocol) — BRIEF CONFIRMED 2026-09-22, NOT STARTED
+
+Shaped with `/impeccable shape`; the user confirmed the brief. Facts that
+shaped it: rawtouch already has GitHub releases v0.1.0–v0.1.2 (pipeline
+tests, private repo, 2026-09-16); the module has no tags and no version —
+the only number the host reads is `protocol_version` 3; the feature body
+has one reserved byte (offset 3) and each pad slot has one.
+
+**Decisions:**
+- **About** = "About RawTouch" menu item (first item of the Settings
+  group) opening the SYSTEM About panel (`orderFrontStandardAboutPanel`):
+  icon, name, "Version 0.1.0 (build)", copyright; credits text "Speaks
+  protocol 3" + README link. No custom UI.
+- **Firmware row** under Status on the Keyboards tab's connection section:
+  "0.1 · protocol 3"; when a pad's half differs or is unknown: "… · left
+  half 0.0" / "· Pad 1 half unknown". Absent for firmware without
+  RawTouch mode (footer covers it).
+- **Versioning:** app SemVer `0.y.z` from the `v*` tag (workflow already
+  stamps); minor = features/protocol, patch = fixes; 1.0 when public +
+  protocol frozen; build number = commit count of the tag; dev builds
+  "0.0.0-dev (shortsha)". DELETE the three test releases + tags, ship
+  **v0.1.0**. Module: own `v0.y.z` tags from v0.1.0, single source
+  `include/zmk/raw_touch/version.h`, CI checks tag == header; vendored
+  copy records the tag next to `.vendored-from-sha`. Protocol stays an
+  integer and is the ONLY compatibility contract; README gets one table
+  app range ↔ protocol ↔ module range. zmk-config builds are unversioned.
+- **Per-half firmware version over the wire (protocol 3 unchanged):**
+  body byte 3 = central's module version, pad-slot reserved byte = the
+  owning half's version; one byte = major.minor nibbles (0.1 = 0x01),
+  0 = unknown. The peripheral sends its version once on connect as a
+  second vendor input code next to the split-stamp one
+  (`ZMK_RAW_TOUCH_SPLIT_STAMP_TYPE`, new code); the central caches it per
+  relayed pad. Both halves reflashed. Mismatched halves are a real state
+  (RH-only flashing is the normal loop) — the row names it.
+- **Open check before touching firmware:** whether
+  `RawTouchCapabilities` rejects a non-zero reserved byte (decides
+  old-app ↔ new-firmware tolerance).
+
+**Build order:** (1) host About item + panel + version stamping incl.
+dev builds + delete test releases; (2) host parses the two bytes,
+Firmware row + states + tests; (3) module `version.h`, body byte,
+peripheral hello + central cache, slot byte, README appendix; (4) sync
+vendor, flash both halves, verify the row on USB and BLE and with the
+LH powered off (unknown state); (5) tag module v0.1.0, app v0.1.0.
+
 ## bb. RawTouch UI: third `/impeccable critique` → lift-off floor to Momentum, readout vocabulary, "Use RawTouch Scrolling", then two backlog passes — DONE + DEPLOYED 2026-09-22 (rawtouch `a83a5b5`, `4aac6ec`, `e004c24`, local, NOT pushed; 4th critique 30/40)
 
 Snapshot `~/src/rawtouch/.impeccable/critique/2026-09-22T08-11-17Z__sources-rawtouchapp.md`
