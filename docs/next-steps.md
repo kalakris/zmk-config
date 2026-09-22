@@ -1521,7 +1521,7 @@ stamps nothing):
    latency in the host would be needed before going back to stock
    (`RawTouchConfiguration.latencyMs` is per transport, not per pad).
 
-## bb. RawTouch UI: third `/impeccable critique` → lift-off floor to Momentum, readout vocabulary, "Use RawTouch Scrolling" — DONE + DEPLOYED 2026-09-22 (rawtouch, committed locally, NOT pushed)
+## bb. RawTouch UI: third `/impeccable critique` → lift-off floor to Momentum, readout vocabulary, "Use RawTouch Scrolling", then the whole P2/P3 backlog — DONE + DEPLOYED 2026-09-22 (rawtouch `a83a5b5` + `4aac6ec`, local, NOT pushed)
 
 Snapshot `~/src/rawtouch/.impeccable/critique/2026-09-22T08-11-17Z__sources-rawtouchapp.md`
 (dual-agent; trend 23 → 30 → 27). The 2026-09-21 additions (item z's
@@ -1555,18 +1555,18 @@ Scrolling"** (off = Standard mode, the keyboard keeps scrolling, so
 "Enable Scrolling" off read as broken; matches "Use RawTouch over this
 connection"). README/DESIGN.md updated. 397 tests.
 
-**Open backlog from the snapshot (not done, by the user's choice):**
-P2 "gain up to 1.4×" under "Scroll gain 1.14×" are two gains with one
-word (→ "acceleration up to"); P2 pad tooltips name bare keys (`scale`,
-`axes`) while the connection toggle names `devices.<key>.enabled` — pass
-the key prefix into `PadSettingsSection`; P3 "1.00" beside "16.0",
-VoiceOver "times" vs "×", pop-up value text 21 pt left of the row
-above, Restore Defaults styled `.destructive` for a keep-by-default
-reset, literal `$UID` in the already-running alert, "Keyboard" pop-up
-label on a tab whose rows say "connection", Orientation summary
-"Automatic" though Scroll axes has no Automatic. Also still open:
-the disabled latency fields show the config values (2.0 / 10.0) while
-the gesture ran at the adaptive 1.5 ms — nothing says adaptive chose it.
+**Backlog from the snapshot — ALL DONE + DEPLOYED later the same night
+(rawtouch second commit `4aac6ec`, "the critique's P2/P3 backlog"):**
+readout says "acceleration up to", pad tooltips carry
+`devices.<key>.pads.<id>.`, the Display sync footer names the adaptive
+latency the last gesture ran at (shows after the first gesture), gains
+both at 2 decimals + one spoken "times", Orientation row reads "Default"
+and its text aligns with the pop-ups below (chevron takes a 35 pt capsule
+width), Restore Defaults not `.destructive`, `$UID` expanded via
+`getuid()`, "Connection" pop-up, Scrolling footer points at the Advanced
+tab, onboarding window "RawTouch Setup" / "RawTouch can scroll". Verified
+by screenshot + AX dump. Next: re-run `/impeccable critique` after the
+user's next feel session to record the trend (expect ≥ 30).
 
 **Critique tooling (reusable, `/tmp/claude/rt-critique/`, rebuild from
 the transcript if gone):** `wid` (CG window list), `ax` (AX API tool:
