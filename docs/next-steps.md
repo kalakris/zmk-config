@@ -1594,8 +1594,15 @@ first try (run 35792352220); both halves flashed (LH 15:29:50). Live
 Keyboards row over USB AND over Bluetooth: "0.1 · protocol 3 · Pad 1
 half unknown" — the central's byte works on both transports and the
 per-pad slot reads 0 before the LH's first touch, exactly as designed.
-The LH announce (row → "0.1 · protocol 3" after one left-pad touch) was
-not yet observed when this was written.
+The LH announce WORKS on the wire (after the LH's first touch, restarting
+the app made the row read "0.1 · protocol 3") — but the host read the
+feature report only once, at discovery, so without a restart the row
+stayed on "unknown". Host fix in progress (rawtouch, subagent): re-read
+the report when a frame arrives from a pad whose slot version is
+unknown while the central's is known (throttled per touch, gives up
+after a few touches against old firmware). Reproduce the unknown state
+by power-cycling the RIGHT half (the central caches the LH's version;
+an app restart or USB replug does not clear it).
 
 **Remaining, user's hands (superseded list follows):** push zmk-config (CI builds), flash both
 halves, verify the row on USB and BLE + the unknown state; push
