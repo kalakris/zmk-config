@@ -1521,6 +1521,61 @@ stamps nothing):
    latency in the host would be needed before going back to stock
    (`RawTouchConfiguration.latencyMs` is per transport, not per pad).
 
+## bb. RawTouch UI: third `/impeccable critique` → lift-off floor to Momentum, readout vocabulary, "Use RawTouch Scrolling" — DONE + DEPLOYED 2026-09-22 (rawtouch, committed locally, NOT pushed)
+
+Snapshot `~/src/rawtouch/.impeccable/critique/2026-09-22T08-11-17Z__sources-rawtouchapp.md`
+(dual-agent; trend 23 → 30 → 27). The 2026-09-21 additions (item z's
+Adapt-latency toggle + timing readout, item aa's Lift-off section + gate
+word) had been dropped in as features, not UI. Two P1s, both fixed and
+deployed the same night, user chose "P1s only" scope:
+
+1. **Tabs overflowed their fixed windows.** Advanced 690 pt of form in
+   a 580 pt frame → the whole Lift-off group below the fold, no scroll
+   indicator at rest, window not resizable; Keyboards 680 in 640 →
+   Pad 1's Orientation row clipped mid-glyph. Fix: **Lift-off strength
+   floor moved to Scrolling › Momentum** (its key is `momentum.*`, its
+   readout fragment is on the lift-off line, Scrolling's restore now
+   covers it — the carve-out in `restoreScrollingDefaults` is gone);
+   frames 470 / 570 / 680, all three tabs fit with no `AXScrollBar`.
+2. **Readout vocabulary.** Was "… · followed" / "· carried N frames",
+   "Latency 1.5 ms · measured 1.4 · held 0 of 193 frames", and the
+   footer quoted "followed to the lift", which never appeared; the
+   lift-off line truncated at "carried 1 frame" (300.8 pt of 297
+   available). Now `Lift-off 1,850 pt/s, carried 4 frames · coasted
+   1,900 pt` (gate fragment ABSENT when the floor did nothing; coast
+   duration dropped — it follows from coasting time × speed; "no coast,
+   under 100") and `Latency 5.0 ms (measured 4.9) · stalled 0 of 138
+   frames`. Footer, slider tooltip and readout tooltip share the one
+   word "carried". Line widths measured in the footnote font at the
+   sliders' maxima (`/tmp/claude/rt-critique/metrics/w3.swift`
+   pattern: NSFont footnote + monospaced digits, 297 pt budget).
+
+Plus one user-approved P2: menu master switch renamed **"Use RawTouch
+Scrolling"** (off = Standard mode, the keyboard keeps scrolling, so
+"Enable Scrolling" off read as broken; matches "Use RawTouch over this
+connection"). README/DESIGN.md updated. 397 tests.
+
+**Open backlog from the snapshot (not done, by the user's choice):**
+P2 "gain up to 1.4×" under "Scroll gain 1.14×" are two gains with one
+word (→ "acceleration up to"); P2 pad tooltips name bare keys (`scale`,
+`axes`) while the connection toggle names `devices.<key>.enabled` — pass
+the key prefix into `PadSettingsSection`; P3 "1.00" beside "16.0",
+VoiceOver "times" vs "×", pop-up value text 21 pt left of the row
+above, Restore Defaults styled `.destructive` for a keep-by-default
+reset, literal `$UID` in the already-running alert, "Keyboard" pop-up
+label on a tab whose rows say "connection", Orientation summary
+"Automatic" though Scroll axes has no Automatic. Also still open:
+the disabled latency fields show the config values (2.0 / 10.0) while
+the gesture ran at the adaptive 1.5 ms — nothing says adaptive chose it.
+
+**Critique tooling (reusable, `/tmp/claude/rt-critique/`, rebuild from
+the transcript if gone):** `wid` (CG window list), `ax` (AX API tool:
+`dump [roles]` / `all` / `press "<substring>"` / `focused`; downcasts
+to `AXValue`/`AXUIElement` must go through `CFGetTypeID`, `as?` is a
+compile error), `capture.sh` (menu + all three tabs + expanded
+Orientation + scrolled-to-bottom, PNG + AX dumps per view). Detector is
+web-only: exit 0 on Swift means "not scanned".
+
 ## aa. RawTouch: lift-off strength floor → flick carry-through — SIMPLIFIED + DEPLOYED 2026-09-21 (rawtouch `3c16c8a`, `momentum.liftStrengthFloor` 0.6; 397 tests; feel test pending)
 
 **FINAL SHAPE (2026-09-21, the user asked for fewer conditionals;
