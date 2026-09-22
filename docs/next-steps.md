@@ -1582,8 +1582,9 @@ caption + age (`AppModel.lastGestureAt`, stamped at lift-off via
 of truncating; "Gain for Pad 0 on …" VoiceOver title on the pad gain
 slider; `loginItemError` → attention line + needs-attention icon;
 onboarding opens once (`UserDefaults` `onboardingShown`) and again on
-grant loss, Esc = Not Now. Deployed; the screen locked mid-verification,
-so the screenshot check of this build is the first thing to do next.
+grant loss, Esc = Not Now. Deployed and screenshot-verified after the screen
+unlocked (chevron, inset, "Default", caption; the age line and the named
+saved entry need a gesture / an unplugged keyboard to observe).
 
 Open from the fourth snapshot (P3/minor, not done): the Connection pop-up
 cannot return to follow-last-used once picked; no version/About/README
