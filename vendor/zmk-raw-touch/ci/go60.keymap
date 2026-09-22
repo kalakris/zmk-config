@@ -1,0 +1,54 @@
+/*
+ * Copyright (c) 2026 Mrinal Kalakrishnan
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ * The smallest keymap that lets the README's examples compile on a Go60:
+ * three layers, so that SCROLL_LAYER (2, as in the README) exists, and a
+ * key that activates it. Included by go60_lh.keymap and go60_rh.keymap,
+ * which add the trackpad configuration for their half.
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+#define SCROLL_LAYER 2
+
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+
+        base {
+            bindings = <
+&kp GRAVE &kp N1 &kp N2 &kp N3 &kp N4 &kp N5              &kp N6 &kp N7 &kp N8    &kp N9  &kp N0   &kp MINUS
+&kp TAB   &kp Q  &kp W  &kp E  &kp R  &kp T               &kp Y  &kp U  &kp I     &kp O   &kp P    &kp BSLH
+&kp ESC   &kp A  &kp S  &kp D  &kp F  &kp G               &kp H  &kp J  &kp K     &kp L   &kp SEMI &kp SQT
+&kp LSHFT &kp Z  &kp X  &kp C  &kp V  &kp B               &kp N  &kp M  &kp COMMA &kp DOT &kp FSLH &kp RSHFT
+                 &kp LCTRL &kp LALT &kp LGUI              &kp LEFT &kp DOWN &kp RIGHT
+                 &mo SCROLL_LAYER &kp SPACE &kp BSPC      &kp RET &kp DEL &mo 1
+            >;
+        };
+
+        layer_1 {
+            bindings = <
+&trans &trans &trans &trans &trans &trans              &trans &trans &trans &trans &trans &trans
+&trans &trans &trans &trans &trans &trans              &trans &trans &trans &trans &trans &trans
+&trans &trans &trans &trans &trans &trans              &trans &trans &trans &trans &trans &trans
+&trans &trans &trans &trans &trans &trans              &trans &trans &trans &trans &trans &trans
+              &trans &trans &trans                     &trans &trans &trans
+              &trans &trans &trans                     &trans &trans &trans
+            >;
+        };
+
+        scroll {
+            bindings = <
+&trans &trans &trans &trans &trans &trans              &trans &trans &trans &trans &trans &trans
+&trans &trans &trans &trans &trans &trans              &trans &trans &trans &trans &trans &trans
+&trans &trans &trans &trans &trans &trans              &trans &trans &trans &trans &trans &trans
+&trans &trans &trans &trans &trans &trans              &trans &trans &trans &trans &trans &trans
+              &trans &trans &trans                     &trans &trans &trans
+              &trans &trans &trans                     &trans &trans &trans
+            >;
+        };
+    };
+};

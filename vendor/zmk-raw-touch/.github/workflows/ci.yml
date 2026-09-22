@@ -1,0 +1,77 @@
+# Two checks on every push and pull request, plus one on release tags:
+#
+#   readme-examples  The README's configuration blocks are copies of the
+#                    files under examples/ (and its diff blocks are
+#                    generated from them). scripts/check-readme-examples.py
+#                    fails if either has drifted; run it with --write to
+#                    refresh the README from the files.
+#
+#   firmware         The examples compile. ci/ is a ZMK config directory
+#                    that includes them for the MoErgo Go60, the one board
+#                    the module has been verified on, against the exact
+#                    ZMK tree and Cirque driver revisions the README's
+#                    compatibility table names. Both halves are built so
+#                    every compile path is covered: USB and BLE transports
+#                    on the central, the split stamp on the peripheral, and
+#                    all three input processors. The resulting UF2s are
+#                    uploaded as the run's artifact.
+#
+#   version-tag      A v* tag names the version the firmware reports, so it
+#                    has to agree with include/zmk/raw_touch/version.h.
+#                    Runs only on tag pushes; the patch level is the tag's
+#                    alone, since version.h does not carry one.
+#
+# The firmware job reuses ZMK's own user-config workflow, which passes this
+# checkout as an extra module. Anyone can reproduce it locally: see
+# ci/build.yaml for the west and cmake invocation.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readme-examples:
+    name: README examples match examples/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: python3 scripts/check-readme-examples.py
+
+  firmware:
+    name: Example firmware
+    permissions:
+      contents: read
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@v0.3
+    with:
+      config_path: ci
+      build_matrix_path: ci/build.yaml
+      archive_name: go60-example-firmware
+
+  version-tag:
+    name: Tag matches version.h
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Compare the tag with include/zmk/raw_touch/version.h
+        run: |
+          set -eu
+          header=include/zmk/raw_touch/version.h
+          major=$(awk '/^#define ZMK_RAW_TOUCH_MODULE_VERSION_MAJOR /{print $3}' "$header")
+          minor=$(awk '/^#define ZMK_RAW_TOUCH_MODULE_VERSION_MINOR /{print $3}' "$header")
+          tag=${GITHUB_REF_NAME#v}
+          # The tag may add a patch level (and a pre-release suffix); it may
+          # not disagree about major.minor, which is what the wire reports.
+          case "$tag" in
+            "$major.$minor" | "$major.$minor".*) ;;
+            *)
+              echo "::error file=$header::Tag $GITHUB_REF_NAME does not match $header ($major.$minor)"
+              exit 1
+              ;;
+          esac
+          echo "Tag $GITHUB_REF_NAME matches $header ($major.$minor)"

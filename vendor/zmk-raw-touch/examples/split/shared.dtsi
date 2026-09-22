@@ -1,0 +1,17 @@
+/ {
+    inputs {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        trackpad_split: trackpad_split@0 {
+            compatible = "zmk,input-split";
+            reg = <0>;
+        };
+    };
+
+    remote_trackpad_listener: remote_trackpad_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackpad_split>;
+        status = "disabled";
+    };
+};

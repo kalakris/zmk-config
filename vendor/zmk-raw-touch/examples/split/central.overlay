@@ -1,0 +1,44 @@
+#include <input/processors.dtsi>
+#include <raw_touch/processors.dtsi>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <dt-bindings/zmk/input_transform.h>
+
+#define SCROLL_LAYER 2
+
+&trackpad_split {
+    /delete-property/ device;
+};
+
+/ {
+    raw_touch_remote: raw_touch_remote {
+        compatible = "zmk,raw-touch-pad";
+        device = <&trackpad_split>;
+        pad-id = <1>; /* Local pad uses 0. */
+        rotate-90;
+        y-invert;
+        tap-click;
+    };
+
+    input_processors {
+        zip_raw_touch_idle_filter_remote: zip_raw_touch_idle_filter_remote {
+            compatible = "zmk,input-processor-raw-touch-idle-filter";
+            #input-processor-cells = <0>;
+        };
+    };
+};
+
+&remote_trackpad_listener {
+    status = "okay";
+    device = <&trackpad_split>;
+    input-processors = <&zip_xy_scaler 1 1>,
+                       <&zip_raw_touch_idle_filter_remote>;
+
+    scroll {
+        layers = <SCROLL_LAYER>;
+        input-processors = <&zip_raw_touch_scroll>,
+                           <&zip_xy_to_scroll_mapper>,
+                           <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
+                           <&zip_scroll_scaler 1 24>,
+                           <&zip_raw_touch_idle_filter_remote>;
+    };
+};

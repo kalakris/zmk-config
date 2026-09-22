@@ -1,0 +1,39 @@
+#include <input/processors.dtsi>
+#include <raw_touch/processors.dtsi>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <dt-bindings/zmk/input_transform.h>
+
+#define SCROLL_LAYER 2
+
+&trackpad {
+    data-mode = "absolute";
+    idle-packets-count = <3>;
+    /delete-property/ primary-tap-enable;
+};
+
+/ {
+    raw_touch_pad: raw_touch_pad {
+        compatible = "zmk,raw-touch-pad";
+        device = <&trackpad>;
+        pad-id = <0>;
+        rotate-90;
+        y-invert;
+        tap-click;
+    };
+
+    trackpad_listener: trackpad_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackpad>;
+        input-processors = <&zip_xy_scaler 1 1>,
+                           <&zip_raw_touch_idle_filter>;
+
+        scroll {
+            layers = <SCROLL_LAYER>;
+            input-processors = <&zip_raw_touch_scroll>,
+                               <&zip_xy_to_scroll_mapper>,
+                               <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
+                               <&zip_scroll_scaler 1 24>,
+                               <&zip_raw_touch_idle_filter>;
+        };
+    };
+};

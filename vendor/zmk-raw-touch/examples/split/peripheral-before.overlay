@@ -1,0 +1,12 @@
+&remote_trackpad {
+    data-mode = "relative";
+    primary-tap-enable;
+};
+
+&trackpad_split {
+    device = <&remote_trackpad>;
+};
+
+&remote_trackpad_listener {
+    status = "disabled";
+};

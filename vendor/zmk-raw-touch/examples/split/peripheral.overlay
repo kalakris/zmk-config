@@ -1,0 +1,24 @@
+&remote_trackpad {
+    data-mode = "absolute";
+    idle-packets-count = <3>;
+    /delete-property/ primary-tap-enable;
+};
+
+/ {
+    input_processors {
+        zip_raw_touch_split_stamp: zip_raw_touch_split_stamp {
+            compatible = "zmk,input-processor-raw-touch-split-stamp";
+            #input-processor-cells = <1>;
+        };
+    };
+};
+
+&trackpad_split {
+    device = <&remote_trackpad>;
+    /* The cell is the relay's own reg (trackpad_split@0 -> 0). */
+    input-processors = <&zip_raw_touch_split_stamp 0>;
+};
+
+&remote_trackpad_listener {
+    status = "disabled";
+};

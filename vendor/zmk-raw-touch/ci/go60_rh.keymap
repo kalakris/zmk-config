@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2026 Mrinal Kalakrishnan
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ * The central half of the CI build. It compiles three README examples on
+ * top of the shared keymap:
+ *
+ *   examples/trackpad/raw-touch.overlay        the local pad (pad-id 0)
+ *   examples/trackpad/dedicated-scroll.overlay ... as a dedicated scroll pad
+ *   examples/split/central.overlay             the relayed pad (pad-id 1)
+ *
+ * The examples are written against the README's generic labels. The
+ * #defines below map those onto the Go60's board nodes before each
+ * include, so the files compile unchanged. (Keymaps go through the C
+ * preprocessor, so a #define renames a label everywhere it is used.)
+ */
+
+#include "go60.keymap"
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/* Go60 glue, not part of any example: the board DTS configures its pad for
+ * MoErgo's forked Cirque driver. The in-tree driver this build uses has
+ * different property names, and edtlib rejects properties a binding does
+ * not declare, so the forked ones are deleted and the data-ready GPIO is
+ * set under its in-tree name. Orientation is NOT set here: the examples
+ * declare it on the raw-touch pad node. */
+&glidepoint {
+    /delete-property/ dr-gpios;
+    /delete-property/ rotate-90;
+    /delete-property/ y-invert;
+    /delete-property/ no-secondary-tap;
+
+    data-ready-gpios = <&go60_ext 4 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+};
+
+/* The README's `trackpad` is the Go60's `glidepoint`. */
+#define trackpad glidepoint
+#include "examples/trackpad/raw-touch.overlay"
+#include "examples/trackpad/dedicated-scroll.overlay"
+
+/* The README's relay is the Go60's `cirque_split`; the listener the board
+ * pre-declares (disabled) for the left pad stands in for
+ * `remote_trackpad_listener`. */
+#define trackpad_split cirque_split
+#define remote_trackpad_listener cirque_lh_listener
+#include "examples/split/central.overlay"

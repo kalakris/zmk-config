@@ -16,6 +16,10 @@ description: |
   handler uses it in place of its own. Nothing is needed on the central,
   and the wire protocol is unchanged - the timestamp just gets better.
 
+  Ahead of the first frame of each touch it also sends this half's module
+  version, which the central publishes in the relayed pad's feature-report
+  slot, so a host can see which build each half runs.
+
   The one cell parameter is the relay's `reg` (the unit address of the
   zmk,input-split node, e.g. 0 for `trackpad_split@0`): the central
   routes relayed events to its matching relay node by that address, so

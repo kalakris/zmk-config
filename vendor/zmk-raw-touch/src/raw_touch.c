@@ -19,8 +19,9 @@
  * and a device-side timestamp in 100 us units (host-side velocity that
  * BLE batching cannot
  * distort). A feature report on the same report ID describes the
- * protocol version, the pads present and, per pad, its resolution,
- * orientation, coordinate ranges and contact count; its body is
+ * protocol version, this build's module version, the pads present and,
+ * per pad, its resolution, orientation, coordinate ranges, contact count
+ * and the module version of the half that owns it; its body is
  * 4 + 8 * (pads compiled in) bytes - 20 on a two-pad build - and it is
  * readable over USB GET_REPORT and the BLE HOG feature-report
  * characteristic.
@@ -90,6 +91,13 @@ struct raw_touch_pad_config {
     bool tap_click;
     uint16_t tap_max_ms;
     uint16_t tap_max_movement;
+
+    /* Whether `dev` is a zmk,input-split relay rather than a pad the
+     * central can see directly, i.e. whether the half that owns this pad
+     * is the peripheral. Read off the devicetree, so it cannot disagree
+     * with the wiring. It decides only whose module version the pad's
+     * feature slot reports. */
+    bool relayed;
 };
 
 struct raw_touch_pad_data {
@@ -128,6 +136,16 @@ struct raw_touch_pad_data {
     uint16_t touch_down_x, touch_down_y;
     bool tap_candidate;
     bool tap_scroll_seen;
+
+    /* This pad's slot in the feature report, assigned by raw_touch_init(),
+     * or -1 for a pad that got none (more pads than slots). Only a relayed
+     * pad needs it, to republish its half's version below. */
+    int8_t feature_slot;
+
+    /* Packed module version last announced by the owning half of a relayed
+     * pad; 0 until it announces. Mirrors what the slot already holds, so
+     * the LOG_INF fires once per change rather than once per touch. */
+    uint8_t peer_version;
 };
 
 static void raw_touch_emit_tap(const struct raw_touch_pad_config *cfg) {
@@ -293,10 +311,32 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
     data->prev_touched = touched;
 }
 
+/* The module version of the half that owns a relayed pad, announced ahead
+ * of each touch's first frame (see zmk/raw_touch/split_stamp.h) and
+ * republished in that pad's feature report slot, so a host reading the
+ * report sees both halves' builds. Ignored for a local pad, whose slot
+ * already carries this half's version: nothing should be able to talk a
+ * central out of its own number. */
+static void raw_touch_set_peer_version(const struct raw_touch_pad_config *cfg,
+                                       struct raw_touch_pad_data *data, uint8_t version) {
+    if (!cfg->relayed || version == data->peer_version) {
+        return;
+    }
+
+    data->peer_version = version;
+    LOG_INF("Raw touch pad %d is relayed from a half running module version %d.%d", cfg->pad_id,
+            version >> 4, version & 0x0F);
+
+    if (data->feature_slot >= 0) {
+        zmk_raw_touch_hid_set_feature_slot_version(data->feature_slot, version);
+    }
+}
+
 static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
                                   struct raw_touch_pad_data *data, struct input_event *evt) {
     if (evt->type == ZMK_RAW_TOUCH_SPLIT_STAMP_TYPE) {
-        if (evt->code == ZMK_RAW_TOUCH_SPLIT_STAMP_CODE) {
+        switch (evt->code) {
+        case ZMK_RAW_TOUCH_SPLIT_STAMP_CODE:
             /* The peripheral's sample time, sent just ahead of the frame's
              * sync (see zmk/raw_touch/split_stamp.h). Latest wins: if the
              * stamped frame's own sync were lost on the link, the next
@@ -304,6 +344,10 @@ static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
              * misdating that frame. */
             data->stamp = (uint16_t)evt->value;
             data->stamp_valid = true;
+            break;
+        case ZMK_RAW_TOUCH_SPLIT_VERSION_CODE:
+            raw_touch_set_peer_version(cfg, data, (uint8_t)evt->value);
+            break;
         }
         return;
     }
@@ -362,7 +406,9 @@ static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
 
 #define RT_INST(n)                                                                                 \
     BUILD_ASSERT(DT_INST_PROP(n, pad_id) < 8, "raw touch pad-id must be less than 8");             \
-    static struct raw_touch_pad_data rt_data_##n;                                                  \
+    /* feature_slot starts at "none": raw_touch_init() hands out the real                          \
+     * ones, and nothing may write a slot it does not own before then. */                          \
+    static struct raw_touch_pad_data rt_data_##n = {.feature_slot = -1};                           \
     static const struct raw_touch_pad_config rt_config_##n = {                                     \
         .dev = DEVICE_DT_GET(DT_INST_PHANDLE(n, device)),                                          \
         .pad_id = DT_INST_PROP(n, pad_id),                                                         \
@@ -375,6 +421,7 @@ static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
         .tap_click = DT_INST_PROP(n, tap_click),                                                   \
         .tap_max_ms = DT_INST_PROP(n, tap_max_ms),                                                 \
         .tap_max_movement = DT_INST_PROP(n, tap_max_movement),                                     \
+        .relayed = DT_NODE_HAS_COMPAT(DT_INST_PHANDLE(n, device), zmk_input_split),                \
     };                                                                                             \
     static void rt_input_cb_##n(struct input_event *evt) {                                         \
         raw_touch_input_event(&rt_config_##n, &rt_data_##n, evt);                                  \
@@ -384,9 +431,15 @@ static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
 DT_INST_FOREACH_STATUS_OKAY(RT_INST)
 
 #define RT_CONFIG_REF(n) &rt_config_##n,
+#define RT_DATA_REF(n) &rt_data_##n,
 
 static const struct raw_touch_pad_config *const raw_touch_pads[] = {
     DT_INST_FOREACH_STATUS_OKAY(RT_CONFIG_REF)};
+
+/* Parallel to raw_touch_pads: same pad, same index. Only raw_touch_init()
+ * needs it, to hand each pad the feature slot it was given. */
+static struct raw_touch_pad_data *const raw_touch_pad_datas[] = {
+    DT_INST_FOREACH_STATUS_OKAY(RT_DATA_REF)};
 
 static int raw_touch_init(void) {
     uint8_t pads_present = 0;
@@ -421,9 +474,16 @@ static int raw_touch_init(void) {
             }
 
             /* max_contacts = 1: the module streams a single contact per pad
-             * (contact_id 0); a Pinnacle reports one finger anyway. */
-            zmk_raw_touch_hid_set_feature_slot(slot++, cfg->resolution, RT_ORIENTATION(cfg),
-                                               cfg->x_max, cfg->y_max, 1);
+             * (contact_id 0); a Pinnacle reports one finger anyway.
+             *
+             * The version is the OWNING half's: this build for a local
+             * pad, and 0 (unknown) for a relayed one until its half
+             * announces its own - which it does per touch, so the slot is
+             * updated rather than filled once here. */
+            raw_touch_pad_datas[i]->feature_slot = (int8_t)slot;
+            zmk_raw_touch_hid_set_feature_slot(
+                slot++, cfg->resolution, RT_ORIENTATION(cfg), cfg->x_max, cfg->y_max, 1,
+                cfg->relayed ? 0 : ZMK_RAW_TOUCH_MODULE_VERSION_PACKED);
         }
     }
 

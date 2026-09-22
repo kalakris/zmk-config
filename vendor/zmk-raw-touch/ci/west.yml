@@ -1,0 +1,26 @@
+# West manifest for the CI firmware build: the exact trees the README's
+# compatibility table lists as tested. Bump both SHAs together with that
+# table.
+manifest:
+  remotes:
+    - name: moergo-sc
+      url-base: https://github.com/moergo-sc
+    - name: kalakris
+      url-base: https://github.com/kalakris
+  projects:
+    # MoErgo's ZMK (v0.3.0 / Zephyr 3.5) carries the Go60 board definition.
+    - name: zmk
+      remote: moergo-sc
+      revision: 57a7b8e06b19898e59a4dbd5f554b7ed5677493b
+      import: app/west.yml
+
+    # Overrides the cirque-input-module pin that moergo-sc/zmk's manifest
+    # imports (west keeps the first definition of a project name, and a
+    # manifest's own projects come before its imports). This revision is
+    # Zephyr main's in-tree Pinnacle driver packaged for the older tree,
+    # with the three patches the README describes.
+    - name: cirque-input-module
+      remote: kalakris
+      revision: cbb4eaada3b3be052939a16c0441081a72d7d6b9
+  self:
+    path: ci

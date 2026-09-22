@@ -1,6 +1,13 @@
 build/
 twister-out/
 .west/
+# West checkouts from a local `west init -l ci` land at the repo root.
+# Anchored: an unanchored zmk/ would also swallow include/zmk/.
+/zmk/
+/zephyr/
+/modules/
+/tools/
+/bootloader/
 compile_commands.json
 .DS_Store
 *.swp

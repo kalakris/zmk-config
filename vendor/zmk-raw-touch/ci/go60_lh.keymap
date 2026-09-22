@@ -1,0 +1,35 @@
+/*
+ * Copyright (c) 2026 Mrinal Kalakrishnan
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ * The peripheral half of the CI build. It compiles the README's
+ * split-peripheral example (examples/split/peripheral.overlay, including
+ * the split stamp) on top of the shared keymap, with the example's generic
+ * labels mapped onto the Go60's board nodes by the #defines below.
+ */
+
+#include "go60.keymap"
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/* Go60 glue, not part of any example: see go60_rh.keymap. */
+&glidepoint {
+    /delete-property/ dr-gpios;
+    /delete-property/ rotate-90;
+    /delete-property/ y-invert;
+    /delete-property/ no-secondary-tap;
+
+    data-ready-gpios = <&go60_ext 4 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+};
+
+/* The left half's board DTS also enables a listener on the relay (for the
+ * right pad, when this half is the central). A peripheral processes no
+ * input, so it is disabled along with the local one the example disables. */
+&cirque_rh_listener {
+    status = "disabled";
+};
+
+#define remote_trackpad glidepoint
+#define trackpad_split cirque_split
+#define remote_trackpad_listener cirque_lh_listener
+#include "examples/split/peripheral.overlay"

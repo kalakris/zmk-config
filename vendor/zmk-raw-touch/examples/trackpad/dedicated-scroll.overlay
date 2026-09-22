@@ -1,0 +1,14 @@
+&trackpad_listener {
+    /delete-node/ scroll;
+    input-processors = <&zip_raw_touch_scroll>,
+                       <&zip_xy_to_scroll_mapper>,
+                       <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
+                       <&zip_scroll_scaler 1 24>,
+                       <&zip_raw_touch_idle_filter>;
+};
+
+&raw_touch_pad {
+    /* Firmware suppresses taps for scroll-context touches, so tap-click
+     * would have no effect on a pad that always scrolls. */
+    /delete-property/ tap-click;
+};

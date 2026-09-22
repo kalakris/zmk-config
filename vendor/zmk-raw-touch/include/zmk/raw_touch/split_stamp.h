@@ -3,7 +3,8 @@
  *
  * SPDX-License-Identifier: MIT
  *
- * Peripheral sample-time stamps for relayed pads.
+ * What a split peripheral tells the central about a relayed pad: the
+ * sample time of every frame, and its own module version.
  *
  * A pad on a split peripheral reaches the module through ZMK's
  * `zmk,input-split` relay, and the frame handler on the central stamps
@@ -34,12 +35,29 @@
 #include <zephyr/kernel.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 
-/** Event type of the stamp: the first vendor-specific type Zephyr reserves. */
+#include <zmk/raw_touch/version.h>
+
+/** Event type of both messages: the first vendor-specific type Zephyr
+ * reserves. The code tells them apart. */
 #define ZMK_RAW_TOUCH_SPLIT_STAMP_TYPE INPUT_EV_VENDOR_START
 
 /** Event code of the stamp ('T' 'S'); distinctive, so a stray vendor event
  * from something else is not mistaken for one. */
 #define ZMK_RAW_TOUCH_SPLIT_STAMP_CODE 0x5453
+
+/** Event code of the version announcement ('T' 'V'), whose value is the
+ * peripheral's ZMK_RAW_TOUCH_MODULE_VERSION_PACKED. The central publishes
+ * it in the relayed pad's feature-report slot, so a host reading that
+ * report learns which build each half is running, not just the central's.
+ *
+ * Sent ahead of the first frame of every touch rather than once when the
+ * split link comes up: ZMK raises its peripheral connected event only on
+ * the BLE split (src/split/bluetooth/peripheral.c), so a wired split - the
+ * reference board - would never announce at all. Per touch also re-teaches
+ * a central that rebooted while the peripheral kept running, and one extra
+ * 4-byte event per touch is nothing beside the per-frame stamp. The cost
+ * is that the version reads 0 until the user's first touch. */
+#define ZMK_RAW_TOUCH_SPLIT_VERSION_CODE 0x5456
 
 /** Now, in the wire timestamp's units (100 us, HID Scan Time convention).
  * The full 32-bit count travels in the event's value; the frame handler

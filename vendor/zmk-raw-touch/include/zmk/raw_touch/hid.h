@@ -21,6 +21,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
 
+#include <zmk/raw_touch/version.h>
+
 /* Protocol identity, fixed rather than Kconfig-tunable: hosts match the
  * application collection by usage page/usage and then the report ID, so a
  * different value would be silently invisible to every host. */
@@ -120,14 +122,21 @@ struct zmk_raw_touch_feature_pad_slot {
     uint16_t x_max;       /* little-endian */
     uint16_t y_max;       /* little-endian */
     uint8_t max_contacts; /* 1 on a Pinnacle */
-    uint8_t reserved;     /* 0 */
+    /* Packed module version (zmk/raw_touch/version.h) of the half that
+     * OWNS this pad - this one for a local pad, the peripheral's own for a
+     * relayed pad, which announces it over the split link (0 until it
+     * has; see zmk/raw_touch/split_stamp.h). */
+    uint8_t module_version;
 } __packed;
 
 struct zmk_raw_touch_feature_body {
     uint8_t protocol_version; /* ZMK_RAW_TOUCH_PROTOCOL_VERSION */
     uint8_t pads_present;     /* bit N set if pad-id N exists */
     uint8_t capabilities;     /* ZMK_RAW_TOUCH_CAP_* */
-    uint8_t reserved;         /* 0 */
+    /* Packed module version of the half answering this report, i.e. the
+     * central. Diagnostic only: protocol_version above is what a host
+     * keys its parsing off. */
+    uint8_t module_version;
     /* Present pads in ascending pad-id order, one slot per pad compiled
      * in. Hosts recover N from the report length as (len - 4) / 8 and
      * read min(N, popcount(pads_present)) slots; any slot they do not
@@ -155,5 +164,10 @@ struct zmk_raw_touch_report *zmk_raw_touch_hid_get_report(void);
 
 void zmk_raw_touch_hid_set_feature_header(uint8_t pads_present);
 void zmk_raw_touch_hid_set_feature_slot(int slot, uint8_t resolution, uint8_t orientation,
-                                        uint16_t x_max, uint16_t y_max, uint8_t max_contacts);
+                                        uint16_t x_max, uint16_t y_max, uint8_t max_contacts,
+                                        uint8_t module_version);
+/* A relayed pad's owning half announces its version over the split link,
+ * which happens long after init has filled the slots - so that one byte
+ * alone can be set again later. */
+void zmk_raw_touch_hid_set_feature_slot_version(int slot, uint8_t module_version);
 struct zmk_raw_touch_feature_report *zmk_raw_touch_hid_get_feature_report(void);

@@ -1,0 +1,22 @@
+---
+# Build matrix for the CI firmware job (.github/workflows/ci.yml), consumed
+# by ZMK's reusable build-user-config workflow with config_path: ci.
+#
+# The two Go60 halves compile the README's examples: ci/go60_rh.keymap
+# includes the local-pad, dedicated-scroll and split-central examples, and
+# ci/go60_lh.keymap the split-peripheral one. Those keymaps reach the files
+# under examples/ through the extra DTS include path below; the workflow
+# already passes the checkout itself as -DZMK_EXTRA_MODULES.
+#
+# To reproduce locally, from a west workspace whose manifest is ci/west.yml
+# (west init -l ci && west update):
+#
+#   west build -s zmk/app -b go60_rh -- \
+#       -DZMK_CONFIG=$PWD/ci \
+#       -DZMK_EXTRA_MODULES=$PWD \
+#       -DDTS_EXTRA_CPPFLAGS=-I$PWD
+include:
+  - board: go60_lh
+    cmake-args: -DDTS_EXTRA_CPPFLAGS=-I${GITHUB_WORKSPACE}
+  - board: go60_rh
+    cmake-args: -DDTS_EXTRA_CPPFLAGS=-I${GITHUB_WORKSPACE}

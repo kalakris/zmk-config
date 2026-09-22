@@ -138,9 +138,9 @@ const uint8_t zmk_raw_touch_report_desc[] = {
      * (its u16 members are protocol-level structure the host parses by
      * offset; the descriptor does not model them). Readable over USB
      * GET_REPORT and the BLE feature report characteristic.
-     * protocol_version, pads_present, capabilities, reserved, then one
-     * 8-byte slot per pad compiled in: 4 + 8 * N bytes, 20 on the two-pad
-     * reference build.
+     * protocol_version, pads_present, capabilities, module_version, then
+     * one 8-byte slot per pad compiled in: 4 + 8 * N bytes, 20 on the
+     * two-pad reference build.
      *
      * The count is taken from sizeof() rather than written out, so the
      * descriptor and the struct cannot drift apart when the pad count
@@ -181,6 +181,9 @@ struct zmk_raw_touch_report *zmk_raw_touch_hid_get_report(void) { return &touch_
 static struct zmk_raw_touch_feature_report touch_feature_report = {
     .report_id = ZMK_RAW_TOUCH_REPORT_ID,
     .body = {.protocol_version = ZMK_RAW_TOUCH_PROTOCOL_VERSION,
+             /* This half's build. A relayed pad's slot carries its own
+              * half's version instead, filled in by src/raw_touch.c. */
+             .module_version = ZMK_RAW_TOUCH_MODULE_VERSION_PACKED,
              /* The host claim needs a host-facing transport for its
               * writes; without one the capability must not be advertised.
               * (Moot in practice: with no transport there is no host to
@@ -196,7 +199,8 @@ void zmk_raw_touch_hid_set_feature_header(uint8_t pads_present) {
 }
 
 void zmk_raw_touch_hid_set_feature_slot(int slot, uint8_t resolution, uint8_t orientation,
-                                        uint16_t x_max, uint16_t y_max, uint8_t max_contacts) {
+                                        uint16_t x_max, uint16_t y_max, uint8_t max_contacts,
+                                        uint8_t module_version) {
     if (slot < 0 || slot >= ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS) {
         LOG_ERR("Raw touch feature slot %d out of range", slot);
         return;
@@ -209,6 +213,18 @@ void zmk_raw_touch_hid_set_feature_slot(int slot, uint8_t resolution, uint8_t or
     pad->x_max = sys_cpu_to_le16(x_max);
     pad->y_max = sys_cpu_to_le16(y_max);
     pad->max_contacts = max_contacts;
+    pad->module_version = module_version;
+}
+
+void zmk_raw_touch_hid_set_feature_slot_version(int slot, uint8_t module_version) {
+    if (slot < 0 || slot >= ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS) {
+        LOG_ERR("Raw touch feature slot %d out of range", slot);
+        return;
+    }
+
+    /* A lone byte, so a host GET racing this write reads either the old
+     * value or the new one - never a torn slot. */
+    touch_feature_report.body.pads[slot].module_version = module_version;
 }
 
 struct zmk_raw_touch_feature_report *zmk_raw_touch_hid_get_feature_report(void) {

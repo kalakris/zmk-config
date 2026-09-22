@@ -1521,7 +1521,7 @@ stamps nothing):
    latency in the host would be needed before going back to stock
    (`RawTouchConfiguration.latencyMs` is per transport, not per pad).
 
-## cc. About panel + versioning scheme (app, module, protocol) — BRIEF CONFIRMED 2026-09-22, NOT STARTED
+## cc. About panel + versioning scheme (app, module, protocol) — HOST DONE + DEPLOYED, MODULE COMMITTED + VENDORED 2026-09-22; NOT pushed, NOT flashed, NOT tagged
 
 Shaped with `/impeccable shape`; the user confirmed the brief. Facts that
 shaped it: rawtouch already has GitHub releases v0.1.0–v0.1.2 (pipeline
@@ -1559,7 +1559,43 @@ has one reserved byte (offset 3) and each pad slot has one.
   `RawTouchCapabilities` rejects a non-zero reserved byte (decides
   old-app ↔ new-firmware tolerance).
 
-**Build order:** (1) host About item + panel + version stamping incl.
+**Status 2026-09-22 (built by three Opus subagents in parallel, merged by hand):**
+- Host, rawtouch `9c7324a` (About panel, `AppVersion`, stamping in
+  `make-app.sh` + `release.yml` `fetch-depth: 0`, plist placeholders
+  0.0.0/0) + `3e9657f` merged as `30227ab` (`RawTouchFirmwareVersion`,
+  capabilities bytes 3 / +7, `Endpoint.firmwareVersion` +
+  `padFirmwareVersions`, `StatusFormatter.firmwareLine`, Keyboards
+  "Firmware" row, height 720, README compatibility table). 424 tests.
+  DEPLOYED: About panel shows "0.0.0-dev (82)" + credits; the Firmware
+  row reads "protocol 3 · version unknown" against today's firmware.
+  Fact: the old parser never looked at the reserved bytes, so old app ↔
+  new firmware is fine.
+- Module, zmk-raw-touch `7c1fca4`: `version.h` (0.1 → 0x01), body byte 3
+  + slot byte 7 = `module_version`, peripheral announces with vendor
+  code `0x5456` before the first stamped frame of each touch (≥ 500 ms
+  gap = new touch; NO connect hook — the wired split raises none a
+  module can subscribe to), central caches per relayed pad
+  (`cfg->relayed` from `DT_NODE_HAS_COMPAT(…, zmk_input_split)`),
+  `version-tag` CI job. NOT compiled locally (no build env) — CI on the
+  next push is the first compile; the agent's stated risks:
+  `DT_NODE_HAS_COMPAT` expansion (cosmetic if wrong) and a file-scope
+  `BUILD_ASSERT` in a header.
+- Vendored into `vendor/zmk-raw-touch/` (this commit). Pipeline-test
+  releases v0.1.0–v0.1.2 deleted from GitHub and locally.
+
+**Expected on hardware after flashing BOTH halves:** Firmware row
+"0.1 · protocol 3"; right after a reboot, "0.1 · protocol 3 · Pad 1 half
+unknown" until the first LH touch (per-touch announce); with the LH
+powered off, the same "unknown". A right-half-only flash of a future
+version shows "0.2 · protocol 3 · Pad 1 half 0.1".
+
+**Remaining, user's hands:** push zmk-config (CI builds), flash both
+halves, verify the row on USB and BLE + the unknown state; push
+zmk-raw-touch and rawtouch; tag module `v0.1.0` (CI checks it against
+`version.h`) and app `v0.1.0` (release workflow → notarized DMG with
+"0.1.0 (N)").
+
+**Build order (original):** (1) host About item + panel + version stamping incl.
 dev builds + delete test releases; (2) host parses the two bytes,
 Firmware row + states + tests; (3) module `version.h`, body byte,
 peripheral hello + central cache, slot byte, README appendix; (4) sync
