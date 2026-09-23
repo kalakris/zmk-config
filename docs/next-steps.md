@@ -150,7 +150,7 @@ over 25 s: pad 0 476 frames, pad 1 ZERO, both endpoints leased (flags
 6) — so no LH input events reach the central at all: driver/split level,
 not the host. The module change in that build was the lease rename only
 (no driver change; the identical driver pin flashed fine 2026-09-22
-20:55). Recovery: power-cycle the LH. Pattern so far: both recurrences
+20:55). Recovery: power-cycle the LH — CONFIRMED (user: keys always worked, swipes back after the power cycle). Pattern so far: both recurrences
 followed a reboot sequence, not a plain power-on — next step if it
 recurs is LH USB logging (`CONFIG_ZMK_USB_LOGGING`) to catch the
 Pinnacle init path (SW_CC / DR state) on the failing boot. Fixing this was the MUST-FIX gate before upstreaming the
