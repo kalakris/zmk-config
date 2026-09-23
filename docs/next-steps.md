@@ -1829,9 +1829,11 @@ context item to edit, Return/Escape, blank = default as placeholder,
 `renameAction`/`RenameButton` for VoiceOver, 24-char cap) replacing the
 pad Name row; `devices.<key>.name` is now the user's (the app no longer
 auto-records names). Screenshots in `/tmp/claude/rt-critique/shots12`.
-Open: the header text sits ~9 pt right of where a plain header sits (fix
-sent to the builder); user's feel check on mm/s momentum; rename try-out;
-then the sixth critique.
+Header alignment fixed in `381d233` (padding as a negative inset on the
+hover background, pencil in an overlay; 490 tests, CI 35833502590),
+deployed and captured flush at 00:45 (`shots13`). Open: the user's feel
+check on mm/s momentum, a rename try-out, then the sixth critique for
+the trend.
 
 
 **Decisions 2026-09-22 (fifth `/impeccable critique`, 27/40, snapshot
