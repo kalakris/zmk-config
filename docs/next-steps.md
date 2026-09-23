@@ -1113,7 +1113,19 @@ code-reviewed, not seen live; Orientation "Automatic" still does not
 show the resolved value. Next: user flicks a pad and checks the readout
 and the pop-up following the pad's connection, then push.
 
-## v. RawTouch live readout: graphical add-ons — IDEAS, NOT STARTED (2026-09-16)
+## v. RawTouch live readout: graphical add-ons — POST-RELEASE UPGRADE (decided 2026-09-22; ideas from 2026-09-16)
+
+**Direction (user, 2026-09-22, after the fifth critique):** deferred until
+after the first public release, and then not as add-ons to the footer but
+as the window's centre: a **canvas-first layout** — the live readout,
+large and visual (the finger canvas per pad with its fading trail, the
+gesture trace and numbers), fills the main area, with the settings off to
+the right as a narrow column. The sliders become the sidebar to the
+instrument rather than the other way round. Also in that upgrade: hold /
+compare a reading, per-pad last-gesture memory, a short gesture history,
+and a VoiceOver announcement per reading. The three items below are the
+building blocks, in the same order.
+
 
 The last-gesture readout now lives in the bottom bar of every settings
 tab (pad · connection / peak finger speed + gain / lift-off speed + coast),
