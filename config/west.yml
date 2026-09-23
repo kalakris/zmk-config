@@ -46,7 +46,7 @@ manifest:
     # the keymaps. See docs/pinnacle-driver-landscape.md.
     - name: cirque-input-module
       remote: kalakris
-      revision: cbb4eaada3b3be052939a16c0441081a72d7d6b9
+      revision: 89a08962
 
     - name: nice-view-battery
       remote: infely
