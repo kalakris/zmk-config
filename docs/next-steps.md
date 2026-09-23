@@ -1831,9 +1831,17 @@ pad Name row; `devices.<key>.name` is now the user's (the app no longer
 auto-records names). Screenshots in `/tmp/claude/rt-critique/shots12`.
 Header alignment fixed in `381d233` (padding as a negative inset on the
 hover background, pencil in an overlay; 490 tests, CI 35833502590),
-deployed and captured flush at 00:45 (`shots13`). Open: the user's feel
-check on mm/s momentum, a rename try-out, then the sixth critique for
-the trend.
+deployed and captured flush at 00:45 (`shots13`). Rename tried by the
+user ("awesome") → two defects fixed in `176e7eb` (the TextField's first
+argument is its LABEL, so the Form drew label-left/field-right beside the
+heading; now `TextField(text:prompt:label:)` + `.labelsHidden()`, seeded
+with the current name and select-all via the first responder; unchanged
+Return writes nothing) and the **Hardware ID row removed** (user: not
+needed — the key lives in every row's tooltip, the twins' picker tail, the
+saved entry's "Saved as", and the Remove Settings… text). Deployed
+2026-09-23 ~01:10 (491 tests, CI 35834500584). **Next (user decision):
+drop the CLI daemon** (`rawtouch` target, LaunchAgent plist, README
+sections) — brief sent to the builder; then the sixth critique.
 
 
 **Decisions 2026-09-22 (fifth `/impeccable critique`, 27/40, snapshot
