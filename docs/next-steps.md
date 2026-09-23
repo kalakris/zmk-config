@@ -142,7 +142,18 @@ discovered after the RH had been reflashed on 2026-09-06 (the LH was not
 reflashed and had been up since 2026-09-04). Power-cycling the LH
 revived it. Unknown whether it died at the RH reboot (peripheral sits
 unpolled while the central is in bootloader) or earlier; not
-reproduced. Watch for the next one and note what preceded it. Fixing this was the MUST-FIX gate before upstreaming the
+reproduced. Watch for the next one and note what preceded it. **Second recurrence
+2026-09-23 ~14:15:** both halves flashed from `7e4cf0f` (RH 14:11:34,
+then LH 14:11:48 — the LH rebooted while the central was already up);
+afterwards the LH pad was dead while its keys worked. Passive monitor
+over 25 s: pad 0 476 frames, pad 1 ZERO, both endpoints leased (flags
+6) — so no LH input events reach the central at all: driver/split level,
+not the host. The module change in that build was the lease rename only
+(no driver change; the identical driver pin flashed fine 2026-09-22
+20:55). Recovery: power-cycle the LH. Pattern so far: both recurrences
+followed a reboot sequence, not a plain power-on — next step if it
+recurs is LH USB logging (`CONFIG_ZMK_USB_LOGGING`) to catch the
+Pinnacle init path (SW_CC / DR state) on the failing boot. Fixing this was the MUST-FIX gate before upstreaming the
 ERA/recalibrate patches to Zephyr (see
 [upstreaming-todo.md](upstreaming-todo.md)).
 
