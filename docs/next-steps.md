@@ -1719,7 +1719,14 @@ hardware.
   `device_id`), and the prose in `CLAUDE.md` / `AGENTS.md` /
   `docs/raw-touch.md` / the publish brief's freeze bullet.
 
-**CI:** CIRESULTS
+**CI:** all three green on the first push. Module run `35804010349`
+(README examples match, both Go60 halves compile the examples against the
+pinned trees — so `select HWINFO` and the new struct build on real
+firmware); rawtouch run `35804011262` (build, 449 tests, `scroll-bench
+--offline`, ad-hoc-signed bundle, event-tap symbol check); zmk-config run
+`35804016972` (`Build and Draw` — all five firmware targets, including
+both Go60 halves against the vendored module). Firmware downloaded to
+`firmware/main/firmware/go60_{lh,rh}-zmk.uf2`.
 
 **Remaining, the user's hands:**
 1. **Flash BOTH halves** from `firmware/main/firmware` —
