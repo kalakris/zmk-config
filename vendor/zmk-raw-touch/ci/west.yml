@@ -21,6 +21,6 @@ manifest:
     # with the three patches the README describes.
     - name: cirque-input-module
       remote: kalakris
-      revision: cbb4eaada3b3be052939a16c0441081a72d7d6b9
+      revision: 89a08962
   self:
     path: ci

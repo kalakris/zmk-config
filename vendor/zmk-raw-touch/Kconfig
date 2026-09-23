@@ -23,7 +23,7 @@ config ZMK_RAW_TOUCH
       into the pad's normal input listener chain as well, so ordinary
       pointing (and any keymap wheel-mapping overlays) keep working with
       no host software at all (Standard mode). Frames are only emitted
-      while a host has claimed them (RawTouch mode).
+      while a host holds a lease on them (RawTouch mode).
 
       Configure pads with zmk,raw-touch-pad devicetree nodes.
 
@@ -127,7 +127,7 @@ config ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_MAX_DEVICES
     help
       The marker processor latches a flag per input device whose events
       reach it, and each pad's frame handler reads and clears its own.
-      One table entry is claimed per distinct input device that ever
+      One table entry is taken per distinct input device that ever
       reaches a marker - normally just the streaming pads.
 
 config ZMK_INPUT_PROCESSOR_RAW_TOUCH_IDLE_FILTER

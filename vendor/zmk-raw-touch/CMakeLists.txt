@@ -22,12 +22,12 @@ if(CONFIG_ZMK_RAW_TOUCH OR CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL OR CONFIG
   target_sources_ifdef(CONFIG_ZMK_RAW_TOUCH app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/raw_touch_hid.c)
   target_sources_ifdef(CONFIG_ZMK_RAW_TOUCH app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/raw_touch.c)
   target_sources_ifdef(CONFIG_ZMK_RAW_TOUCH app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/raw_touch_endpoints.c)
-  # The mode gate needs a host-facing transport: both its command surfaces
+  # The host lease needs a host-facing transport: both its command surfaces
   # (USB SET_REPORT, BLE feature-characteristic write) and its endpoint
-  # bookkeeping only exist on the central. On a peripheral the gate.h stubs
-  # keep the callers compiling with the gate permanently disengaged.
+  # bookkeeping only exist on the central. On a peripheral the lease.h stubs
+  # keep the callers compiling with the lease permanently unheld.
   if(CONFIG_ZMK_RAW_TOUCH_USB OR CONFIG_ZMK_RAW_TOUCH_BLE)
-    target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/raw_touch_gate.c)
+    target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/raw_touch_lease.c)
   endif()
 
   target_sources_ifdef(CONFIG_ZMK_RAW_TOUCH_USB app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/raw_touch_usb_hid.c)

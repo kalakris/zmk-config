@@ -38,7 +38,7 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 #include <zmk/event_manager.h>
 #include <zmk/events/endpoint_changed.h>
 
-#include <zmk/raw_touch/gate.h>
+#include <zmk/raw_touch/lease.h>
 #include <zmk/raw_touch/hid.h>
 #include <zmk/raw_touch/transport.h>
 
@@ -128,13 +128,13 @@ static void input_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value) {
             (value == BT_GATT_CCC_NOTIFY) ? "subscribed" : "unsubscribed");
 }
 
-/* Host claim: the feature report's write path (HOGP report
+/* Host lease: the feature report's write path (HOGP report
  * characteristics of type Feature are read/write per HIDS 1.0 §2.5.2).
  * The GATT write carries the 4-byte body alone - the report ID lives in
  * the report reference descriptor, as on the input report's notify path.
  *
- * The connection identifies the claimant: its peer address maps to the
- * ZMK BLE profile, and the claim is scoped to that profile's endpoint
+ * The connection identifies the lease holder: its peer address maps to
+ * the ZMK BLE profile, and the lease is scoped to that profile's endpoint
  * instance. Writes from a peer that is not a bonded host profile (e.g. a
  * split peripheral's connection) are refused. */
 static ssize_t write_hids_touch_feature_report(struct bt_conn *conn,
@@ -158,7 +158,7 @@ static ssize_t write_hids_touch_feature_report(struct bt_conn *conn,
         .ble = {.profile_index = profile},
     };
 
-    int err = zmk_raw_touch_gate_handle_command(source, buf, len);
+    int err = zmk_raw_touch_lease_handle_command(source, buf, len);
 
     switch (err) {
     case 0:
@@ -198,7 +198,7 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_DESCRIPTOR(BT_UUID_HIDS_REPORT_REF, BT_GATT_PERM_READ_ENCRYPT, read_hids_report_ref,
                        NULL, &touch_input),
 
-    /* Feature report: pad capabilities on read, host claim on write;
+    /* Feature report: pad capabilities on read, host lease on write;
      * no CCC (feature reports are never notified). This is the BLE
      * counterpart of the USB GET_REPORT/SET_REPORT(FEATURE) paths; hosts
      * must read and validate it before treating the collection as raw
@@ -250,7 +250,7 @@ static struct k_work_q raw_touch_hog_work_q;
  *     entries bound to the profile active NOW; the rest are discarded.
  *     Without that, a frame sampled for host A - a release waiting on its
  *     delayed retry, most damagingly - is delivered to host B after a
- *     profile switch, carrying A's host_claimed bit and a position from
+ *     profile switch, carrying A's lease_held bit and a position from
  *     A's gesture, which is exactly the endpoint scoping the protocol
  *     promises. Entries are additionally discarded up front on the two
  *     events that invalidate them wholesale: an endpoint switch (the
@@ -308,7 +308,7 @@ static void raw_touch_hog_drain(struct k_work *work) {
 
     while (rt_txq_peek(&txq, &entry, &generation)) {
         if (entry.binding != active_profile) {
-            /* Sampled for a different host: its host_claimed bit and its
+            /* Sampled for a different host: its lease_held bit and its
              * coordinates describe that host's gesture, so it must not be
              * delivered here. The host it was meant for closes the
              * gesture with its own silence watchdog. */
@@ -372,9 +372,9 @@ static void raw_touch_hog_drain(struct k_work *work) {
 }
 
 /* An endpoint switch retargets every subsequent frame, so nothing still
- * queued for the endpoint we were sending to may go out. (The gate clears
- * the claims of the endpoints switched away from at the same moment, so
- * the frames' host_claimed bits are stale too.) */
+ * queued for the endpoint we were sending to may go out. (The leases of
+ * the endpoints switched away from are cleared at the same moment, so
+ * the frames' lease_held bits are stale too.) */
 static int raw_touch_hog_endpoint_listener(const zmk_event_t *eh) {
     const struct zmk_endpoint_changed *epc = as_zmk_endpoint_changed(eh);
 
@@ -389,7 +389,7 @@ ZMK_LISTENER(zmk_raw_touch_hog, raw_touch_hog_endpoint_listener);
 ZMK_SUBSCRIPTION(zmk_raw_touch_hog, zmk_endpoint_changed);
 
 /* Our own connection callback rather than zmk_ble_active_profile_changed,
- * for the same reason raw_touch_gate.c uses one: that event fires only for
+ * for the same reason raw_touch_lease.c uses one: that event fires only for
  * the ACTIVE profile, while a queued frame can be bound to any profile.
  * zmk_ble_profile_index() maps the peer to its profile, returning a
  * negative value for non-host connections such as a split peripheral's -

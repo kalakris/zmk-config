@@ -28,7 +28,7 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 #include <zmk/events/usb_conn_state_changed.h>
 #include <zmk/usb.h>
 
-#include <zmk/raw_touch/gate.h>
+#include <zmk/raw_touch/lease.h>
 #include <zmk/raw_touch/hid.h>
 #include <zmk/raw_touch/transport.h>
 
@@ -69,7 +69,7 @@ static K_SEM_DEFINE(hid_sem, 1, 1);
  * produced while the previous transfer is still in flight used to be
  * dropped on the spot. That is acceptable for motion frames and is not
  * acceptable for a RELEASE frame (ZMK_RAW_TOUCH_FLAGS_TOUCHED clear:
- * lift-off, or the synthetic frame from a mid-touch declaim), which the
+ * lift-off, or the synthetic frame from a mid-touch lease lapse), which the
  * producer never re-sends: losing one leaves the host holding a phantom
  * finger-down until its own ~150 ms silence watchdog fires, which costs
  * the gesture its lift-off momentum and can join a quick re-touch onto
@@ -105,7 +105,7 @@ RT_TXQ_DEFINE(usb_txq, CONFIG_ZMK_RAW_TOUCH_USB_QUEUE_SIZE);
  * with a plausible header and whatever the stack holds by then -- typically
  * RAM pointers -- in the tail.
  *
- * Reuse of this buffer is gated by hid_sem, given back only from
+ * Reuse of this buffer is guarded by hid_sem, given back only from
  * in_ready_cb once the queue is empty (transfer complete, nothing more to
  * send), on a failed write, or -- via usb_conn_state_listener below --
  * once the bus leaves the HID state and the controller has abandoned the
@@ -178,8 +178,8 @@ static void in_ready_cb(const struct device *dev) {
  *
  * So re-arm the semaphore whenever the USB connection state leaves
  * ZMK_USB_CONN_HID (detach, bus reset, error -- every transition that
- * kills an in-flight transfer; the same condition raw_touch_gate.c uses to drop
- * the USB claim). Safe against a genuinely in-flight transfer by
+ * kills an in-flight transfer; the same condition raw_touch_lease.c uses to
+ * drop the USB lease). Safe against a genuinely in-flight transfer by
  * construction: leaving the HID state means the controller has abandoned
  * any armed IN transfer, so nothing reads tx_report any more, and a late
  * in_ready_cb -- were a driver ever to deliver one for an aborted
@@ -193,17 +193,17 @@ static void in_ready_cb(const struct device *dev) {
  * lost -- deliberately, since there is no longer a host to receive it,
  * and the host's silence watchdog is what closes that gesture.
  *
- * Deliberately NOT added: a time-based force-reclaim in the send path
+ * Deliberately NOT added: a time-based forced reuse in the send path
  * ("sem held > 100 ms, take it anyway"). A pending interrupt IN transfer
  * has no deadline in the legacy stack: with the interface configured but
  * the host not polling the endpoint (no open handle, host-side
  * scheduling), the transfer stays armed indefinitely with the endpoint
- * still set up to DMA from tx_report, and a timed reclaim would overwrite
+ * still set up to DMA from tx_report, and a timed reuse would overwrite
  * that buffer while the host can still collect it -- corrupting a frame
  * on the wire. The checked non-blocking take in the send path below
  * leaves the frame in the queue instead of overwriting a buffer an
  * in-flight transfer may still be reading. A stalled-but-configured host
- * needs no reclaim anyway: the moment it polls again, the pending
+ * needs no forced reuse anyway: the moment it polls again, the pending
  * transfer completes and in_ready_cb drains what accumulated. */
 static int usb_conn_state_listener(const zmk_event_t *eh) {
     const struct zmk_usb_conn_state_changed *ev = as_zmk_usb_conn_state_changed(eh);
@@ -270,8 +270,8 @@ static int get_report_cb(const struct device *dev, struct usb_setup_packet *setu
 }
 
 /* SET_REPORT(FEATURE) carries the protocol's single host-to-device path:
- * the host claim (see src/raw_touch_gate.c). Everything else is still rejected
- * with -ENOTSUP, exactly as Zephyr's default handler would.
+ * the host lease (see src/raw_touch_lease.c). Everything else is still
+ * rejected with -ENOTSUP, exactly as Zephyr's default handler would.
  *
  * Per HID 1.11 a control-pipe report on a device using report IDs is
  * ID-prefixed, matching what get_report_cb returns; but host stacks are
@@ -281,7 +281,7 @@ static int get_report_cb(const struct device *dev, struct usb_setup_packet *setu
  *
  * CONFIG_ENABLE_HID_INT_OUT_EP stays untouched -- it is a global symbol
  * that would add an interrupt OUT endpoint to ZMK's keyboard interface as
- * well, and the control pipe is plenty for a ~0.03 Hz claim refresh. */
+ * well, and the control pipe is plenty for a ~0.03 Hz lease renewal. */
 static int set_report_cb(const struct device *dev, struct usb_setup_packet *setup, int32_t *len,
                          uint8_t **data) {
     if ((setup->wValue & HID_GET_REPORT_TYPE_MASK) != HID_REPORT_TYPE_FEATURE) {
@@ -297,14 +297,14 @@ static int set_report_cb(const struct device *dev, struct usb_setup_packet *setu
     const uint8_t *body = *data;
     size_t body_len = *len;
 
-    if (body_len == ZMK_RAW_TOUCH_GATE_CMD_LEN + 1 && body[0] == ZMK_RAW_TOUCH_REPORT_ID) {
+    if (body_len == ZMK_RAW_TOUCH_LEASE_CMD_LEN + 1 && body[0] == ZMK_RAW_TOUCH_REPORT_ID) {
         body++;
         body_len--;
     }
 
     struct zmk_endpoint_instance source = {.transport = ZMK_TRANSPORT_USB};
 
-    return zmk_raw_touch_gate_handle_command(source, body, body_len);
+    return zmk_raw_touch_lease_handle_command(source, body, body_len);
 }
 
 static const struct hid_ops ops = {

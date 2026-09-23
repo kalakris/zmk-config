@@ -8,12 +8,12 @@
  * the host over a vendor-defined HID report (see zmk/raw_touch/hid.h).
  *
  * Reports are emitted only while the selected endpoint's host holds a
- * live claim (see raw_touch_gate.c) - i.e. only in RawTouch mode, never
+ * live lease (see raw_touch_lease.c) - i.e. only in RawTouch mode, never
  * in Standard mode: one report per pad sample while touched (~100 Hz),
  * plus exactly one release report (touched = 0, z = 0) on lift-off.
- * Unclaimed, nothing is emitted - nobody is listening, and
+ * Without a lease, nothing is emitted - nobody is listening, and
  * at ~100 Hz of 11-byte reports the wasted BLE airtime is real. If the
- * claim clears mid-touch, one final synthetic release report (touched =
+ * lease lapses mid-touch, one final synthetic release report (touched =
  * 0, flags bit 2 clear) closes the host's gesture before the stream goes
  * quiet. Each frame carries a per-pad sequence number (drop detection)
  * and a device-side timestamp in 100 us units (host-side velocity that
@@ -40,7 +40,7 @@
  * are ALWAYS re-injected as REL_X/REL_Y on the same input device,
  * regardless of scroll mode, so the existing input listener chain
  * (scaling, wheel-mapping overlays, temp mouse layer, buttons) keeps
- * working in Standard mode. A live host claim suppresses only the
+ * working in Standard mode. A live host lease suppresses only the
  * scroll-context deltas (see below).
  *
  * Tap-to-click: when the pad node sets tap-click, a touch that lifts off
@@ -65,7 +65,7 @@
 
 LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
-#include <zmk/raw_touch/gate.h>
+#include <zmk/raw_touch/lease.h>
 #include <zmk/raw_touch/hid.h>
 #include <zmk/raw_touch/scroll.h>
 #include <zmk/raw_touch/split_stamp.h>
@@ -128,7 +128,7 @@ struct raw_touch_pad_data {
     /* Whether the last emitted report said touched, i.e. the stream's
      * consumer currently believes a finger is down. Distinct from
      * prev_touched (the pad's physical state, which keeps tracking while
-     * no report goes out): a mid-touch declaim must emit exactly one
+     * no report goes out): a mid-touch lease lapse must emit exactly one
      * synthetic release report so the host is not left holding a phantom
      * finger-down, and this is the state that says one is owed. */
     bool stream_touched;
@@ -191,18 +191,18 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
         return;
     }
 
-    /* Host claim, evaluated fresh on every frame: true iff the endpoint
+    /* Host lease, evaluated fresh on every frame: true iff the endpoint
      * this frame is about to go to (zmk_raw_touch_send_report() dispatches
-     * on zmk_endpoints_selected() a few lines below) holds a live claim.
+     * on zmk_endpoints_selected() a few lines below) holds a live lease.
      * Deliberately NOT latched across frames - frame emission, the flag
      * and the wheel suppression below must all revert on the very next
-     * frame after a claim clears or the endpoint switches away. */
-    bool host_claimed = zmk_raw_touch_gate_engaged_for_selected();
+     * frame after a lease lapses or the endpoint switches away. */
+    bool lease_held = zmk_raw_touch_lease_held_for_selected();
 
-    if (host_claimed) {
+    if (lease_held) {
         uint8_t flags = (touched ? ZMK_RAW_TOUCH_FLAGS_TOUCHED : 0) |
                         (scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0) |
-                        ZMK_RAW_TOUCH_FLAGS_HOST_CLAIMED;
+                        ZMK_RAW_TOUCH_FLAGS_LEASE_HELD;
 
         /* !touched implies cur_x/y/z are all zero (that is how touched is
          * derived above), so the release report's zeros need no special
@@ -222,12 +222,12 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
         zmk_raw_touch_send_report();
         data->stream_touched = touched;
     } else if (data->stream_touched) {
-        /* The claim cleared mid-touch (timeout, host release, endpoint
-         * switch - see raw_touch_gate.c) and the last report the host saw said
+        /* The lease ended mid-touch (timeout, host release, endpoint
+         * switch - see raw_touch_lease.c) and the last report the host saw said
          * touched. Emit exactly one synthetic release report so the host
          * closes its gesture instead of holding a phantom finger-down
          * (runaway momentum), then go silent. Bit 2 is clear - its meaning
-         * stays exact: "a host claim was engaged when this frame was
+         * stays exact: "a host lease was held when this frame was
          * sampled" - which also tells the host the wheel fallback is live
          * again, so it must not add lift-off momentum on top. */
         zmk_raw_touch_hid_set(cfg->pad_id, 0, 0, 0,
@@ -236,7 +236,7 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
         zmk_raw_touch_send_report();
         data->stream_touched = false;
     }
-    /* Unclaimed with nothing owed: emit nothing. Everything below - tap
+    /* No lease and nothing owed: emit nothing. Everything below - tap
      * detection, relative-delta derivation, prev_x/prev_y tracking - keeps
      * running regardless, because it IS Standard mode (cursor + tap +
      * wheel fallback). */
@@ -262,19 +262,19 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
 
     /* Dual mode: derive relative deltas for the normal pointer pipeline,
      * even in scroll mode - an existing wheel-mapping overlay then
-     * provides standard wheel scrolling for hosts that never claim.
+     * provides standard wheel scrolling for hosts that never lease.
      *
-     * The host claim suppresses exactly that fallback: while the selected
-     * endpoint holds a claim, scroll-context deltas are not injected at
+     * The host lease suppresses exactly that fallback: while the selected
+     * endpoint holds a lease, scroll-context deltas are not injected at
      * all, so the wheel-mapping overlay downstream has nothing to emit
-     * and the claiming host (which is synthesizing scroll from the
+     * and the leasing host (which is synthesizing scroll from the
      * frames) never sees doubled scrolling. This is the narrowest
      * possible cut - pointer-context deltas (scroll_mode false), tap
      * clicks and every key path are untouched, and prev_x/prev_y keep
-     * tracking below so the first delta after the claim clears is an
-     * ordinary one-frame step, not a jump. Hosts that never claim are
+     * tracking below so the first delta after the lease ends is an
+     * ordinary one-frame step, not a jump. Hosts that never lease are
      * unaffected: the wheel keeps working. */
-    bool suppress_fallback = host_claimed && scroll_mode;
+    bool suppress_fallback = lease_held && scroll_mode;
 
     if (touched && data->have_prev_pos && !suppress_fallback) {
         int32_t raw_dx = (int32_t)data->cur_x - (int32_t)data->prev_x;

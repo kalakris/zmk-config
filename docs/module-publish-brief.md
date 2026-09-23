@@ -69,7 +69,7 @@ zmk-raw-touch/
     raw_touch_hid.c        # private report descriptor + report state
     raw_touch_usb_hid.c    # second USB HID interface (HID_1)
     raw_touch_hog.c        # second BLE HIDS instance, incl. the feature-report characteristic
-    raw_touch_endpoints.c, raw_touch_gate.c, raw_touch.c, raw_touch_log.c
+    raw_touch_endpoints.c, raw_touch_lease.c, raw_touch.c, raw_touch_log.c
     input_processor_raw_touch_scroll.c
     input_processor_raw_touch_idle_filter.c
 ```

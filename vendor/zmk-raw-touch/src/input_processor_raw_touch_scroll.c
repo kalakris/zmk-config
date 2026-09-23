@@ -44,7 +44,7 @@ static struct rts_latch rts_latches[CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_
  *   CONFIG_INPUT_MODE_THREAD, but from the caller's context - possibly an
  *   ISR - with CONFIG_INPUT_MODE_SYNCHRONOUS. A mutex may not be taken in
  *   an ISR; a spinlock may.
- * - Claiming a slot is a read-modify-write spanning two words (the device
+ * - Taking a slot is a read-modify-write spanning two words (the device
  *   pointer and the flag) plus a scan of the table, so per-flag atomics
  *   would not make the insert safe on their own.
  *

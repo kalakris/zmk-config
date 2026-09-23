@@ -197,13 +197,13 @@ static struct zmk_raw_touch_feature_report touch_feature_report = {
              /* This half's build. A relayed pad's slot carries its own
               * half's version instead, filled in by src/raw_touch.c. */
              .module_version = ZMK_RAW_TOUCH_MODULE_VERSION_PACKED,
-             /* The host claim needs a host-facing transport for its
+             /* The host lease needs a host-facing transport for its
               * writes; without one the capability must not be advertised.
               * (Moot in practice: with no transport there is no host to
               * read this report either.) */
              .capabilities = (IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB) ||
                               IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE))
-                                 ? ZMK_RAW_TOUCH_CAP_HOST_CLAIM
+                                 ? ZMK_RAW_TOUCH_CAP_HOST_LEASE
                                  : 0},
 };
 

@@ -35,7 +35,7 @@
  * lift-off. */
 
 /* Touched. Clear marks a RELEASE frame - the one emitted at lift-off, and
- * the single synthetic one emitted when a host claim clears mid-touch.
+ * the single synthetic one emitted when a host lease lapses mid-touch.
  * Release frames are the only frames whose delivery matters: a lost one
  * leaves the host holding a phantom finger-down. Both transports treat
  * them as durable - each queues frames in a ring that evicts motion
@@ -45,15 +45,15 @@
  * frames may still be dropped under pressure; `seq` exposes that. */
 #define ZMK_RAW_TOUCH_FLAGS_TOUCHED BIT(0)
 #define ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE BIT(1)
-/* Host claimed: set iff the endpoint this frame is being sent to held a
- * live host claim when the frame was sampled, i.e. the scroll-context
+/* Lease held: set iff the endpoint this frame is being sent to held a
+ * live host lease when the frame was sampled, i.e. the scroll-context
  * wheel fallback is suppressed for it. Since frames are only emitted
- * while claimed, this is implied-set on ordinary frames; the one frame
- * carrying it clear is the single synthetic release emitted when a claim
- * clears mid-touch. Hosts synthesize scroll only when this and
+ * while a lease is held, this is implied-set on ordinary frames; the one
+ * frame carrying it clear is the single synthetic release emitted when a
+ * lease lapses mid-touch. Hosts synthesize scroll only when this and
  * SCROLL_MODE are both set, making wheel and synthesized scroll mutually
- * exclusive by construction (see zmk/raw_touch/gate.h). */
-#define ZMK_RAW_TOUCH_FLAGS_HOST_CLAIMED BIT(2)
+ * exclusive by construction (see zmk/raw_touch/lease.h). */
+#define ZMK_RAW_TOUCH_FLAGS_LEASE_HELD BIT(2)
 
 struct zmk_raw_touch_report_body {
     uint8_t pad_id;
@@ -93,7 +93,7 @@ struct zmk_raw_touch_report {
  * feature report body. This is what makes an unrelated device on the
  * generic 0xFF00/0x01 vendor pair distinguishable from a raw touch
  * keyboard, so a host MUST reject a body whose magic does not match and
- * MUST NOT write a claim command to such a device. Identification, not
+ * MUST NOT write a lease command to such a device. Identification, not
  * authentication: it carries no secret and proves nothing about who is
  * talking. */
 #define ZMK_RAW_TOUCH_MAGIC_0 'R'
@@ -118,12 +118,12 @@ struct zmk_raw_touch_report {
  * reject a device over this field's value, including all-zero. */
 #define ZMK_RAW_TOUCH_DEVICE_ID_LEN 8
 
-/* Capabilities bit 0: the host claim is supported - the host may claim
- * the stream by writing the feature report (see zmk/raw_touch/gate.h),
+/* Capabilities bit 0: host lease supported - the host may acquire a lease
+ * on the stream by writing the feature report (see zmk/raw_touch/lease.h),
  * switching the pads from standard (firmware-driven) scrolling to
  * host-driven scrolling. Advertised whenever a host-facing transport is
- * built; hosts MUST check this bit before attempting a claim. */
-#define ZMK_RAW_TOUCH_CAP_HOST_CLAIM BIT(0)
+ * built; hosts MUST check this bit before acquiring a lease. */
+#define ZMK_RAW_TOUCH_CAP_HOST_LEASE BIT(0)
 
 #define ZMK_RAW_TOUCH_ORIENT_ROTATE_90 BIT(0)
 #define ZMK_RAW_TOUCH_ORIENT_X_INVERT BIT(1)

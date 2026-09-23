@@ -11,7 +11,7 @@
  *
  * A hand-rolled ring under a spinlock rather than a K_MSGQ, because
  * RELEASE frames (ZMK_RAW_TOUCH_FLAGS_TOUCHED clear: the lift-off frame,
- * and the synthetic one emitted when a claim clears mid-touch) need
+ * and the synthetic one emitted when a lease lapses mid-touch) need
  * guarantees a msgq cannot express. Losing a release leaves the host
  * holding a phantom finger-down - runaway momentum until its own silence
  * watchdog fires.
@@ -53,8 +53,8 @@
  * `binding` scopes an entry to the destination it was sampled for. BLE
  * stores the active profile index, so a frame queued for one host is
  * discarded rather than delivered to another after a profile switch (its
- * `host_claimed` bit belongs to the endpoint it was sampled for; see
- * zmk/raw_touch/gate.h). USB has one bus and one host, so it queues
+ * `lease_held` bit belongs to the endpoint it was sampled for; see
+ * zmk/raw_touch/lease.h). USB has one bus and one host, so it queues
  * everything with RT_TXQ_NO_BINDING.
  *
  * Every entry point takes the ring's own spinlock: the producer runs on

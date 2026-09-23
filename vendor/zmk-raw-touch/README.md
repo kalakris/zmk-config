@@ -498,10 +498,10 @@ that a matching HID collection is visible, not that touch samples are
 being delivered. Other devices may use the same usage values.
 
 To check mode switching, enable `CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL_INF=y`
-and run RawTouch with Accessibility permission. A successful USB claim
-logs `Raw touch frames claimed by USB (timeout 30s)`. The log also records
-when claims clear after a release, disconnect, or endpoint switch, and
-when a claim expires without a refresh.
+and run RawTouch with Accessibility permission. A successfully acquired
+USB lease logs `Raw touch lease acquired by USB (timeout 30s)`. The log
+also records when leases clear after a release, disconnect, or endpoint
+switch, and when a lease expires without a renewal.
 
 ## Split keyboards
 
@@ -976,9 +976,9 @@ or wait up to 30 seconds for Standard mode to return. A normal quit
 returns to Standard mode promptly.
 
 For connection diagnostics, enable `CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL_INF=y`.
-Logs distinguish claims, releases, disconnects, endpoint switches, and
-expiry. Report the board, ZMK/Zephyr and module revisions, driver revision,
-transport, and whether Standard mode works. Battery impact, other boards,
+Logs distinguish lease acquisitions, releases, disconnects, endpoint
+switches, and expiry. Report the board, ZMK/Zephyr and module revisions,
+driver revision, transport, and whether Standard mode works. Battery impact, other boards,
 and deep sleep/wake still need broader testing.
 
 ## Implementation and contributions
@@ -1020,10 +1020,10 @@ does not imply implemented multi-touch support.
 | Bluetooth | Separate HID-over-GATT service instance |
 
 The vendor usage pair is not unique to this project. A host **must read
-and validate the feature report before interpreting input or claiming
-the device**: the four magic bytes, the protocol version, and the body
+and validate the feature report before interpreting input or acquiring
+a lease on the device**: the four magic bytes, the protocol version, and the body
 length must all match before a device is treated as this protocol, and a
-device that fails the check must never be sent a claim command.
+device that fails the check must never be sent a lease command.
 Discovery is protocol identification, not authentication.
 
 All lengths and offsets below refer to report bodies. USB transfers
@@ -1054,25 +1054,25 @@ Flag bits:
 |---|---|---|
 | 0 | `touched` | A contact is present. Clear means release. |
 | 1 | `scroll_mode` | The pad's events reached a processor chain marked for scrolling. |
-| 2 | `host_claimed` | The selected sending endpoint held a live claim when the report was produced. |
+| 2 | `lease_held` | The selected sending endpoint held a live host lease when the report was produced. |
 | 3–7 | reserved | Sent as zero. |
 
-While claimed, firmware emits reports for active samples (about 100 Hz
+While a lease is held, firmware emits reports for active samples (about 100 Hz
 with the tested pads), including pointer-context samples, and one report
 on lift-off. It suppresses repeated idle reports. A normal release has
 `touched` clear and X/Y/Z zero; hosts **must use the flag**, not the
 coordinate values, to determine contact state.
 
-If the claim clears mid-touch, firmware attempts one trailing release
-with `touched` and `host_claimed` clear, X/Y/Z zero, and `scroll_mode`
-reflecting that frame's context. It then stops sending until claimed
-again. That trailing release may not reach the previous host after an
+If the lease lapses mid-touch, firmware attempts one trailing release
+with `touched` and `lease_held` clear, X/Y/Z zero, and `scroll_mode`
+reflecting that frame's context. It then stops sending until a lease is
+acquired again. That trailing release may not reach the previous host after an
 endpoint switch or disconnection.
 
 Hosts **must generate scrolling only while both `scroll_mode` and
-`host_claimed` are set**. They must still handle transitions out of those
-states: losing scroll context ends the drag, and an unclaimed trailing
-release cancels it **without momentum**, because firmware scrolling has
+`lease_held` are set**. They must still handle transitions out of those
+states: losing scroll context ends the drag, and a trailing release
+without the lease bit cancels it **without momentum**, because firmware scrolling has
 resumed. Do not simply discard these transitions and leave a gesture open.
 
 Use the device timestamp for velocity estimation, with wrap handling;
@@ -1099,7 +1099,7 @@ hard-code the two-pad length.
 |---|---|---|
 | 0 | 1 | `protocol_version`, 4 |
 | 1 | 1 | `pads_present`, bit `p` set for pad ID `p` |
-| 2 | 1 | `capabilities`, bit 0 = host claim supported; other bits reserved |
+| 2 | 1 | `capabilities`, bit 0 = host lease supported; other bits reserved |
 | 3 | 1 | `module_version` of the half answering, packed major.minor; 0 = unknown |
 | 4 | 4 | `magic`, the ASCII bytes `R` `A` `W` `T` (`52 41 57 54`) |
 | 8 | 8 | `device_id`, the SoC's hardware identifier; all-zero = unknown |
@@ -1110,7 +1110,7 @@ that happens to sit on `0xFF00`/`0x01`. `protocol_version` stays at byte 0
 in every version of the protocol, so a host can read it before it decides
 which layout to parse. **Reject** a body whose magic differs, whose
 protocol version is not 4, or whose length is not `16 + 8 × N`, and do
-not write a claim to it.
+not write a lease command to it.
 
 `device_id` is the value Zephyr's `hwinfo_get_device_id()` returns for the
 SoC — the FICR `DEVICEID` pair on an nRF52 — in the byte order hwinfo
@@ -1165,7 +1165,7 @@ length. Adding or removing a pad — or upgrading across a protocol version
 that changes the body — therefore changes the report map and requires a
 fresh Bluetooth pairing on hosts that cache it, including macOS.
 
-### Host claim
+### Host lease
 
 Check `capabilities` bit 0 before writing. The feature report accepts this
 **4-byte command body** through USB `SET_REPORT(FEATURE)` or a BLE
@@ -1174,8 +1174,8 @@ feature-characteristic write:
 | Offset | Bytes | Field |
 |---|---|---|
 | 0 | 1 | Command `0x01` |
-| 1 | 1 | `0x01` to claim/refresh; `0x00` to release |
-| 2 | 1 | Lease timeout in seconds; nonzero for claim, clamped to 5–120; ignored for release |
+| 1 | 1 | `0x01` acquire or renew; `0x00` release |
+| 2 | 1 | Lease timeout in seconds; nonzero to acquire or renew, clamped to 5–120; ignored for release |
 | 3 | 1 | Reserved, must be zero |
 
 For example, `01 01 1e 00` requests 30 seconds and `01 00 00 00`
@@ -1186,23 +1186,23 @@ fields with `Value Not Allowed`, nonzero offsets with `Invalid Offset`,
 and writes from a peer outside the bonded host profiles with
 `Write Not Permitted`.
 
-A claim belongs to the USB endpoint or the specific BLE profile that
+A lease belongs to the USB endpoint or the specific BLE profile that
 wrote it. It suppresses wheel motion only while that endpoint is
 selected. It covers all configured pads on that endpoint, not an
 individual pad. Pointer-context relative motion, taps, and key reports
 continue in both modes.
 
-Hosts must refresh at intervals no longer than half the effective lease,
-and should release on a clean exit. Release is safe when no claim is
-held. A claim clears on expiry, explicit release, USB detach/reset,
-disconnection of its BLE profile, or an endpoint switch away from it.
-Claims already held by the newly selected endpoint can take effect when
-switching to it. Switching back does not restore a cleared claim; a host
-must refresh or reclaim.
+Hosts must renew at intervals no longer than half the effective lease,
+and should release on a clean exit. Release is safe when no lease is
+held. A lease lapses on expiry, USB detach/reset, disconnection of its
+BLE profile, or an endpoint switch away from it, and ends on explicit
+release. A lease already held by the newly selected endpoint can take
+effect when switching to it. Switching back does not restore a lapsed
+lease; the host must acquire it again.
 
-Hosts must re-establish claims after resume, reconnect, and device
-re-enumeration. They should claim only when ready to generate scroll
-events. RawTouch leaves the claim released when disabled or when
+Hosts must re-acquire leases after resume, reconnect, and device
+re-enumeration. They should acquire a lease only when ready to generate
+scroll events. RawTouch leaves the lease released when disabled or when
 Accessibility permission is unavailable.
 
 ### Delivery and lost releases
@@ -1229,7 +1229,7 @@ retries, or a queue with no evictable entry can still lose a release.
 
 **A host must close a contact after roughly 150 ms of report silence if
 its last state was touched.** This watchdog is required on both
-transports. Device removal and an explicit claim-clear release should
-also close the current gesture. Absolute coordinates allow motion to
+transports. Device removal and a trailing release without the lease bit
+should also close the current gesture. Absolute coordinates allow motion to
 continue after a missing sample, but do not make dropped input or
 transport latency irrelevant.
