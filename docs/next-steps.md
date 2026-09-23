@@ -1807,6 +1807,32 @@ estimate), ⌘1/2/3, the Latency row, the pad Name field; then the user's
 feel check and a sixth `/impeccable critique` for the trend
 (`/tmp/claude/rt-critique/capture.sh shots11` — `./locked` first).
 
+**Second pass, 2026-09-23 ~00:30, deployed and captured (`02c21e3`,
+`eb26816`, `aa04a63`, `66df29c`; CI 35832961372 green; 489 tests):**
+Latency row one line per connection ("USB: Pad 0 1.5 ms · Pad 1 5.2 ms",
+"not yet measured"), now read from the estimator **per source (pad ×
+connection)** — the first build took the last gesture's value per
+endpoint and flipped between the pads' values (user spotted it; the LH
+pad is relayed over the split so it genuinely measures higher); focus
+fixed (the hidden ⌘1/2/3 buttons had become AppKit's initial first
+responder → `.focusable(false)`, verified: AX focused element = the
+window); **physical units everywhere** (user decision, displays that
+misreport size ignored until someone complains): readout "Lift-off 430
+mm/s · coasted 442 mm", `momentum.startThreshold` → `minimumFlickSpeed`
+(mm/s, default 23) and `momentum.maxSpeed` → `maximumCoastSpeed` (mm/s,
+default 4,600), converted once at 4.3 pt/mm (user's file: 23 / 4,651),
+engine converts back per gesture from the gesture display's pt/mm
+(fallback main display, then 4.3); **editable section headers** for
+keyboard and pad names (`/impeccable shape` brief confirmed: plain-style
+TextField in the header font, hover = faint field + pencil, click/Rename
+context item to edit, Return/Escape, blank = default as placeholder,
+`renameAction`/`RenameButton` for VoiceOver, 24-char cap) replacing the
+pad Name row; `devices.<key>.name` is now the user's (the app no longer
+auto-records names). Screenshots in `/tmp/claude/rt-critique/shots12`.
+Open: the header text sits ~9 pt right of where a plain header sits (fix
+sent to the builder); user's feel check on mm/s momentum; rename try-out;
+then the sixth critique.
+
 
 **Decisions 2026-09-22 (fifth `/impeccable critique`, 27/40, snapshot
 `2026-09-23T04-11-53Z__sources-rawtouchapp.md`; P0 = one keyboard modelled
