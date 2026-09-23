@@ -78,3 +78,8 @@ python3 scripts/generate-go60-layout.py
 | `config/west.yml` | West manifest (MoErgo's ZMK fork) |
 | `build.yaml` | GitHub Actions build targets |
 | `boards/` | Custom board definitions for Eyelash Sofle |
+
+## License
+
+[MIT](LICENSE). The Eyelash Sofle board files under `boards/` keep their
+original MIT headers, and the vendored `zmk-raw-touch` module is MIT too.
