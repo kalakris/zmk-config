@@ -1839,7 +1839,26 @@ with the current name and select-all via the first responder; unchanged
 Return writes nothing) and the **Hardware ID row removed** (user: not
 needed — the key lives in every row's tooltip, the twins' picker tail, the
 saved entry's "Saved as", and the Remove Settings… text). Deployed
-2026-09-23 ~01:10 (491 tests, CI 35834500584). **Punch-list decisions 2026-09-23 (user):** squash BOTH repos'
+2026-09-23 ~01:10 (491 tests, CI 35834500584). **Cirque driver branch, 2026-09-23 (user decisions):** keep every
+patch that stock Go60 firmware runs — all three are Pete Johanson's own
+code from his module (`0759bf6`, 2024-09-19, and the 0xFF guard), which
+MoErgo ships: patch 1 (garbage-frame guard, active), patch 2 (per-axis
+edge sensitivity — present but inert on every Go60: neither MoErgo's
+board files nor our keymaps set `x-axis-z-min`/`y-axis-z-min`, so it
+writes the power-on values 5/4 back; kept anyway), patch 3 (forced
+recalibration after the sensitivity write — the upstream driver already
+SW-resets and waits for that calibration at init, so patch 3's only
+justification is recalibrating at the configured ADC gain; kept because
+stock runs it; ask Pete why when messaging him about upstreaming). The
+unused sample-rate commit (`cbb4eaa`, the 120 SPS experiment) was
+DROPPED and the branch rewritten: `intree-driver` = pristine `7d6f543`
++ 3 patches, tip `89a0896`, force-pushed (backup tag
+`pre-rewrite-sample-rate` locally); re-pinned in zmk-config `4f35b09`,
+module `ci/west.yml` `b070dde`, and the `unvendor` branch (rebased onto
+main, `ba30e12`; its module revision `7c1fca4` still needs re-pinning
+after the squash).
+
+**Punch-list decisions 2026-09-23 (user):** squash BOTH repos'
 history before v0.1.0 (see the publish brief); Fast User Switching stays
 "untested" in the README — closed; item x closed ("whatever we have
 works well"); item aa closed ("works awesome"); the demo video is shot
