@@ -1879,8 +1879,13 @@ Rename DONE (module `fe849da`, rawtouch `2182664`, both CI green, 496 tests, ben
 claim"→"Host lease". zmk-config: `scripts/gate-claim.swift`→`lease.swift`
 (`acquire` verb, `claim` accepted as alias), monitor flag `--claim`→
 `--lease`, CLAUDE.md/AGENTS.md/raw-touch.md rewritten. Historical docs
-(mode-gate-plan.md, this trail) keep their old words. The pencil-button
-deploy (`988779a`, running) still awaits the user's click test.
+(mode-gate-plan.md, this trail) keep their old words. Pencil button (`988779a`) and rename field (`ecc6a5a`: Return commits,
+Escape reverts — the container's Return handler had swallowed the key,
+and Escape's focus loss had committed before the revert; now a
+`RenameField` state machine in RawTouchAppCore, 507 tests) both deployed
+and USER-VERIFIED 2026-09-23 afternoon. In flight: the firmware record
+per keyboard (user: the Firmware row must never say "unknown over
+Bluetooth" once any connection has learned the LH version).
 
 **Sixth-critique fix pass DEPLOYED 2026-09-23 ~02:45** (rawtouch
 `68b00ae`, 496 tests, CI 35842852330): verified live with the AX tools —
