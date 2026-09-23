@@ -12,30 +12,30 @@
 // stream consumer keeps working while this runs. Feed the output to
 // analyze-touch-timing.py.
 //
-// Since the firmware gates frame emission on the host claim (2026-08-31),
-// a passive monitor sees frames only while some claim is live. Two modes:
+// Since the firmware emits frames only while a host lease is held (2026-08-31),
+// a passive monitor sees frames only while some lease is held. Two modes:
 //
-// - RawTouch (or another host) running: just run passively — its claim
+// - RawTouch (or another host) running: just run passively — its lease
 //   keeps frames flowing, HID input reports fan out to every client, and
 //   you observe exactly what the host sees without perturbing anything.
-//   This is the preferred debug mode. Do NOT also pass --claim: it adds
-//   nothing (frames already flow) and muddies claim-refresh/expiry timing.
+//   This is the preferred debug mode. Do NOT also pass --lease: it adds
+//   nothing (frames already flow) and muddies lease-renew/expiry timing.
 // - No host running: the stream is silent by design (the frames are never
-//   transmitted), so pass --claim: the monitor writes the claim feature
-//   report itself (4-byte gate-claim body, refreshed periodically,
-//   released on Ctrl-C — same SET-report path as scripts/gate-claim.swift,
+//   transmitted), so pass --lease: the monitor writes the lease feature
+//   report itself (4-byte lease body, renewed periodically,
+//   released on Ctrl-C — same SET-report path as scripts/lease.swift,
 //   including the USB report-ID-prefix quirk).
 //
-// Observer effect of --claim: holding the claim puts the keyboard in
+// Observer effect of --lease: holding the lease puts the keyboard in
 // RawTouch mode, so the wheel-scroll fallback you may be trying to debug
 // stops firing and scroll gestures move nothing on screen until release.
-// (A claiming monitor does NOT double-scroll — the two-consumers rule is
+// (A leasing monitor does NOT double-scroll — the two-consumers rule is
 // about two scroll synthesizers, and this tool synthesizes nothing.)
 //
 // Build & run:
 //     swiftc -O scripts/raw-touch-monitor.swift -o /tmp/raw-touch-monitor
 //     /tmp/raw-touch-monitor > capture.csv            (Ctrl-C to stop)
-//     /tmp/raw-touch-monitor --claim > capture.csv    (standalone capture)
+//     /tmp/raw-touch-monitor --lease > capture.csv    (standalone capture)
 
 import Foundation
 import IOKit.hid
@@ -85,13 +85,13 @@ func featureBody(_ buffer: [UInt8]) -> [UInt8]? {
     return nil
 }
 
-let claimMode = CommandLine.arguments.contains("--claim")
-let claimTimeoutS: UInt8 = 30
-let claimRefreshInterval: TimeInterval = 10 // < timeoutS / 2
+let leaseMode = CommandLine.arguments.contains("--lease")
+let leaseTimeoutS: UInt8 = 30
+let leaseRenewInterval: TimeInterval = 10 // < timeoutS / 2
 
 var deviceIndex: [IOHIDDevice: Int] = [:]
 var nextDeviceIndex = 0
-var claimedDevices: Set<IOHIDDevice> = []
+var leasedDevices: Set<IOHIDDevice> = []
 
 func stringProperty(_ device: IOHIDDevice, _ key: String) -> String {
     (IOHIDDeviceGetProperty(device, key as CFString) as? String) ?? "?"
@@ -136,25 +136,25 @@ func describe(_ device: IOHIDDevice, index: Int) {
     }
 }
 
-// --- claim mode (--claim) ---------------------------------------------------
-// Lifted from scripts/gate-claim.swift. Validation and framing both handle
+// --- lease mode (--lease) ---------------------------------------------------
+// Lifted from scripts/lease.swift. Validation and framing both handle
 // the macOS quirk: over USB, feature-report GETs arrive with the report-ID
 // byte prefixed (and some stacks want SETs prefixed too); over BLE both are
-// bare. Claim writes go bare-body first, then retry once with the prefix.
+// bare. Lease writes go bare-body first, then retry once with the prefix.
 
-func gateCapable(_ device: IOHIDDevice) -> Bool {
+func leaseCapable(_ device: IOHIDDevice) -> Bool {
     var buffer = [UInt8](repeating: 0, count: 128)
     var length: CFIndex = buffer.count
     guard IOHIDDeviceGetReport(device, kIOHIDReportTypeFeature, CFIndex(frameReportID),
                                &buffer, &length) == kIOReturnSuccess,
           length > 0, length <= buffer.count,
           let body = featureBody(Array(buffer[0..<length])) else { return false }
-    return body[2] & 0x01 != 0 // protocol 4 (checked above) + claim capability
+    return body[2] & 0x01 != 0 // protocol 4 (checked above) + lease capability
 }
 
 @discardableResult
-func writeClaim(_ device: IOHIDDevice, claim: Bool) -> Bool {
-    let body: [UInt8] = [0x01, claim ? 0x01 : 0x00, claimTimeoutS, 0x00]
+func writeLease(_ device: IOHIDDevice, hold: Bool) -> Bool {
+    let body: [UInt8] = [0x01, hold ? 0x01 : 0x00, leaseTimeoutS, 0x00]
     for payload in [body, [UInt8(frameReportID)] + body] {
         let result = payload.withUnsafeBufferPointer {
             IOHIDDeviceSetReport(device, kIOHIDReportTypeFeature, CFIndex(frameReportID),
@@ -179,22 +179,22 @@ IOHIDManagerRegisterDeviceMatchingCallback(manager, { _, _, _, device in
     nextDeviceIndex += 1
     deviceIndex[device] = index
     describe(device, index: index)
-    if claimMode {
-        if gateCapable(device) {
-            if writeClaim(device, claim: true) {
-                claimedDevices.insert(device)
-                note("# dev \(index): claim written (timeout \(claimTimeoutS)s); wheel fallback suppressed")
+    if leaseMode {
+        if leaseCapable(device) {
+            if writeLease(device, hold: true) {
+                leasedDevices.insert(device)
+                note("# dev \(index): lease acquired (timeout \(leaseTimeoutS)s); wheel fallback suppressed")
             } else {
-                note("# dev \(index): CLAIM WRITE FAILED on both framings")
+                note("# dev \(index): LEASE WRITE FAILED on both framings")
             }
         } else {
-            note("# dev \(index): not claim-capable (no v3 feature report or capability bit 0 clear)")
+            note("# dev \(index): not lease-capable (no protocol-4 feature report or capability bit 0 clear)")
         }
     }
 }, nil)
 
 IOHIDManagerRegisterDeviceRemovalCallback(manager, { _, _, _, device in
-    claimedDevices.remove(device)
+    leasedDevices.remove(device)
     if let index = deviceIndex.removeValue(forKey: device) {
         note("# dev \(index): removed")
     }
@@ -226,26 +226,26 @@ if openResult != kIOReturnSuccess {
 }
 
 print("host_ns,dev,pad,contact,x,y,z,flags,seq,ts_ticks")
-if claimMode {
-    note("# claim mode: this monitor is a stream consumer - do NOT run RawTouch at the same time")
-    Timer.scheduledTimer(withTimeInterval: claimRefreshInterval, repeats: true) { _ in
-        for device in claimedDevices {
-            writeClaim(device, claim: true)
+if leaseMode {
+    note("# lease mode: this monitor is a stream consumer - do NOT run RawTouch at the same time")
+    Timer.scheduledTimer(withTimeInterval: leaseRenewInterval, repeats: true) { _ in
+        for device in leasedDevices {
+            writeLease(device, hold: true)
         }
     }
 }
 note("# monitoring (Ctrl-C to stop)...")
 
-// DispatchSource rather than signal(): releasing the claim does I/O, which
+// DispatchSource rather than signal(): releasing the lease does I/O, which
 // is not async-signal-safe. The main run loop services the main queue.
 signal(SIGINT, SIG_IGN)
 let sigintSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
 sigintSource.setEventHandler {
-    for device in claimedDevices {
-        writeClaim(device, claim: false)
+    for device in leasedDevices {
+        writeLease(device, hold: false)
     }
-    if !claimedDevices.isEmpty {
-        note("# claim(s) released")
+    if !leasedDevices.isEmpty {
+        note("# lease(s) released")
     }
     note("# stopped")
     exit(0)

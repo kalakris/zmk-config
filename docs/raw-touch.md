@@ -11,16 +11,17 @@ velocity-gain ballistics curve.
 SwiftPM daemon extracted from the fork). The keyboard has two scrolling
 modes: **Standard mode** — no host software; pointer, tap-to-click and
 ÷24 wheel scrolling all firmware-side, touch stream silent — and
-**RawTouch mode** — RawTouch claims the stream via a SET feature report,
-the firmware emits touch frames (only while claimed, since 2026-08-31;
-frame flags bit 2 = `host_claimed`) and suppresses the ÷24 wheel
+**RawTouch mode** — RawTouch holds the stream lease (acquired and renewed
+via a SET feature report; "lease" is the vocabulary since 2026-09-23 —
+not "claim", not "gate"), the firmware emits touch frames (only while
+the lease is held, since 2026-08-31; frame flags bit 2 = `lease_held`) and suppresses the ÷24 wheel
 fallback, and RawTouch synthesizes all scrolling — wheel and synthesized
-scroll are mutually exclusive by construction. A claim clearing
+scroll are mutually exclusive by construction. A lease lapsing
 mid-touch produces one trailing bit-2-clear release frame, which the
 host answers by canceling that pad's series without momentum. The
 patched LinearMouse fork is the frozen fallback
 (quit rawtouch → launch LinearMouse); it will not be released publicly.
-Current operational state: next-steps.md items j/k/l/m. Claim spec: the
+Current operational state: next-steps.md items j/k/l/m. Lease spec: the
 module README appendix (the module's `BENCH-mode-gate.md` lab notebook was retired 2026-09-02 during release prep; its durable facts moved into the README's Verify section and wire appendix). This document is the full project state:
 architecture, repo map, what's validated, where every knob lives, the
 operational loops, and how to roll back. It assumes no prior context.
@@ -110,14 +111,14 @@ still flashable as rollbacks, but superseded. See
 ┌────────────────────────────────────────────────────────────┐
 │ TouchStreamManager (IOHIDManager, matches usage pair       │
 │ 0xFF00/0x01, reads feature report, accepts protocol v4     │
-│ only — magic "RAWT" + version + 16 + 8N length or no claim,│
+│ only — magic "RAWT" + version + 16 + 8N length or no lease,│
 │ keys devices on HIDPhysicalDeviceIdentity — NOT VID/PID)   │
 │   │ scroll-flagged frames · TouchStreamDeviceClock rebuilds│
 │   │ device-time from v4 timestamps (fixes BLE-batching     │
 │   │ velocity distortion) · 150 ms stale-touch synthesized  │
 │   │ lift-off · seq-gap logging                             │
 │   ▼                                                        │
-│ first-touch-wins pad arbitration (`activeScrollPad`; claim │
+│ first-touch-wins pad arbitration (`activeScrollPad`; owner │
 │ cleared on gesture end / momentum end / stale / reset)     │
 │   ▼                                                        │
 │ TouchScrollEngine — pad-agnostic (gesture phases, velocity │
@@ -170,7 +171,7 @@ Key design points:
   hardware, the 2x reduction exists to tame the *right* pad's baseline
   drift jitter, and 2x on the left pad caused light-touch dropouts that
   felt like unreliability. Host-side, one gesture at a time: first touch
-  wins the scroll claim.
+  wins the scroll gesture.
 - **Known limits**: the Pinnacle is single-touch, so two-finger gestures
   are impossible, ever. Driverless hosts get pointer, click, typing, and
   ÷24 two-axis wheel fallback scrolling; firmware taps work everywhere the

@@ -401,7 +401,7 @@ host instructions must point at RawTouch before the flip.
   Go60), with `protocol_version` staying at byte 0
   in every future version so a host can read it before choosing a layout;
   hosts reject a wrong magic, a version that is not 4, or a length that is
-  not 16 + 8N, and never claim a device over any of that — but never over
+  not 16 + 8N, and never lease a device over any of that — but never over
   the device id, which is an identifier, not an admission check. No
   protocol 3 compatibility, the same way v2 was dropped.
 - [ ] **History squash, BOTH release repos** (decided 2026-09-23: the

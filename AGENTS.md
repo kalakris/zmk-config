@@ -113,7 +113,7 @@ pad_id/contact_id/seq/100 µs timestamp at ~100 Hz, feature report of
 USB with the report-ID prefix), hosts
 must not hard-code 32. Body bytes 4-7 are the fixed ASCII **magic
 `RAWT`** (0x52 0x41 0x57 0x54) and a host MUST reject a body whose magic,
-protocol byte or 16 + 8N length does not match and MUST NOT claim such a
+protocol byte or 16 + 8N length does not match and MUST NOT lease such a
 device — 0xFF00/0x01 is a generic vendor pair, so this is protocol
 identification, not authentication. Bytes 8-15 are the **`device_id`**,
 the SoC's `hwinfo_get_device_id()` (nRF52 FICR DEVICEID) verbatim,
@@ -132,23 +132,24 @@ SwiftPM daemon; since 2026-08-30). Two scrolling modes — this naming is
 canonical (2026-08-31; never "legacy/basic/fallback mode"): **Standard
 mode** — no host software; the firmware scrolls on its own (pointer,
 tap, ÷24 two-axis wheel) and the touch stream is silent; and **RawTouch
-mode** — RawTouch holds the stream claim (SET feature report,
-refreshed, endpoint-scoped), the firmware emits frames only while
-claimed (since 2026-08-31; flags bit 2 = `host_claimed`, implied-set)
+mode** — RawTouch holds the stream **lease** (SET feature report,
+renewed, endpoint-scoped; vocabulary since 2026-09-23 — never "claim"
+or "gate"), the firmware emits frames only while
+the lease is held (since 2026-08-31; flags bit 2 = `lease_held`, implied-set)
 and suppresses the ÷24 wheel, and RawTouch synthesizes scroll — with
 real gesture phases, lift-off momentum, ballistics, device-time
 reconstruction, and cross-pad-catch arbitration — posting at the session
 event tap (composes with any mouse tool; never post at the HID tap). A
-claim clearing mid-touch gets one trailing bit-2-clear release frame;
+lease lapsing mid-touch gets one trailing bit-2-clear release frame;
 the host answers by canceling that pad's series WITHOUT momentum. The
-keyboard reverts to Standard mode whenever the claim lapses (timeout,
-release, endpoint switch, host death). Since 2026-09-05 the claim is also
-gated on **posting readiness**: `RawTouchService` polls the Accessibility
+keyboard reverts to Standard mode whenever the lease lapses (timeout,
+release, endpoint switch, host death). Since 2026-09-05 the lease is also
+conditional on **posting readiness**: `RawTouchService` polls the Accessibility
 trust check (1 s ungranted / 5 s granted, never the prompting API) and an
-ungranted or revoked app releases the claim, so the keyboard keeps
+ungranted or revoked app releases the lease, so the keyboard keeps
 scrolling in Standard mode instead of going dead; the user's `enabled`
-preference is never rewritten. Claim writes carry a generation
-(`GateClaimState`) so a claim in flight cannot land after a release.
+preference is never rewritten. Lease writes carry a generation
+(`LeaseState`) so an acquire in flight cannot land after a release.
 Firmware side (same date): one shared transmit ring
 (`src/raw_touch_txq.h`) queues frames on BOTH transports — USB drains from
 `in_ready_cb` (`CONFIG_ZMK_RAW_TOUCH_USB_QUEUE_SIZE`, default 4), BLE
@@ -156,14 +157,14 @@ entries are bound to their profile and flushed on endpoint switch /
 disconnect — so releases survive a busy endpoint and never cross hosts.
 Hardware-verified 2026-09-14 (checklist + results: next-steps item r).
 Two behaviours to know when testing: a USB unplug mid-touch is a
-*handover* to BLE, not a stop (the app claims both endpoints); and a BT
+*handover* to BLE, not a stop (the app leases both endpoints); and a BT
 profile switch mid-touch discards the trailing release into the empty
 profile, so the host's watchdog closes that gesture — test switches in
 pointer context (profile keys + System + Nav need three hands).
 The scroll fallback is simply quitting RawTouch → Standard mode (no
 software needed). The old LinearMouse touch-stream fork is **obsolete
-as a fallback** since claim-gated emission (2026-08-31: it never
-claims, so it gets a silent stream while suppressing wheel events
+as a fallback** since lease-conditional emission (2026-08-31: it never
+acquires a lease, so it gets a silent stream while suppressing wheel events
 host-side = no scrolling at all) and **will not be released publicly**;
 RawTouch is the release vehicle. Since 2026-08-31,
 /Applications/LinearMouse.app is the **stock-inputscale** build
@@ -201,13 +202,13 @@ in `firmware/raw-touch-v0-prototype/`):
 - `~/src/zmk-raw-touch` (`kalakris/zmk-raw-touch@main`) — **the module**: private HID report descriptor, second USB HID interface + second BLE HIDS instance, frame handler, `zip_raw_touch_scroll` marker, `zip_raw_touch_idle_filter`. Name final (renamed from `-wip`); still **private** — vendored into `vendor/` for CI
 - `~/src/zmk` (`kalakris/zmk@raw-touch`) — the old ZMK core patch. **Dead; safe to delete** — `cfc4b3e6` is salvaged as `patches/zmk-skip-empty-mouse-report-syncs.patch`
 - `~/src/cirque-input-module` — `@intree-driver` (Zephyr main's driver vendored + 3 patches; patch 3/3's dead-pad boot race was **fixed 2026-08-28** — wait for SW_CC to assert before clearing, re-check DR after arming the edge interrupt — which cleared the must-fix gate before upstreaming) and the historical `@raw-touch` fork. Never PR abs-mode anywhere — see [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md)
-- `~/src/rawtouch` (`kalakris/rawtouch`, **private** since 2026-09-04; push over HTTPS) — **RawTouch, the host**: menubar app + CLI daemon over shared `RawTouchCore`. **The menubar app IS the live host since 2026-08-30** (`~/Applications/RawTouch.app`; the iTerm-tab CLI arrangement is retired). Config `~/.config/rawtouch/config.json` live-reloads via file watcher; flock instance lock stops app/CLI double-runs; LaunchAgent plist in `resources/` for headless use. Scroll synthesis is display-rate resampled (`FrameResampler` + CVDisplayLink vsync ticks, carry semantics at stops; latency is per transport — `resampling.latencyMs` 0 for USB, `bluetoothLatencyMs` 10 for BLE — adopted at each gesture's touch-down from the frame's IOHIDDevice transport). `scale` is a **gain relative to physical 1:1** (pt/count derived per gesture from the pad's counts/mm and the display's pt/mm; both panels here ≈4.3 pt/mm), and the shipped defaults are the user's hardware-tuned Apple-like curve (acceleration on, exponent 0.9, minGain 1, maxGain 16, decay 0.55 s). Bench tooling: `scroll-bench --offline` (deterministic 120 Hz cadence table — the real validation) and `bench/safari-bounce/` (Safari integration; note Safari's page-side rAF runs at 60 Hz even on ProMotion, so the page log cannot observe 120 Hz cadence — use `--offline` for that; `record.py` captures a LIVE session, page log + pad frames, for felt-but-not-benched problems). WebKit rule learned 2026-09-04: Safari reads the INTEGER point delta, so a scroll `began` must carry ≥ 1 pt or it is a zero-delta began that never reaches the rubber-band controller — the poster defers the began until a whole point has accumulated. Extracted from the LinearMouse fork; 301 unit tests. Two-axis (vertical + horizontal) since 2026-09-15: config `axes` / `pads.<id>.axes` / `pads.<id>.invertHorizontal`, orientation-derived signs hardware-verified, direction edits apply live, axis/axes edits end the gesture. Since 2026-09-04: types carry the `RawTouch*` prefix (no `TouchStream*`), `RawTouchService` owns the daemon lifecycle for both CLI and app, IOKit report transfers run on a serial queue off main, and a `RawTouchTestSupport` target holds the shared test helpers. Bundle ID / LaunchAgent label / log subsystem = `io.github.kalakris.RawTouch` (since 2026-09-04; the first deploy after that change needs a fresh Accessibility grant regardless of signing). TCC: the app bundle holds its OWN Accessibility grant; `make-app.sh` auto-finds the user's Apple Development cert in the keychain, so rebuilds keep the grant (verified 2026-09-15 — no prompt). Do NOT judge signing from a SANDBOXED `security find-identity`: it sees no identities and wrongly suggests ad-hoc. CLI-under-terminal attributes to the terminal instead
+- `~/src/rawtouch` (`kalakris/rawtouch`, **private** since 2026-09-04; push over HTTPS) — **RawTouch, the host**: menubar app + CLI daemon over shared `RawTouchCore`. **The menubar app IS the live host since 2026-08-30** (`~/Applications/RawTouch.app`; the iTerm-tab CLI arrangement is retired). Config `~/.config/rawtouch/config.json` live-reloads via file watcher; flock instance lock stops app/CLI double-runs; LaunchAgent plist in `resources/` for headless use. Scroll synthesis is display-rate resampled (`FrameResampler` + CVDisplayLink vsync ticks, carry semantics at stops; latency is per transport — `resampling.latencyMs` 0 for USB, `bluetoothLatencyMs` 10 for BLE — adopted at each gesture's touch-down from the frame's IOHIDDevice transport). `scale` is a **gain relative to physical 1:1** (pt/count derived per gesture from the pad's counts/mm and the display's pt/mm; both panels here ≈4.3 pt/mm), and the shipped defaults are the user's hardware-tuned Apple-like curve (acceleration on, exponent 0.9, minGain 1, maxGain 16, decay 0.55 s). Bench tooling: `scroll-bench --offline` (deterministic 120 Hz cadence table — the real validation) and `bench/safari-bounce/` (Safari integration; note Safari's page-side rAF runs at 60 Hz even on ProMotion, so the page log cannot observe 120 Hz cadence — use `--offline` for that; `record.py` captures a LIVE session, page log + pad frames, for felt-but-not-benched problems). WebKit rule learned 2026-09-04: Safari reads the INTEGER point delta, so a scroll `began` must carry ≥ 1 pt or it is a zero-delta began that never reaches the rubber-band controller — the poster defers the began until a whole point has accumulated. Extracted from the LinearMouse fork; 301 unit tests. Two-axis (vertical + horizontal) since 2026-09-15: config `axes` / `pads.<id>.axes` / `pads.<id>.invertHorizontal`, orientation-derived signs hardware-verified, direction edits apply live, axis/axes edits end the gesture. Since 2026-09-04: types carry the `RawTouch*` prefix (no `TouchStream*`), `RawTouchService` owns the daemon lifecycle (the CLI daemon was dropped 2026-09-23), IOKit report transfers run on a serial queue off main, and a `RawTouchTestSupport` target holds the shared test helpers. Bundle ID / LaunchAgent label / log subsystem = `io.github.kalakris.RawTouch` (since 2026-09-04; the first deploy after that change needs a fresh Accessibility grant regardless of signing). TCC: the app bundle holds its OWN Accessibility grant; `make-app.sh` auto-finds the user's Apple Development cert in the keychain, so rebuilds keep the grant (verified 2026-09-15 — no prompt). Do NOT judge signing from a SANDBOXED `security find-identity`: it sees no identities and wrongly suggests ad-hoc. CLI-under-terminal attributes to the terminal instead
 - `~/src/linearmouse` (`kalakris/linearmouse`) — the old host consumer. `main` = the frozen touch-stream fork (never released; obsolete even as a fallback post-claim-gated-emission). **`stock-inputscale`** (2026-08-31) = upstream `9843332` + the 2 `inputScale` commits (UI commit amended: `fieldRange:` dropped — that param was fork-only plumbing) — this is what's INSTALLED at /Applications/LinearMouse.app (pointer processing + input scaling, coexists with RawTouch) and the cleanest upstream-PR base (item g). `inputscale` = the old fork-stacked variant, superseded
 
 Build loops:
 - **Firmware**: edit on `main` → push → `./scripts/download-firmware.sh` (waits for the branch-tip run) → `./scripts/flash-go60.sh firmware/main/firmware [--halves both|lh|rh]` run in the background (bootloader: RH T3 + `/`; right half only for scroll/stream changes, both halves for driver or left-pad-config changes). The watcher **exits 0 by itself once every requested half has flashed** — so a backgrounded run notifies the agent when flashing is done, no polling or killing; it waits indefinitely (so leaving the desk mid-flash is fine; `--timeout SECONDS` opts into an idle timeout, exit 2), exit 3 = another watcher already holds the lock (never start a second one; wait for or kill the owner it names).
 - **Module edits**: the module repo is private, so CI cannot fetch it — edit `~/src/zmk-raw-touch`, then `./scripts/sync-raw-touch-module.sh` and commit `vendor/zmk-raw-touch/`. Pushing the module repo alone changes nothing.
-- **Host (menubar app — the live host)**: edit `~/src/rawtouch` → user quits the app (releases the gate) → `./scripts/make-app.sh` assembles + signs `~/Applications/RawTouch.app` (signs with the keychain's Apple Development cert automatically; `RAWTOUCH_SIGN_ID` only overrides) → relaunch. Launching/quitting is the user's move unless they ask for a deploy; when they do, the sequence that works is `osascript -e 'quit app "RawTouch"'` (releases the claim), `./scripts/make-app.sh`, `open ~/Applications/RawTouch.app`, and announce it. Bigger host features have been delegated to an opus subagent with a precise brief, then independently built/tested/reviewed before deploy. **Host (CLI, headless fallback)**: `swift build -c release && cp .build/release/rawtouch ~/bin/`; the flock instance lock (`~/.config/rawtouch/rawtouch.pid`, exit 3) stops app/CLI double-runs. Config live-reloads for both. Legacy LinearMouse loop: `./linearmouse/build-and-install.sh`, config live-reloads.
+- **Host (menubar app — the live host)**: edit `~/src/rawtouch` → user quits the app (releases the lease) → `./scripts/make-app.sh` assembles + signs `~/Applications/RawTouch.app` (signs with the keychain's Apple Development cert automatically; `RAWTOUCH_SIGN_ID` only overrides) → relaunch. Launching/quitting is the user's move unless they ask for a deploy; when they do, the sequence that works is `osascript -e 'quit app "RawTouch"'` (releases the lease), `./scripts/make-app.sh`, `open ~/Applications/RawTouch.app`, and announce it. Bigger host features have been delegated to an opus subagent with a precise brief, then independently built/tested/reviewed before deploy. **Host (CLI, headless fallback)**: `swift build -c release && cp .build/release/rawtouch ~/bin/`; the flock instance lock (`~/.config/rawtouch/rawtouch.pid`, exit 3) stops app/CLI double-runs. Config live-reloads for both. Legacy LinearMouse loop: `./linearmouse/build-and-install.sh`, config live-reloads.
 - **TCC rule**: the user must NEVER grant Accessibility prompts raised during `xcodebuild test` runs (they bind to the DerivedData test-host copy and lock the real app out — the "accessibility loop"). Grant only right after a deploy. Recovery recipe: docs/raw-touch.md → "THE ACCESSIBILITY-LOOP TRAP".
 
 Full state doc (architecture, tuning knobs, gotchas, rollback):

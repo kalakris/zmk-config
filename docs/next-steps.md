@@ -340,7 +340,7 @@ power-cycle (fixed `72a26f7` via a `zmk_usb_conn_state_changed`
 listener; retested 3/3 on hardware). `mode-gate` is merged into both
 repos' `main` (module `859b03e`, zmk-config merge `3535109`); the
 `mode-gate` branches are now redundant and can be deleted. Bench
-tools kept on main: `scripts/gate-claim.swift` (claim/release/hold/raw,
+tools kept on main: `scripts/lease.swift` (renamed from `gate-claim.swift` 2026-09-23; acquire/release/hold/raw,
 usb|ble pin; handles the macOS quirk that USB feature-report GETs come
 back report-ID-prefixed while BLE's come bare).
 
@@ -1737,7 +1737,7 @@ hardware.
   (`identityLine`, grouped in fours) and an **Identifier** row on the
   Keyboards tab. **449 tests** (was 440), `scroll-bench --offline` clean.
 - **zmk-config** (the commit that added this item) — vendored module, both bench scripts
-  (`gate-claim.swift`, `raw-touch-monitor.swift`; the monitor now prints
+  (`lease.swift` — then `gate-claim.swift` — and `raw-touch-monitor.swift`; the monitor now prints
   `device_id`), and the prose in `CLAUDE.md` / `AGENTS.md` /
   `docs/raw-touch.md` / the publish brief's freeze bullet.
 
@@ -1853,6 +1853,23 @@ caret. Brief sent to the builder. Gotcha: System Events wedged during the
 evidence run (every AppleEvent -1712 after ~60 s) — `killall "System
 Events"` fixed it; `keystroke` only reaches the app when its window is
 frontmost.
+
+**Vocabulary: "lease" (user decision 2026-09-23):** the host's hold on the
+stream is a *lease* — acquired, renewed, released, lapses — never "claim"
+(said who, not what) and never "gate" (undefined anywhere in the docs;
+the deferred p.2 item). Options weighed: lease / session (collides with
+the macOS login session) / handoff / subscription / keep claim; lease
+explains exclusivity, holder, duration, renewal and lapse by itself.
+Rename in flight: host `RawTouchGate`→`RawTouchLease`, `gateClaimed`→
+`leaseHeld`, `GateClaimState`→`LeaseState`, log category `HostClaim`→
+`Lease`, "gateless"→"without lease support"; module `raw_touch_gate.c`→
+`raw_touch_lease.c`, `zmk_raw_touch_gate_*`→`_lease_*`, frame flag
+`host_claimed`→`lease_held` (bit unchanged); README appendix "Host
+claim"→"Host lease". zmk-config: `scripts/gate-claim.swift`→`lease.swift`
+(`acquire` verb, `claim` accepted as alias), monitor flag `--claim`→
+`--lease`, CLAUDE.md/AGENTS.md/raw-touch.md rewritten. Historical docs
+(mode-gate-plan.md, this trail) keep their old words. The pencil-button
+deploy (`988779a`, running) still awaits the user's click test.
 
 **Sixth-critique fix pass DEPLOYED 2026-09-23 ~02:45** (rawtouch
 `68b00ae`, 496 tests, CI 35842852330): verified live with the AX tools —

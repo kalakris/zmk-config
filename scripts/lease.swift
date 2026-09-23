@@ -1,21 +1,21 @@
-// Ad-hoc mode-gate claim writer for the zmk-raw-touch vendor HID device.
-// Bench tool for the host claim: sends the 4-byte gate command as a SET
+// Ad-hoc lease writer for the zmk-raw-touch vendor HID device.
+// Bench tool for the host lease: sends the 4-byte lease command as a SET
 // feature report, no Accessibility/TCC needed. Companion to
 // raw-touch-monitor.swift, which shows the resulting flags bit 2.
 //
 // Usage:
-//     gate-claim claim [timeout_s]    one claim write (default 30 s)
-//     gate-claim release              one release write
-//     gate-claim hold [timeout_s]     claim + refresh at timeout/2 until Ctrl-C,
+//     lease acquire [timeout_s]       one acquire write (default 30 s)
+//     lease release                   one release write
+//     lease hold [timeout_s]          acquire + renew at timeout/2 until Ctrl-C,
 //                                     release on exit (dead-host sim: kill -9)
-//     gate-claim raw B0 B1 B2 B3      arbitrary body, for malformed-write tests
+//     lease raw B0 B1 B2 B3           arbitrary body, for malformed-write tests
 //
 // Writes the bare 4-byte body first; on failure retries once with the 0x04
 // report-ID prefix (host stacks differ; firmware accepts both).
 //
 // Build & run:
-//     swiftc -O scripts/gate-claim.swift -o /tmp/gate-claim
-//     /tmp/gate-claim claim 30
+//     swiftc -O scripts/lease.swift -o /tmp/lease
+//     /tmp/lease acquire 30
 
 import Foundation
 import IOKit.hid
@@ -74,7 +74,7 @@ func fail(_ message: String) -> Never {
 // --- argument parsing -------------------------------------------------------
 
 enum Mode {
-    case claim(timeout: UInt8)
+    case acquire(timeout: UInt8)
     case release
     case hold(timeout: UInt8)
     case raw([UInt8])
@@ -95,12 +95,12 @@ if let first = args.first, ["usb", "ble"].contains(first) {
     args.removeFirst()
 }
 guard let verb = args.first else {
-    fail("usage: gate-claim [usb|ble] claim [timeout_s] | release | hold [timeout_s] | raw B0 B1 B2 B3")
+    fail("usage: lease [usb|ble] acquire [timeout_s] | release | hold [timeout_s] | raw B0 B1 B2 B3")
 }
 
 let mode: Mode
 switch verb {
-case "claim": mode = .claim(timeout: parseTimeout(args, at: 1, default: 30))
+case "acquire", "claim": mode = .acquire(timeout: parseTimeout(args, at: 1, default: 30))
 case "release": mode = .release
 case "hold": mode = .hold(timeout: parseTimeout(args, at: 1, default: 30))
 case "raw":
@@ -122,7 +122,7 @@ guard IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone)) == kIORetur
 }
 let devices = (IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>).map(Array.init) ?? []
 
-// Validate via the feature report: magic + protocol 4 + gate capability
+// Validate via the feature report: magic + protocol 4 + lease capability
 // (bit 0). See featureBody() for the USB/BLE framing rule.
 var candidates: [(device: IOHIDDevice, transport: String)] = []
 for device in devices {
@@ -134,7 +134,7 @@ for device in devices {
     let transport = (IOHIDDeviceGetProperty(device, kIOHIDTransportKey as CFString) as? String) ?? "?"
     note(String(format: "# device: transport=%@ capabilities=0x%02X", transport, body[2]))
     guard body[2] & 0x01 != 0 else {
-        note("# skipping: no mode-gate capability (bit 0 = 0)")
+        note("# skipping: no lease capability (bit 0 = 0)")
         continue
     }
     candidates.append((device, transport))
@@ -146,7 +146,7 @@ if let wanted = requestedTransport {
     picked = candidates.first { $0.transport == "USB" } ?? candidates.first
 }
 guard let (device, transport) = picked else {
-    fail("no gate-capable protocol-4 raw-touch device found matching request (\(devices.count) candidate(s) on 0xFF00/0x01)")
+    fail("no lease-capable protocol-4 raw-touch device found matching request (\(devices.count) candidate(s) on 0xFF00/0x01)")
 }
 note("# targeting: \(transport)")
 
@@ -171,14 +171,14 @@ func write(_ body: [UInt8], expectSuccess: Bool = true) -> Bool {
     return false
 }
 
-func claimBody(op: UInt8, timeout: UInt8) -> [UInt8] { [0x01, op, timeout, 0x00] }
+func leaseBody(op: UInt8, timeout: UInt8) -> [UInt8] { [0x01, op, timeout, 0x00] }
 
 switch mode {
-case .claim(let timeout):
-    exit(write(claimBody(op: 0x01, timeout: timeout)) ? 0 : 1)
+case .acquire(let timeout):
+    exit(write(leaseBody(op: 0x01, timeout: timeout)) ? 0 : 1)
 
 case .release:
-    exit(write(claimBody(op: 0x00, timeout: 30)) ? 0 : 1)
+    exit(write(leaseBody(op: 0x00, timeout: 30)) ? 0 : 1)
 
 case .raw(let body):
     // Malformed-write probe: report firmware's verdict, never retry framing
@@ -192,13 +192,13 @@ case .raw(let body):
     exit(0)
 
 case .hold(let timeout):
-    guard write(claimBody(op: 0x01, timeout: timeout)) else { exit(1) }
+    guard write(leaseBody(op: 0x01, timeout: timeout)) else { exit(1) }
     let interval = max(1.0, Double(timeout) / 2.0)
-    note("# holding claim: refresh every \(interval)s, Ctrl-C to release+exit, kill -9 to simulate dead host")
+    note("# holding lease: renew every \(interval)s, Ctrl-C to release+exit, kill -9 to simulate dead host")
     signal(SIGINT, SIG_IGN)
     let sigSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
     sigSource.setEventHandler {
-        write(claimBody(op: 0x00, timeout: 30))
+        write(leaseBody(op: 0x00, timeout: 30))
         note("# released")
         exit(0)
     }
@@ -206,7 +206,7 @@ case .hold(let timeout):
     let timer = DispatchSource.makeTimerSource(queue: .main)
     timer.schedule(deadline: .now() + interval, repeating: interval)
     timer.setEventHandler {
-        write(claimBody(op: 0x01, timeout: timeout))
+        write(leaseBody(op: 0x01, timeout: timeout))
     }
     timer.resume()
     dispatchMain()
