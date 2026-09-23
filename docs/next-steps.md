@@ -1860,7 +1860,7 @@ stream is a *lease* — acquired, renewed, released, lapses — never "claim"
 the deferred p.2 item). Options weighed: lease / session (collides with
 the macOS login session) / handoff / subscription / keep claim; lease
 explains exclusivity, holder, duration, renewal and lapse by itself.
-Rename in flight: host `RawTouchGate`→`RawTouchLease`, `gateClaimed`→
+Rename DONE (module `fe849da`, rawtouch `2182664`, both CI green, 496 tests, bench byte-identical; vendored here as `7e4cf0f`; firmware build + download in progress — flash both halves and redeploy the app together with the pencil check; log lines changed: firmware "Raw touch lease acquired by USB (timeout 30s)", host category `Lease`, menu "No lease — Accessibility needed to scroll"): host `RawTouchGate`→`RawTouchLease`, `gateClaimed`→
 `leaseHeld`, `GateClaimState`→`LeaseState`, log category `HostClaim`→
 `Lease`, "gateless"→"without lease support"; module `raw_touch_gate.c`→
 `raw_touch_lease.c`, `zmk_raw_touch_gate_*`→`_lease_*`, frame flag
