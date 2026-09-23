@@ -330,9 +330,11 @@ The original decision blockers are all closed:
   (macOS-verified). The device-side mode gate is *reserved, not
   implemented* — the spec says so explicitly. Spec = the module README's
   wire-format appendix, authoritative.
-- [x] **LICENSE** on whatever repo ships — MIT, in the module repo. Still to
-  do: state in the spec that the descriptor and report layout are
-  unencumbered, and give `zmk-config` a LICENSE too.
+- [x] **LICENSE** on whatever repo ships — MIT, in the module repo. Both
+  follow-ups DONE 2026-09-22: the README's credits section says the MIT
+  grant includes the protocol appendix, and `zmk-config` has its own MIT
+  LICENSE + README license section (`e347b23`; the Eyelash Sofle board
+  files keep their original headers).
 - [x] **Usage page: DONE 2026-08-27** — **0xFF00/0x01 stays** (fixed
   `#define`s now, not Kconfig). Our kext scan showed it free on macOS
   while Apple's `MTUserDevice` squats QMK's 0xFF60/0x07. Decided, not
@@ -356,7 +358,13 @@ host instructions must point at RawTouch before the flip.
   release (universal binary, app icon, version stamped from the tag).
 - [ ] **Flip the repo public and un-vendor**: uncomment the `zmk-raw-touch`
   entry in `config/west.yml`, delete `vendor/`, drop the two `cmake-args`
-  from `build.yaml`.
+  from `build.yaml`. **The un-vendor half is prepared** (2026-09-22): local
+  zmk-config branch `unvendor` (`b0ac564`, one commit on top of `e347b23`,
+  NOT pushed — CI would fail on the private clone). It pins the west entry
+  to the vendored SHA `7c1fca4`, deletes `vendor/` and
+  `scripts/sync-raw-touch-module.sh`, and trims LICENSE/README. After the
+  flip: rebase it, push, confirm both Go60 targets build, then update the
+  vendoring notes in CLAUDE.md/AGENTS.md.
 - [x] ~~Independent release review~~ — DONE: Codex's review of 2026-09-05
   (`docs/reviews/rawtouch-2026-09-05/`), all nine findings fixed, deployed
   and hardware-verified 2026-09-14 (next-steps item r).
@@ -381,10 +389,25 @@ host instructions must point at RawTouch before the flip.
   design.
 - [ ] **Protocol freeze decisions** (before v0.1.0): a distinctive
   feature-report identification field / reserved-byte range checks
-  (squatter hardening); one-keyboard-at-a-time stays a documented
-  limitation unless host state is keyed by device-and-pad.
-- [ ] **Module history squash** + delete the merged `mode-gate` branch
-  (next-steps p.4).
+  (squatter hardening). ~~One-keyboard-at-a-time~~ — resolved 2026-09-15
+  by keying host state per endpoint and pad (next-steps item t). The two
+  former reserved feature bytes now carry module versions (item cc), so
+  "range checks on reserved bytes" reduces to the frame's flag bits 3–7
+  and feature byte 3. Recommendation (2026-09-22, user's call): ship v3
+  without a magic field — the host already validates length 4 + 8N,
+  protocol == 3 and the pad count, and a magic field would be a v4
+  report-layout change (BLE re-pair for every user) for a squatter that
+  has never been observed.
+- [ ] **Module history squash** (next-steps p.4) — user's call: 49
+  commits, only 2 name the `-wip` repo / the LinearMouse fork
+  (`2874645`, `3879ab2`), two author emails (48 mail@mrinal.net,
+  1 gmail). ~~Delete the merged `mode-gate` branch~~ — DONE 2026-09-22
+  (local + origin; it was fully merged into `main`).
+- [x] **CONTRIBUTING in both release repos** — DONE 2026-09-22: module
+  `e26b1f0` (examples-as-files rule, CI, protocol/version contracts,
+  driver independence), rawtouch `a4093d9` (build/test/bench, the TCC
+  rule, offline-first scroll validation, config-key documentation).
+  Both committed locally, NOT pushed.
 - [x] ~~Document the dedicated-scroll-pad pattern~~ — DONE 2026-09-15: the
   README's Scroll mode section now has a "A dedicated scroll pad"
   subsection (marker in the base chain, `tap-click` inert there, two-axis

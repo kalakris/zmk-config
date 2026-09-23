@@ -156,9 +156,9 @@ effectively EOL (abs-mode PRs from others already rotting there). Revised:
   redistributing that driver was legally murky — but the plan is now to drop
   the fork for Zephyr's in-tree driver (Apache-2.0, clean). Only revisit if
   we end up shipping the module fork after all.
-- [ ] zmk-config has no LICENSE; add MIT (or similar) covering our scripts,
-  docs, and the protocol spec before pointing the community at them. The
-  protocol spec is wholly ours — consider CC-BY or MIT explicitly in the doc.
+- [x] ~~zmk-config has no LICENSE~~ — DONE 2026-09-22 (`e347b23`, MIT
+  with a third-party note for `boards/`). The protocol spec lives in the
+  module README, whose credits section states the MIT grant covers it.
 - linearmouse (MIT) and zmk (MIT) forks are clean; keep new files carrying
   the upstream header conventions. The raw touch module ships MIT with
   SPDX headers throughout.

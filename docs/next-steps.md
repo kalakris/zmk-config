@@ -8,6 +8,19 @@ v3, both pads streaming, USB + BLE verified) — see
 [module-publish-brief.md](module-publish-brief.md) for the publish plan.
 Each item below is self-contained enough to start cold.
 
+**Punch-list pass (2026-09-22 evening):** tackled the items that need no
+hardware or decision — module `mode-gate` branch deleted (local +
+origin), CONTRIBUTING added to the module (`e26b1f0`) and rawtouch
+(`a4093d9`), zmk-config got an MIT LICENSE + README section (`e347b23`),
+and the un-vendor change is prepared on local branch `unvendor`
+(`b0ac564`; merge only after the module repo is public). All three
+commits are local, NOT pushed. Still the user's: `gh repo delete
+kalakris/zmk` + `rm -rf ~/src/zmk` (item h), the two `v0.1.0` tags
+(item cc), the public flips, the demo video (d), the history-squash and
+magic-field decisions (publish brief), item x's began-axis tally, and
+the feel verdicts (z, aa). Stray untracked file in zmk-config root:
+`0f7fb1e9-…_My go60 layout.json` (a Layout Editor export, left alone).
+
 **Current state (2026-09-22 wrap-up — START HERE):** the host is on
 rawtouch `0fa146b`, deployed and running; the repo tip is `6f00d21`
 (the user's README rewrite, committed 2026-09-22 with my
@@ -292,7 +305,10 @@ public flip.
 
 Nothing depends on it; `cfc4b3e6` is already salvaged as
 `patches/zmk-skip-empty-mouse-report-syncs.patch` on `main`. Just
-delete the GitHub repo and `~/src/zmk`.
+delete the GitHub repo and `~/src/zmk`. Checked 2026-09-22: the repo
+still exists (public fork, last push 2026-08-26) and `~/src/zmk` is still
+on disk. Left for the user because both deletes are hard to undo:
+`gh repo delete kalakris/zmk --yes && rm -rf ~/src/zmk`.
 
 ## i. Drop protocol v2 from the LinearMouse fork — DONE 2026-08-28
 
