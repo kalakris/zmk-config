@@ -1883,9 +1883,15 @@ claim"→"Host lease". zmk-config: `scripts/gate-claim.swift`→`lease.swift`
 Escape reverts — the container's Return handler had swallowed the key,
 and Escape's focus loss had committed before the revert; now a
 `RenameField` state machine in RawTouchAppCore, 507 tests) both deployed
-and USER-VERIFIED 2026-09-23 afternoon. In flight: the firmware record
-per keyboard (user: the Firmware row must never say "unknown over
-Bluetooth" once any connection has learned the LH version).
+and USER-VERIFIED 2026-09-23 afternoon. Firmware record per KEYBOARD (user: the Firmware row must
+never say "unknown over Bluetooth" once any connection has learned the LH
+version — the central answers the feature report on both transports, so
+its contents are the keyboard's, not the connection's): rawtouch
+`a310a38`, `RawTouchEndpointRegistry.firmware[KeyboardID]`, known-wins
+merge, probe keyed on the keyboard record, one Firmware line, record
+dropped with the last connection; 515 tests, CI 35923728797. DEPLOYED
+2026-09-23 ~15:10; live row reads "0.2 · protocol 4" on one line.
+**Host work for v0.1.0 complete (again).** Next: squash, tag, flip.
 
 **Sixth-critique fix pass DEPLOYED 2026-09-23 ~02:45** (rawtouch
 `68b00ae`, 496 tests, CI 35842852330): verified live with the AX tools —
