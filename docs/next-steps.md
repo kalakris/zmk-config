@@ -1854,6 +1854,18 @@ evidence run (every AppleEvent -1712 after ~60 s) — `killall "System
 Events"` fixed it; `keystroke` only reaches the app when its window is
 frontmost.
 
+**Sixth-critique fix pass DEPLOYED 2026-09-23 ~02:45** (rawtouch
+`68b00ae`, 496 tests, CI 35842852330): verified live with the AX tools —
+every heading exposes a "Rename" accessibility action (plus AXShowMenu),
+the pencil is persistent in tertiary, "Not yet measured" is one line, the
+readout placeholder reserves the populated height, labels carry
+"(finger)" / "(on screen)", pad names reach the Status/Firmware rows. Not
+achievable: the toolbar tab buttons expose no AXSelected — they are the
+Settings scene's own AppKit toolbar items, outside SwiftUI's traits
+(same as System Settings); dropped. Tooling: `/tmp/claude/rt-critique/
+axactions` lists AX action names per heading/tab. **Host work for v0.1.0
+is complete** → next: squash both repos, tag, flip.
+
 **Cirque driver branch, 2026-09-23 (user decisions):** keep every
 patch that stock Go60 firmware runs — all three are Pete Johanson's own
 code from his module (`0759bf6`, 2024-09-19, and the 0xFF guard), which
