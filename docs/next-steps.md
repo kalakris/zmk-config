@@ -1839,7 +1839,22 @@ with the current name and select-all via the first responder; unchanged
 Return writes nothing) and the **Hardware ID row removed** (user: not
 needed — the key lives in every row's tooltip, the twins' picker tail, the
 saved entry's "Saved as", and the Remove Settings… text). Deployed
-2026-09-23 ~01:10 (491 tests, CI 35834500584). **Cirque driver branch, 2026-09-23 (user decisions):** keep every
+2026-09-23 ~01:10 (491 tests, CI 35834500584). **Sixth critique 2026-09-23 ~02:00 (32/40, trend 23→30→27→30→27→32;
+snapshot `2026-09-23T09-02-51Z__sources-rawtouchapp.md`):** P0 gone;
+three P1s — pad names not reaching the Status/Firmware formatters, mm/s
+naming finger speed and on-screen speed on adjacent lines (the units trap
+in new clothes), the editable heading invisible at rest with no VoiceOver
+action (verified absent: AXPress opens nothing) and no keyboard route; P2
+Latency row "not yet measured" twice, Remove Settings… antecedent/empty
+state/destructive; P3 readout growth + Keyboards scrollbar at rest. User:
+fix everything incl. minors; heading cue = persistent tertiary pencil on
+Keyboards only, no dimming, focusable + Return, plain click places the
+caret. Brief sent to the builder. Gotcha: System Events wedged during the
+evidence run (every AppleEvent -1712 after ~60 s) — `killall "System
+Events"` fixed it; `keystroke` only reaches the app when its window is
+frontmost.
+
+**Cirque driver branch, 2026-09-23 (user decisions):** keep every
 patch that stock Go60 firmware runs — all three are Pete Johanson's own
 code from his module (`0759bf6`, 2024-09-19, and the 0xFF guard), which
 MoErgo ships: patch 1 (garbage-frame guard, active), patch 2 (per-axis
