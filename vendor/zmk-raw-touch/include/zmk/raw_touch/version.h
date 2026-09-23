@@ -19,7 +19,7 @@
 #include <zephyr/toolchain.h>
 
 #define ZMK_RAW_TOUCH_MODULE_VERSION_MAJOR 0
-#define ZMK_RAW_TOUCH_MODULE_VERSION_MINOR 1
+#define ZMK_RAW_TOUCH_MODULE_VERSION_MINOR 2
 
 /* One byte for the feature report: high nibble major, low nibble minor -
  * 0x01 is 0.1, 0x10 is 1.0. Zero is reserved for "unknown", which is what

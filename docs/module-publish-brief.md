@@ -5,7 +5,7 @@ module at
 [`kalakris/zmk-raw-touch`](https://github.com/kalakris/zmk-raw-touch)
 (private, branch `main`) is what zmk-config `main` builds and what the
 keyboard runs — benched over USB and BLE, promoted from
-`module-port-intree`, now on **protocol v3** with **both pads streaming**.
+`module-port-intree`, now on **protocol v4** with **both pads streaming**.
 The name is final (`zmk-raw-touch`, renamed from `-wip`) and the usage
 page is decided (0xFF00/0x01 stays). **The 219-line ZMK core patch is
 gone: `kalakris/zmk` is no longer load-bearing and can be deleted** (its
@@ -326,7 +326,8 @@ The original decision blockers are all closed:
   end-to-end. Per-frame device timestamp (100 µs units, u16LE, drives
   host-side device-time reconstruction that fixes BLE-batching velocity
   distortion), `contact_id` + flags + `seq`, per-pad geometry slots in the
-  feature report (4 + 8 × pads bytes since 2026-09-04; 20 on the Go60), real logical ranges in the report descriptor
+  feature report (4 + 8 × pads bytes since 2026-09-04; 20 on the Go60 —
+  16 + 8 × pads and 32 since the protocol 4 magic + device-id fields, 2026-09-22), real logical ranges in the report descriptor
   (macOS-verified). The device-side mode gate is *reserved, not
   implemented* — the spec says so explicitly. Spec = the module README's
   wire-format appendix, authoritative.
@@ -387,17 +388,22 @@ host instructions must point at RawTouch before the flip.
   split stamp; zero module warnings). README rewrite + markers committed
   as `68ab7fc`; run 35669110158 fully green. No upstream-main canary by
   design.
-- [ ] **Protocol freeze decisions** (before v0.1.0): a distinctive
-  feature-report identification field / reserved-byte range checks
-  (squatter hardening). ~~One-keyboard-at-a-time~~ — resolved 2026-09-15
-  by keying host state per endpoint and pad (next-steps item t). The two
-  former reserved feature bytes now carry module versions (item cc), so
-  "range checks on reserved bytes" reduces to the frame's flag bits 3–7
-  and feature byte 3. Recommendation (2026-09-22, user's call): ship v3
-  without a magic field — the host already validates length 4 + 8N,
-  protocol == 3 and the pad count, and a magic field would be a v4
-  report-layout change (BLE re-pair for every user) for a squatter that
-  has never been observed.
+- [x] **Protocol freeze decisions** — DONE 2026-09-22 (next-steps item
+  dd). ~~One-keyboard-at-a-time~~ was resolved 2026-09-15 by keying host
+  state per endpoint and pad (next-steps item t), and the two former
+  reserved feature bytes became module versions (item cc). The identification
+  field was recommended against earlier the same day on backwards-compatibility
+  grounds; the user overruled that — they are the only user, so the
+  re-pair costs one person one minute — and it shipped as **protocol 4**:
+  four fixed ASCII bytes `RAWT` (0x52 0x41 0x57 0x54) at feature-body
+  offset 4 plus the SoC's 8-byte `hwinfo` device id at offset 8, moving the
+  geometry slots to `16 + 8 × i` and the body to 16 + 8N bytes (32 on the
+  Go60), with `protocol_version` staying at byte 0
+  in every future version so a host can read it before choosing a layout;
+  hosts reject a wrong magic, a version that is not 4, or a length that is
+  not 16 + 8N, and never claim a device over any of that — but never over
+  the device id, which is an identifier, not an admission check. No
+  protocol 3 compatibility, the same way v2 was dropped.
 - [ ] **Module history squash** (next-steps p.4) — user's call: 49
   commits, only 2 name the `-wip` repo / the LinearMouse fork
   (`2874645`, `3879ab2`), two author emails (48 mail@mrinal.net,

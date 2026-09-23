@@ -13,6 +13,9 @@
  * descriptor is never touched.
  */
 
+#include <stddef.h>
+#include <string.h>
+
 #include <zephyr/kernel.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/sys/byteorder.h>
@@ -48,15 +51,24 @@ BUILD_ASSERT(sizeof(struct zmk_raw_touch_report_body) == 11,
              "Raw touch input report body must stay 11 bytes; the host parses it by offset");
 BUILD_ASSERT(sizeof(struct zmk_raw_touch_feature_pad_slot) == 8,
              "Raw touch feature pad slot must stay 8 bytes; the host parses it by offset");
-/* The feature body is a 4-byte header plus one 8-byte slot per pad, so
- * its length is 4 + 8 * N (20 on a two-pad build). Hosts derive N from
+/* The feature body is a 16-byte header plus one 8-byte slot per pad, so
+ * its length is 16 + 8 * N (32 on a two-pad build). Hosts derive N from
  * the report length; nothing here may pad the struct. */
 BUILD_ASSERT(sizeof(struct zmk_raw_touch_feature_body) ==
-                 4 + 8 * ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS,
-             "Raw touch feature report body must stay 4 + 8 * pads bytes; "
+                 16 + 8 * ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS,
+             "Raw touch feature report body must stay 16 + 8 * pads bytes; "
              "the host parses it by offset");
+/* The header's fixed offsets, which hosts parse by. protocol_version is
+ * at 0 in every version of the protocol by definition, so it needs no
+ * assert of its own. */
+BUILD_ASSERT(offsetof(struct zmk_raw_touch_feature_body, magic) == 4,
+             "Raw touch feature magic must stay at body offset 4");
+BUILD_ASSERT(offsetof(struct zmk_raw_touch_feature_body, device_id) == 8,
+             "Raw touch feature device id must stay at body offset 8");
+BUILD_ASSERT(offsetof(struct zmk_raw_touch_feature_body, pads) == 16,
+             "Raw touch feature pad slots must start at body offset 16");
 /* The descriptor's feature REPORT_COUNT below is a single-byte HID item
- * payload, so the body must fit in a byte. 8 pads = 68 bytes, so this
+ * payload, so the body must fit in a byte. 8 pads = 80 bytes, so this
  * can only trip if the slot count ceiling in hid.h is raised. */
 BUILD_ASSERT(sizeof(struct zmk_raw_touch_feature_body) <= 0xFF,
              "Raw touch feature report body no longer fits a one-byte HID REPORT_COUNT");
@@ -138,9 +150,9 @@ const uint8_t zmk_raw_touch_report_desc[] = {
      * (its u16 members are protocol-level structure the host parses by
      * offset; the descriptor does not model them). Readable over USB
      * GET_REPORT and the BLE feature report characteristic.
-     * protocol_version, pads_present, capabilities, module_version, then
-     * one 8-byte slot per pad compiled in: 4 + 8 * N bytes, 20 on the
-     * two-pad reference build.
+     * protocol_version, pads_present, capabilities, module_version, the
+     * 4-byte magic, the 8-byte device id, then one 8-byte slot per pad
+     * compiled in: 16 + 8 * N bytes, 32 on the two-pad reference build.
      *
      * The count is taken from sizeof() rather than written out, so the
      * descriptor and the struct cannot drift apart when the pad count
@@ -181,6 +193,7 @@ struct zmk_raw_touch_report *zmk_raw_touch_hid_get_report(void) { return &touch_
 static struct zmk_raw_touch_feature_report touch_feature_report = {
     .report_id = ZMK_RAW_TOUCH_REPORT_ID,
     .body = {.protocol_version = ZMK_RAW_TOUCH_PROTOCOL_VERSION,
+             .magic = ZMK_RAW_TOUCH_MAGIC_INIT,
              /* This half's build. A relayed pad's slot carries its own
               * half's version instead, filled in by src/raw_touch.c. */
              .module_version = ZMK_RAW_TOUCH_MODULE_VERSION_PACKED,
@@ -196,6 +209,21 @@ static struct zmk_raw_touch_feature_report touch_feature_report = {
 
 void zmk_raw_touch_hid_set_feature_header(uint8_t pads_present) {
     touch_feature_report.body.pads_present = pads_present;
+}
+
+void zmk_raw_touch_hid_set_feature_device_id(const uint8_t *device_id, size_t len) {
+    /* Zero first, so a hwinfo id shorter than the field is zero-padded on
+     * the right and a failed read leaves the all-zero "unknown". A longer
+     * id keeps its leading bytes; byte order is hwinfo's, untouched. */
+    memset(touch_feature_report.body.device_id, 0,
+           sizeof(touch_feature_report.body.device_id));
+
+    if (device_id == NULL || len == 0) {
+        return;
+    }
+
+    memcpy(touch_feature_report.body.device_id, device_id,
+           MIN(len, sizeof(touch_feature_report.body.device_id)));
 }
 
 void zmk_raw_touch_hid_set_feature_slot(int slot, uint8_t resolution, uint8_t orientation,

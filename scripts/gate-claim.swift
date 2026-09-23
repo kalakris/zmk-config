@@ -24,6 +24,44 @@ let usagePage = 0xFF00
 let usage = 0x01
 let reportID: CFIndex = 0x04
 
+// Feature-report wire format (protocol 4; the module README's appendix is
+// normative): a 16-byte header — protocol version, pads-present,
+// capabilities, module version, the four "RAWT" magic bytes, then the
+// 8-byte hwinfo device id — plus one 8-byte geometry slot per pad, so a
+// valid body is 16 + 8N bytes (32 on the Go60's two pads).
+let featureProtocolVersion: UInt8 = 4
+let featureHeaderLength = 16
+let featurePadSlotLength = 8
+let featureMagicOffset = 4
+let featureMagic: [UInt8] = Array("RAWT".utf8)
+
+/// The feature body out of whatever macOS handed back, or nil if the buffer
+/// is not a protocol-4 raw-touch body at all.
+///
+/// macOS quirk: over USB, GetReport returns the buffer WITH the report-ID
+/// byte prefixed; over BLE it comes back bare. The old "strip it if the
+/// first byte is the report ID" rule cannot be used any more — a bare body
+/// starts with the protocol version, which is 4, the same value as the
+/// report ID, so that rule would eat a byte off every Bluetooth read.
+/// Validate instead: try the buffer as it came, and only then the
+/// ID-stripped reading. Magic, version and the exact 16 + 8N length all have
+/// to agree, which is also the squatter check.
+func featureBody(_ buffer: [UInt8]) -> [UInt8]? {
+    func valid(_ body: [UInt8]) -> Bool {
+        body.count >= featureHeaderLength + featurePadSlotLength
+            && (body.count - featureHeaderLength) % featurePadSlotLength == 0
+            && body[0] == featureProtocolVersion
+            && Array(body[featureMagicOffset ..< featureMagicOffset + featureMagic.count])
+                == featureMagic
+    }
+    if valid(buffer) { return buffer }
+    if buffer.first == UInt8(reportID) {
+        let stripped = Array(buffer.dropFirst())
+        if valid(stripped) { return stripped }
+    }
+    return nil
+}
+
 func note(_ message: String) {
     FileHandle.standardError.write((message + "\n").data(using: .utf8)!)
 }
@@ -84,18 +122,15 @@ guard IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone)) == kIORetur
 }
 let devices = (IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>).map(Array.init) ?? []
 
-// Validate via the feature report: protocol v3 + gate capability (bit 0).
-// macOS quirk: over USB, GetReport returns the buffer WITH the report-ID
-// byte prefixed; over BLE it comes back bare. Normalize before parsing.
+// Validate via the feature report: magic + protocol 4 + gate capability
+// (bit 0). See featureBody() for the USB/BLE framing rule.
 var candidates: [(device: IOHIDDevice, transport: String)] = []
 for device in devices {
-    var buffer = [UInt8](repeating: 0, count: 64)
+    var buffer = [UInt8](repeating: 0, count: 128)
     var length: CFIndex = buffer.count
     guard IOHIDDeviceGetReport(device, kIOHIDReportTypeFeature, reportID, &buffer, &length)
-            == kIOReturnSuccess, length >= 3 else { continue }
-    var body = Array(buffer[0..<length])
-    if body[0] == UInt8(reportID) { body.removeFirst() }  // USB ID prefix
-    guard body.count >= 3, body[0] == 3 else { continue }
+            == kIOReturnSuccess, length > 0, length <= buffer.count else { continue }
+    guard let body = featureBody(Array(buffer[0..<length])) else { continue }
     let transport = (IOHIDDeviceGetProperty(device, kIOHIDTransportKey as CFString) as? String) ?? "?"
     note(String(format: "# device: transport=%@ capabilities=0x%02X", transport, body[2]))
     guard body[2] & 0x01 != 0 else {
@@ -111,7 +146,7 @@ if let wanted = requestedTransport {
     picked = candidates.first { $0.transport == "USB" } ?? candidates.first
 }
 guard let (device, transport) = picked else {
-    fail("no gate-capable v3 raw-touch device found matching request (\(devices.count) candidate(s) on 0xFF00/0x01)")
+    fail("no gate-capable protocol-4 raw-touch device found matching request (\(devices.count) candidate(s) on 0xFF00/0x01)")
 }
 note("# targeting: \(transport)")
 

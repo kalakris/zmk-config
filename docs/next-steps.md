@@ -1644,6 +1644,108 @@ peripheral hello + central cache, slot byte, README appendix; (4) sync
 vendor, flash both halves, verify the row on USB and BLE and with the
 LH powered off (unknown state); (5) tag module v0.1.0, app v0.1.0.
 
+## dd. Feature-report magic field + protocol 4 — IMPLEMENTED 2026-09-22 (module `8cd2121`, rawtouch `dcaf894`, zmk-config = the commit carrying this item; NOT flashed, app NOT deployed)
+
+The squatter-hardening half of item cc's "Protocol freeze decisions" (the
+publish brief), reversed on the same day it was recommended against: the
+earlier note said skip the magic because a v4 layout change costs every
+user a BLE re-pair. There is one user, so it costs one minute — the
+user's call, and it shipped with a device id alongside it.
+
+**Final layout (feature report GET, report ID 0x04, protocol 4):**
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 1 | `protocol_version` = 4 — stays at byte 0 in every future version, so a host reads it before choosing a layout |
+| 1 | 1 | `pads_present` (unchanged) |
+| 2 | 1 | `capabilities` (unchanged) |
+| 3 | 1 | `module_version` of the answering half (unchanged) |
+| 4 | 4 | `magic` = ASCII `RAWT` = `52 41 57 54`, fixed |
+| 8 | 8 | `device_id` = `hwinfo_get_device_id()` verbatim; all-zero = unknown |
+| 16 + 8 × i | 8 | Geometry slot `i` (slot layout unchanged) |
+
+Body = **16 + 8N**, so **32 on the Go60** (33 with the USB report-ID
+prefix). The claim SET body (4 bytes) and the input frame (11 bytes) are
+**unchanged**; report ID and usage pair unchanged.
+
+**Rules.** A host must reject a body whose magic is wrong, whose protocol
+byte is not 4, or whose length is not 16 + 8N, and must never write a
+claim to a device that failed — 0xFF00/0x01 is a generic vendor pair, so
+this is protocol *identification*, not authentication. `device_id` is the
+opposite: read, shown, never judged; no value of it, all-zero included,
+admits or rejects a keyboard. No protocol 3 compatibility at all, the way
+v2 was dropped.
+
+**Two behaviour changes worth knowing.** (1) Trailing padding is no
+longer tolerated — protocol 3 floored the slot count, protocol 4 requires
+the exact shape, because the length is part of the identification. (2)
+`protocol_version` is now 4, the same value as report ID 0x04, so the old
+"strip the leading byte if it equals the report ID" framing rule would
+eat a byte off every **bare BLE** feature read. Everything that parses
+this report now tries the buffer as it came first and the ID-stripped
+reading only if that fails validation (the host already did; both bench
+scripts were fixed).
+
+**hwinfo findings (checked in the trees, as asked):** ZMK does not enable
+`CONFIG_HWINFO` globally — it only uses it behind `#if IS_ENABLED` in
+Studio's `core_subsystem.c` — so the module carries `select HWINFO`
+itself; and Zephyr's `usb_update_sn_string_descriptor()`
+(`subsys/usb/device/usb_descriptor.c`) *is* built from
+`hwinfo_get_device_id()`, which the Go60 board overrides with its own
+version doing the same thing, so the USB serial and `device_id` are the
+same eight bytes by construction. The live Go60 reports
+`moergo.com:GO60-A856ED2AC49F3E97`, i.e. `A8 56 ED 2A C4 9F 3E 97` — which
+proves HWINFO is already on in this build (so `select HWINFO` changes no
+serial number) and gives the expected `device_id` to check against on
+hardware.
+
+**What changed.**
+- **Module `8cd2121`** — `hid.h` (version 4, `ZMK_RAW_TOUCH_MAGIC_*` +
+  `_INIT`, `ZMK_RAW_TOUCH_DEVICE_ID_LEN`, both fields in the body
+  struct), `raw_touch_hid.c` (static initializer, `set_feature_device_id`
+  setter, `BUILD_ASSERT`s for the body length and for magic@4,
+  device_id@8, pads@16), `raw_touch.c` (one `hwinfo_get_device_id()` read
+  at init), `Kconfig` (`select HWINFO`), README appendix + versioning +
+  re-pair wording, `version.h` **0.1 → 0.2**. Transports needed no change:
+  they already send `sizeof(body)`.
+- **rawtouch `dcaf894`** — `RawTouchCapabilities` (`headerLength` 16,
+  `magicOffset`/`deviceIDOffset`/`deviceIDLength`, magic + version +
+  exact-length validation, `deviceID` and `deviceIDHex`),
+  `RawTouchStatus.Endpoint.deviceID`, the registry, `StatusFormatter`
+  (`identityLine`, grouped in fours) and an **Identifier** row on the
+  Keyboards tab. **449 tests** (was 440), `scroll-bench --offline` clean.
+- **zmk-config** (the commit that added this item) — vendored module, both bench scripts
+  (`gate-claim.swift`, `raw-touch-monitor.swift`; the monitor now prints
+  `device_id`), and the prose in `CLAUDE.md` / `AGENTS.md` /
+  `docs/raw-touch.md` / the publish brief's freeze bullet.
+
+**CI:** CIRESULTS
+
+**Remaining, the user's hands:**
+1. **Flash BOTH halves** from `firmware/main/firmware` —
+   `./scripts/flash-go60.sh firmware/main/firmware --halves both`
+   (bootloader RH T3 + `/`). Both halves must come from the same build.
+2. **Forget + re-pair the Go60** in macOS Bluetooth settings. The report
+   map changed, and the failure without this is the usual deceptively
+   partial one: keys, USB and the feature report fine, only BLE frame
+   parsing dead.
+3. **Deploy the app** — quit RawTouch, `./scripts/make-app.sh`, relaunch.
+4. **Check** the Keyboards tab reads **protocol 4** and that the new
+   Identifier row shows `A856 ED2A C49F 3E97` on both the USB and the
+   Bluetooth row — the same id on two rows is the whole point of the
+   field. `/tmp/raw-touch-monitor` prints `device_id=` too.
+
+**Follow-up (not in this task):**
+
+## ee. Key host state and config by device_id — NOT STARTED
+
+One row and one `devices.<id>` entry per keyboard across USB and
+Bluetooth, instead of today's two per-transport rows. Migrate the
+existing `usb:<serial>` / `bt:<address>` keys, and once a keyboard is one
+object across transports, drop the per-transport manual latency override
+(`latencyMs` / `bluetoothLatencyMs`), which adaptive per-source latency
+(item z) already replaced for everything but the evaluation phase.
+
 ## bb. RawTouch UI: third `/impeccable critique` → lift-off floor to Momentum, readout vocabulary, "Use RawTouch Scrolling", then two backlog passes — DONE + DEPLOYED 2026-09-22 (rawtouch `a83a5b5`, `4aac6ec`, `e004c24`, local, NOT pushed; 4th critique 30/40)
 
 Snapshot `~/src/rawtouch/.impeccable/critique/2026-09-22T08-11-17Z__sources-rawtouchapp.md`

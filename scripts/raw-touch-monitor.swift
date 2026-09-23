@@ -1,6 +1,6 @@
 // Standalone read-only monitor for the zmk-raw-touch vendor HID stream.
 // Matches the vendor collection (usage page 0xFF00, usage 0x01), filters
-// input report 0x04, and prints one CSV line per protocol-v3 frame:
+// input report 0x04, and prints one CSV line per protocol-v4 frame:
 //
 //     host_ns,dev,pad,contact,x,y,z,flags,seq,ts_ticks
 //
@@ -43,7 +43,47 @@ import IOKit.hid
 let usagePage = 0xFF00
 let usage = 0x01
 let frameReportID: UInt32 = 0x04
-let v3PayloadLength = 11
+let framePayloadLength = 11
+
+// Feature-report wire format (protocol 4; the module README's appendix is
+// normative): a 16-byte header — protocol version, pads-present,
+// capabilities, module version, the four "RAWT" magic bytes, then the
+// 8-byte hwinfo device id — plus one 8-byte geometry slot per pad, so a
+// valid body is 16 + 8N bytes (32 on the Go60's two pads; 33 over USB,
+// where macOS prefixes the report ID).
+let featureProtocolVersion: UInt8 = 4
+let featureHeaderLength = 16
+let featurePadSlotLength = 8
+let featureMagicOffset = 4
+let featureMagic: [UInt8] = Array("RAWT".utf8)
+let featureDeviceIDOffset = 8
+let featureDeviceIDLength = 8
+
+/// The feature body out of whatever macOS handed back, or nil if the buffer
+/// is not a protocol-4 raw-touch body at all.
+///
+/// Over USB the GET comes back report-ID-prefixed, over BLE bare. The old
+/// "strip it if the first byte is the report ID" rule cannot be used any
+/// more — a bare body starts with the protocol version, which is 4, the
+/// same value as the report ID, so that rule would eat a byte off every
+/// Bluetooth read. Validate instead: try the buffer as it came, then the
+/// ID-stripped reading. Magic, version and the exact 16 + 8N length all have
+/// to agree.
+func featureBody(_ buffer: [UInt8]) -> [UInt8]? {
+    func valid(_ body: [UInt8]) -> Bool {
+        body.count >= featureHeaderLength + featurePadSlotLength
+            && (body.count - featureHeaderLength) % featurePadSlotLength == 0
+            && body[0] == featureProtocolVersion
+            && Array(body[featureMagicOffset ..< featureMagicOffset + featureMagic.count])
+                == featureMagic
+    }
+    if valid(buffer) { return buffer }
+    if buffer.first == UInt8(frameReportID) {
+        let stripped = Array(buffer.dropFirst())
+        if valid(stripped) { return stripped }
+    }
+    return nil
+}
 
 let claimMode = CommandLine.arguments.contains("--claim")
 let claimTimeoutS: UInt8 = 30
@@ -74,17 +114,23 @@ func describe(_ device: IOHIDDevice, index: Int) {
                 index, product, transport, vid, pid))
 
     // Read the capability feature report (same report ID) for context.
-    var buffer = [UInt8](repeating: 0, count: 64)
+    var buffer = [UInt8](repeating: 0, count: 128)
     var length: CFIndex = buffer.count
     let result = IOHIDDeviceGetReport(device, kIOHIDReportTypeFeature,
                                       CFIndex(frameReportID), &buffer, &length)
-    if result == kIOReturnSuccess, length >= 3 {
-        // Over USB the GET comes back report-ID-prefixed (21 bytes); over
-        // BLE bare (20). Normalize, or the USB endpoint reads as "v4".
-        var body = Array(buffer[0 ..< length])
-        if body[0] == UInt8(frameReportID) { body.removeFirst() }
-        note(String(format: "# dev %d: feature report: protocol_version=%d pads_present=0x%02X capabilities=0x%02X",
-                    index, body[0], body[1], body[2]))
+    if result == kIOReturnSuccess, length > 0, length <= buffer.count,
+       let body = featureBody(Array(buffer[0 ..< length])) {
+        // The device id is the same eight bytes over USB and BLE, so it
+        // is how a capture from one transport is matched to the other.
+        let deviceID = body[featureDeviceIDOffset ..< featureDeviceIDOffset + featureDeviceIDLength]
+            .map { String(format: "%02X", $0) }.joined()
+        note(String(format: "# dev %d: feature report: %d bytes, protocol_version=%d pads_present=0x%02X capabilities=0x%02X module_version=0x%02X magic=%@ device_id=%@",
+                    index, body.count, body[0], body[1], body[2], body[3],
+                    String(decoding: body[featureMagicOffset ..< featureMagicOffset + featureMagic.count], as: UTF8.self),
+                    deviceID))
+    } else if result == kIOReturnSuccess {
+        note(String(format: "# dev %d: feature report is not protocol %d (%d bytes)",
+                    index, Int(featureProtocolVersion), Int(length)))
     } else {
         note(String(format: "# dev %d: feature report read failed (0x%X)", index, result))
     }
@@ -97,13 +143,13 @@ func describe(_ device: IOHIDDevice, index: Int) {
 // bare. Claim writes go bare-body first, then retry once with the prefix.
 
 func gateCapable(_ device: IOHIDDevice) -> Bool {
-    var buffer = [UInt8](repeating: 0, count: 64)
+    var buffer = [UInt8](repeating: 0, count: 128)
     var length: CFIndex = buffer.count
     guard IOHIDDeviceGetReport(device, kIOHIDReportTypeFeature, CFIndex(frameReportID),
-                               &buffer, &length) == kIOReturnSuccess, length >= 3 else { return false }
-    var body = Array(buffer[0..<length])
-    if body[0] == UInt8(frameReportID) { body.removeFirst() } // USB ID prefix
-    return body.count >= 3 && body[0] == 3 && body[2] & 0x01 != 0 // v3 + claim capability
+                               &buffer, &length) == kIOReturnSuccess,
+          length > 0, length <= buffer.count,
+          let body = featureBody(Array(buffer[0..<length])) else { return false }
+    return body[2] & 0x01 != 0 // protocol 4 (checked above) + claim capability
 }
 
 @discardableResult
@@ -156,11 +202,11 @@ IOHIDManagerRegisterDeviceRemovalCallback(manager, { _, _, _, device in
 
 IOHIDManagerRegisterInputReportCallback(manager, { _, _, sender, _, reportID, report, reportLength in
     let hostNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
-    guard reportID == frameReportID, reportLength >= v3PayloadLength else { return }
+    guard reportID == frameReportID, reportLength >= framePayloadLength else { return }
     // USB delivers the buffer with the report ID prepended; BLE does not.
     // Same defensive strip as LinearMouse: one byte longer than the
     // contract means a report-ID prefix.
-    let offset = reportLength == v3PayloadLength + 1 ? 1 : 0
+    let offset = reportLength == framePayloadLength + 1 ? 1 : 0
     let b = UnsafeBufferPointer(start: report + offset, count: reportLength - offset)
     var dev = -1
     if let sender = sender {

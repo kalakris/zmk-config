@@ -8,6 +8,11 @@ config ZMK_RAW_TOUCH
     default y
     depends on DT_HAS_ZMK_RAW_TOUCH_PAD_ENABLED
     depends on ZMK_POINTING
+    # The feature report publishes the SoC's hwinfo device id, so a host
+    # can recognize one keyboard across USB and Bluetooth. Without a
+    # HWINFO driver the field is simply reported as unknown, but the call
+    # has to link.
+    select HWINFO
     help
       Stream absolute touch frames (position + touch strength) from a
       trackpad running in absolute mode to the host over a vendor-defined

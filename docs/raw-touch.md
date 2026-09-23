@@ -89,12 +89,14 @@ still flashable as rollbacks, but superseded. See
 │   │                               (fallback scrolling)     │
 │   ├─ firmware tap-to-click ──► BTN_0 into listener chain   │
 │   └─ raw frames ──► vendor HID input report                │
-│        usage page 0xFF00, report ID 0x04, protocol v3:     │
+│        usage page 0xFF00, report ID 0x04, protocol v4:     │
 │        11-byte frames (pad_id, contact_id, x/y u16LE, z,   │
 │          flags, seq, timestamp u16LE in 100 µs units)      │
-│        + feature report, 4 + 8 × pads bytes (20 on the    │
-│          Go60; version=3, pads bitmask, one geometry slot   │
-│          per pad); real logical ranges                     │
+│        + feature report, 16 + 8 × pads bytes (32 on the   │
+│          Go60; version=4, pads bitmask, capabilities,      │
+│          module version, "RAWT" magic at bytes 4-7,        │
+│          hwinfo device_id at bytes 8-15, one geometry      │
+│          slot per pad); real logical ranges                │
 │          in the report descriptor (macOS-verified)         │
 │        scroll-mode flag set by the &zip_raw_touch_scroll   │
 │        marker when the chain that actually handles a pad's │
@@ -107,10 +109,11 @@ still flashable as rollbacks, but superseded. See
               @ inputscale = main + inputScale)
 ┌────────────────────────────────────────────────────────────┐
 │ TouchStreamManager (IOHIDManager, matches usage pair       │
-│ 0xFF00/0x01, reads feature report, accepts protocol v3,    │
+│ 0xFF00/0x01, reads feature report, accepts protocol v4     │
+│ only — magic "RAWT" + version + 16 + 8N length or no claim,│
 │ keys devices on HIDPhysicalDeviceIdentity — NOT VID/PID)   │
 │   │ scroll-flagged frames · TouchStreamDeviceClock rebuilds│
-│   │ device-time from v3 timestamps (fixes BLE-batching     │
+│   │ device-time from v4 timestamps (fixes BLE-batching     │
 │   │ velocity distortion) · 150 ms stale-touch synthesized  │
 │   │ lift-off · seq-gap logging                             │
 │   ▼                                                        │
@@ -301,14 +304,14 @@ be fetched locally — `git fetch --tags` if you need it.
 | | | `raw-touch` | Historical: the ZMK-fork build (protocol v2, right pad only). `west.yml` → `kalakris/zmk@raw-touch`. ⚠️ Since the host dropped v2 (2026-08-28), flashing it as a rollback gets wheel-fallback scrolling only. Carries the v2 `docs/raw-touch-protocol.md`. |
 | | | `module-port` / `module-port-intree` | Historical stages of the module port; `module-port-intree` was promoted to `main` on 2026-08-27. |
 | [kalakris/linearmouse](https://github.com/kalakris/linearmouse) | `~/src/linearmouse` | `main` (+ `inputscale`) | Restructured 2026-08-28: **`main` = upstream + the touch-stream feature** (32 commits: `LinearMouse/TouchStream/`, config model, Raw Touch UI, v3-only parsing (v2 dropped 2026-08-28), `TouchStreamDeviceClock`, stale-touch lift-off, pad-agnostic engine + manager-level pad arbitration). **`inputscale` = main + 2 generic `scrolling.smoothed.inputScale` commits** (self-contained upstream-PR candidate, kept rebased on main) — **deploys come from `inputscale`** (the user's config uses the feature). Review cleanups re-landed 2026-08-28 (batch exonerated — see the /simplify note below). Fork CI = the unsigned workflow; the signed pipeline is gated upstream-only. Old `go60-inputscale` branch deleted; local tag `pre-restructure-go60-inputscale` anchors its history. Unit suite: ~640 tests. |
-| [kalakris/zmk-raw-touch](https://github.com/kalakris/zmk-raw-touch) | `~/src/zmk-raw-touch` | `main` | **The device side.** Renamed from `zmk-raw-touch-wip` (name final), still **private**. Out-of-tree ZMK module: private HID report descriptor (protocol v3, real logical ranges), second USB HID interface (`HID_1`), second BLE HIDS instance (with the feature-report characteristic), the frame handler, and two input processors — `zip_raw_touch_scroll` (scroll-context marker) and `zip_raw_touch_idle_filter`. Its `zmk,raw-touch-pad` binding is the whole config surface, including the tap and geometry props that used to live on the Cirque driver. The README's wire-format appendix is the authoritative protocol spec. |
+| [kalakris/zmk-raw-touch](https://github.com/kalakris/zmk-raw-touch) | `~/src/zmk-raw-touch` | `main` | **The device side.** Renamed from `zmk-raw-touch-wip` (name final), still **private**. Out-of-tree ZMK module: private HID report descriptor (protocol v4, real logical ranges), second USB HID interface (`HID_1`), second BLE HIDS instance (with the feature-report characteristic), the frame handler, and two input processors — `zip_raw_touch_scroll` (scroll-context marker) and `zip_raw_touch_idle_filter`. Its `zmk,raw-touch-pad` binding is the whole config surface, including the tap and geometry props that used to live on the Cirque driver. The README's wire-format appendix is the authoritative protocol spec. |
 | [kalakris/zmk](https://github.com/kalakris/zmk) | `~/src/zmk` | `raw-touch` | Fork of `moergo-sc/zmk` (base `go60-zmk0.3.0`) carrying the 219-line ZMK core patch: vendor HID plumbing, `app/src/pointing/touch_stream.c`, `input_processor_touch_stream_scroll.c`, a listener-config routing iterator, and zero-mouse-report suppression (`cfc4b3e6`). ⚠️ **Dead — safe to delete.** The module replaces all of it, `main` builds from stock MoErgo ZMK, and the one PR-worthy commit (`cfc4b3e6`) is salvaged as `patches/zmk-skip-empty-mouse-report-syncs.patch`. |
 | [kalakris/cirque-input-module](https://github.com/kalakris/cirque-input-module) | `~/src/cirque-input-module` | `raw-touch` / `intree-driver` | `raw-touch` is the fork of petejohanson/cirque-input-module: `abs-mode` absolute reporting, 3 Z-idle packets on lift-off (redundancy), and the now-removed `stream-tap-*` binding properties. `intree-driver` is Zephyr **main**'s `input_pinnacle.c` vendored pristine from `27150c9d` (`7d6f543`) plus three labelled patches — 0xFF/SW_DR guard (`66897c3`), per-axis ERA edge sensitivity (`995e9e0`), force-recalibrate-on-init (`b5c2365`); SW-reset-on-init was already upstream. ⚠️ **The fork is transitional.** Zephyr's in-tree `input_pinnacle` driver already has absolute mode (since 2024) and reached ZMK main via the Zephyr 4.1 bump; pete's module is EOL. Plan is to drop this fork and migrate — see [docs/pinnacle-driver-landscape.md](pinnacle-driver-landscape.md). |
 
 ## Status: validated vs pending
 
 **As of 2026-08-27 the module architecture is the daily driver, on
-protocol v3, with both pads streaming.** Working and hardware-validated:
+protocol v4, with both pads streaming.** Working and hardware-validated:
 raw-touch scrolling with ballistics, real lift-off momentum and
 touch-to-catch, on **both pads** (first-touch-wins arbitration on the
 host); firmware tap-to-click; the "Raw Touch" scrolling mode in

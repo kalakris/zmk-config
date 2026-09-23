@@ -15,7 +15,7 @@ service without patching ZMK core.
 
 [Compatibility](#compatibility) · [Setup](#setup) ·
 [Split keyboards](#split-keyboards) · [Configuration](#configuration-reference) ·
-[Troubleshooting](#troubleshooting) · [Protocol](#appendix-wire-format-protocol-v3)
+[Troubleshooting](#troubleshooting) · [Protocol](#appendix-wire-format-protocol-v4)
 
 ## What it does
 
@@ -90,8 +90,15 @@ feature report, and CI fails a `v*` tag whose major.minor disagrees with it.
 The protocol version is the only compatibility contract with a host. The
 module version is diagnostic — useful for a bug report, and for seeing
 which build each half of a split is running, but never something a host
-should parse the wire by. Today's pairing is RawTouch 0.1.x ↔ protocol 3 ↔
-module 0.1.x.
+should parse the wire by. Today's pairing is RawTouch 0.1.x ↔ protocol 4 ↔
+module 0.2.x.
+
+Protocol 4 added the feature report's four identification bytes and an
+eight-byte device id, moving the geometry slots by twelve bytes; there is
+no protocol 3 compatibility in either the firmware or RawTouch. It is a report-map change, so hosts that
+cache the map — macOS over Bluetooth — need a forget and re-pair after
+upgrading, exactly as when a pad is added or removed
+(see [Troubleshooting](#troubleshooting)).
 
 ### Driver requirements
 
@@ -476,7 +483,7 @@ see [Split keyboards](#split-keyboards) before doing so.
 
 The firmware also works in Standard mode on hosts without RawTouch.
 RawTouch-mode scrolling on another operating system needs a host
-implementation of the [protocol below](#appendix-wire-format-protocol-v3).
+implementation of the [protocol below](#appendix-wire-format-protocol-v4).
 
 You can check device discovery separately from scrolling. On macOS,
 inspect the HID device list:
@@ -943,7 +950,8 @@ scrolling available over Bluetooth while retaining raw reports over USB.
 **USB works; Bluetooth raw scrolling does not.** Forget the keyboard on
 the host, clear the corresponding keyboard bond with `&bt BT_CLR`, then
 pair again. Do this after adding the second HID service or changing the
-HID report/GATT layout, including adding or removing a streaming pad.
+HID report/GATT layout, including adding or removing a streaming pad and
+upgrading across a protocol version that changes a report body.
 macOS can retain a stale report map even when typing and feature-report
 reads still work. If a fresh pairing still fails, disconnect and
 reconnect once before investigating further. A change only to feature
@@ -995,7 +1003,7 @@ The pad integration builds on Zephyr's Pinnacle driver and Peter
 Johanson's Cirque work. The macOS companion credits its
 [LinearMouse](https://github.com/linearmouse/linearmouse) origins separately.
 
-## Appendix: wire format (protocol v3)
+## Appendix: wire format (protocol v4)
 
 This appendix defines the reports for host implementers. The current
 firmware sends one contact per pad; the presence of a contact ID field
@@ -1013,7 +1021,10 @@ does not imply implemented multi-touch support.
 
 The vendor usage pair is not unique to this project. A host **must read
 and validate the feature report before interpreting input or claiming
-the device**. Discovery is protocol identification, not authentication.
+the device**: the four magic bytes, the protocol version, and the body
+length must all match before a device is treated as this protocol, and a
+device that fails the check must never be sent a claim command.
+Discovery is protocol identification, not authentication.
 
 All lengths and offsets below refer to report bodies. USB transfers
 include a leading report ID; BLE uses the report-reference descriptor
@@ -1079,28 +1090,53 @@ also require resetting or reconciling host timing state.
 ### Feature report
 
 Read with USB `GET_REPORT(FEATURE)` or the BLE feature characteristic
-(report-reference type `0x03`). Its body is **4 + 8 × N bytes**, for
-1–8 configured pads. A two-pad build is 20 bytes, or 21 including the
+(report-reference type `0x03`). Its body is **16 + 8 × N bytes**, for
+1–8 configured pads. A two-pad build is 32 bytes, or 33 including the
 USB report ID. Hosts must support variable pad counts and must not
 hard-code the two-pad length.
 
 | Offset | Bytes | Field |
 |---|---|---|
-| 0 | 1 | `protocol_version`, 3 |
+| 0 | 1 | `protocol_version`, 4 |
 | 1 | 1 | `pads_present`, bit `p` set for pad ID `p` |
 | 2 | 1 | `capabilities`, bit 0 = host claim supported; other bits reserved |
 | 3 | 1 | `module_version` of the half answering, packed major.minor; 0 = unknown |
-| 4 + 8 × i | 8 | Geometry slot `i` |
+| 4 | 4 | `magic`, the ASCII bytes `R` `A` `W` `T` (`52 41 57 54`) |
+| 8 | 8 | `device_id`, the SoC's hardware identifier; all-zero = unknown |
+| 16 + 8 × i | 8 | Geometry slot `i` |
+
+The magic is fixed and is what separates this protocol from anything else
+that happens to sit on `0xFF00`/`0x01`. `protocol_version` stays at byte 0
+in every version of the protocol, so a host can read it before it decides
+which layout to parse. **Reject** a body whose magic differs, whose
+protocol version is not 4, or whose length is not `16 + 8 × N`, and do
+not write a claim to it.
+
+`device_id` is the value Zephyr's `hwinfo_get_device_id()` returns for the
+SoC — the FICR `DEVICEID` pair on an nRF52 — in the byte order hwinfo
+returns it, zero-padded if the SoC reports fewer than eight bytes and
+truncated if it reports more. It is stable for the life of the chip and
+identical on every transport, which is what lets a host recognize that the
+keyboard it sees over USB and the one it sees over Bluetooth are the same
+keyboard; nothing else in either transport exposes a shared identifier.
+All-zero means the firmware could not read one, which hosts must tolerate
+along with every other value: **never reject or admit a device over this
+field**. It is readable by any host that can read the feature report —
+over Bluetooth, one that is bonded — so treat it as an identifier, not a
+secret, and do not authorize anything on the strength of it. Note that a
+board may already derive its USB serial number from the same hwinfo id
+(the MoErgo Go60 does), in which case the two agree by construction.
 
 For a valid firmware configuration, slots describe the present pads in
 ascending pad-ID order. IDs need not be contiguous: a mask naming pads
 0 and 3 has two slots, for pads 0 and 3. IDs must be unique and less
 than 8; configurations exceeding that are not supported.
 
-Recover the number of complete slots from the normalized body length
-and read no more than `min(N, popcount(pads_present))` slots. Valid bodies
-have the `4 + 8 × N` shape; a host that requires exactly 20 bytes will
-refuse a one-pad or three-pad keyboard using the same protocol.
+Recover the number of complete slots from the normalized body length as
+`(len - 16) / 8` and read no more than `min(N, popcount(pads_present))`
+slots. Valid bodies have the `16 + 8 × N` shape; a host that requires
+exactly 32 bytes will refuse a one-pad or three-pad keyboard using the
+same protocol.
 
 Each slot contains:
 
@@ -1125,8 +1161,9 @@ announces its version, which it does with the first frame of a touch.
 Treat both as diagnostic: `protocol_version` is the compatibility contract.
 
 The configured pad count determines the descriptor's feature-report
-length. Adding or removing a pad therefore changes the report map and
-requires a fresh Bluetooth pairing on hosts that cache it, including macOS.
+length. Adding or removing a pad — or upgrading across a protocol version
+that changes the body — therefore changes the report map and requires a
+fresh Bluetooth pairing on hosts that cache it, including macOS.
 
 ### Host claim
 

@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  *
- * Device-side host-claim state (protocol v3, capability bit 0).
+ * Device-side host-claim state (protocol v4, capability bit 0).
  *
  * A host that consumes raw touch frames CLAIMS them by writing a
  * 4-byte command to the feature report (USB SET_REPORT(FEATURE) or a

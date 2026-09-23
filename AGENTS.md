@@ -4,7 +4,7 @@
 
 ZMK firmware configuration for two split keyboards — the **Eyelash Sofle** and the **MoErgo Go60** — sharing a single keymap via C preprocessor macros. The actual ZMK firmware source is pulled in via West (Zephyr's package manager). Branch map for the Go60 (see "Raw touch scrolling" below):
 
-- `main` — **what the user's Go60 runs.** Stock MoErgo ZMK (pinned SHA, no ZMK fork) + the out-of-tree `zmk-raw-touch` module (vendored under `vendor/` while its repo is private) + Zephyr main's in-tree Pinnacle driver via `cirque-input-module@intree-driver`. Hardware-verified 2026-08-27 over USB and BLE (promoted from `module-port-intree`). Both trackpads stream (protocol v3): RH = pad-id 0, LH = pad-id 1 via the `raw_touch_lh` node; sensitivity is deliberately asymmetric — "1x" LH / "2x" RH (gain is per-pad; 2x tames RH baseline-drift jitter but caused light-touch dropouts on LH).
+- `main` — **what the user's Go60 runs.** Stock MoErgo ZMK (pinned SHA, no ZMK fork) + the out-of-tree `zmk-raw-touch` module (vendored under `vendor/` while its repo is private) + Zephyr main's in-tree Pinnacle driver via `cirque-input-module@intree-driver`. Hardware-verified 2026-08-27 over USB and BLE (promoted from `module-port-intree`). Both trackpads stream (protocol v4): RH = pad-id 0, LH = pad-id 1 via the `raw_touch_lh` node; sensitivity is deliberately asymmetric — "1x" LH / "2x" RH (gain is per-pad; 2x tames RH baseline-drift jitter but caused light-touch dropouts on LH).
 - `raw-touch`, `module-port`, `module-port-intree` — historical stages of the module port; superseded by `main`. `raw-touch` still points at the deletable `kalakris/zmk` fork (its one PR-worthy commit is salvaged in `patches/`).
 
 ## Key Files
@@ -105,11 +105,24 @@ unused). The former trackpad-activated Mouse layer (layer 9) and its
 Magic-Trackpad-quality scrolling for the Go60's Cirque pads on macOS —
 **both pads**. The firmware puts the pads in absolute mode and streams raw
 touch frames over a vendor HID report (usage page 0xFF00/0x01 — decided,
-fixed defines; report ID 0x04; **protocol v3**: 11-byte frames with
+fixed defines; report ID 0x04; **protocol v4** (bumped from v3
+2026-09-22, no backwards compatibility — see next-steps item dd):
+11-byte frames with
 pad_id/contact_id/seq/100 µs timestamp at ~100 Hz, feature report of
-4 + 8 × pads bytes with per-pad geometry slots — 20 on the Go60, hosts
-must not hard-code 20 (since 2026-09-04); spec = the module README's
-appendix, authoritative). Release frames are retained on both transports (BLE since
+16 + 8 × pads bytes with per-pad geometry slots — 32 on the Go60 (33 over
+USB with the report-ID prefix), hosts
+must not hard-code 32. Body bytes 4-7 are the fixed ASCII **magic
+`RAWT`** (0x52 0x41 0x57 0x54) and a host MUST reject a body whose magic,
+protocol byte or 16 + 8N length does not match and MUST NOT claim such a
+device — 0xFF00/0x01 is a generic vendor pair, so this is protocol
+identification, not authentication. Bytes 8-15 are the **`device_id`**,
+the SoC's `hwinfo_get_device_id()` (nRF52 FICR DEVICEID) verbatim,
+all-zero = unknown and NEVER a reason to reject: it is the one identifier
+that is the same over USB and BLE, so a host can tell that two rows are
+one keyboard. The Go60's USB serial is built from the same eight bytes by
+the board itself (`moergo.com:GO60-A856ED2AC49F3E97`), so CONFIG_HWINFO
+was already on and the module's `select HWINFO` changes nothing there.
+Spec = the module README's appendix, authoritative). Release frames are retained on both transports (BLE since
 2026-09-04: spinlocked ring, motion-only eviction, head-of-line retry,
 queue default 8; USB since 2026-09-05: queued, drained on transfer
 completion), but the host's 150 ms silence watchdog stays REQUIRED for

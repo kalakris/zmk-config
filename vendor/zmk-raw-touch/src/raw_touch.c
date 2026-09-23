@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  *
- * Raw touch frames (protocol v3): forwards absolute touch frames
+ * Raw touch frames (protocol v4): forwards absolute touch frames
  * (position + touch strength) from a trackpad running in absolute mode to
  * the host over a vendor-defined HID report (see zmk/raw_touch/hid.h).
  *
@@ -19,10 +19,11 @@
  * and a device-side timestamp in 100 us units (host-side velocity that
  * BLE batching cannot
  * distort). A feature report on the same report ID describes the
- * protocol version, this build's module version, the pads present and,
+ * protocol version, this build's module version, the SoC's device id,
+ * the pads present and,
  * per pad, its resolution, orientation, coordinate ranges, contact count
  * and the module version of the half that owns it; its body is
- * 4 + 8 * (pads compiled in) bytes - 20 on a two-pad build - and it is
+ * 16 + 8 * (pads compiled in) bytes - 32 on a two-pad build - and it is
  * readable over USB GET_REPORT and the BLE HOG feature-report
  * characteristic.
  *
@@ -53,6 +54,7 @@
 
 #include <stdlib.h>
 
+#include <zephyr/drivers/hwinfo.h>
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
@@ -455,6 +457,27 @@ static int raw_touch_init(void) {
     }
 
     zmk_raw_touch_hid_set_feature_header(pads_present);
+
+    /* The SoC's own id, published so a host can tell that the keyboard it
+     * sees over USB and the one it sees over Bluetooth are the same
+     * physical keyboard - the two transports share no other identifier.
+     * Read once: it cannot change while this build is running.
+     *
+     * The buffer is the field's own width, so hwinfo can never return
+     * more than fits; a SoC whose id is longer is truncated to its leading
+     * bytes by hwinfo itself. A negative return (-ENOSYS on a SoC with no
+     * HWINFO driver, or a driver-level failure) leaves the field all-zero,
+     * which is the wire's "unknown" - not an error worth failing init
+     * over, since nothing but host-side convenience depends on it. */
+    uint8_t device_id[ZMK_RAW_TOUCH_DEVICE_ID_LEN];
+    ssize_t device_id_len = hwinfo_get_device_id(device_id, sizeof(device_id));
+
+    if (device_id_len > 0) {
+        zmk_raw_touch_hid_set_feature_device_id(device_id, (size_t)device_id_len);
+    } else {
+        LOG_WRN("No hardware device id (%d); the feature report will report it as unknown",
+                (int)device_id_len);
+    }
 
     /* Fill the feature report's pad slots with the present pads in
      * ascending pad-id order, each with its own geometry and orientation.

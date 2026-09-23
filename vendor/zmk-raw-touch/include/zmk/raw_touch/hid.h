@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  *
- * Wire format for raw touch frames (protocol v3).
+ * Wire format for raw touch frames (protocol v4).
  *
  * The README's wire-format appendix is the normative description of this
  * layout; the structs here are its C spelling and must match it byte for
@@ -74,19 +74,49 @@ struct zmk_raw_touch_report {
 /* Feature report: self-describing pad capabilities, on the same report ID.
  * Readable over USB GET_REPORT and the BLE feature report characteristic.
  *
- * Its body is 4 + 8 * N bytes, where N = ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS
- * is the number of pads compiled into this firmware - 20 bytes on the
- * two-pad reference build (21 over USB, where the control transfer
+ * Its body is 16 + 8 * N bytes, where N = ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS
+ * is the number of pads compiled into this firmware - 32 bytes on the
+ * two-pad reference build (33 over USB, where the control transfer
  * carries the report ID as its first byte). Hosts MUST accept any body
- * length of that form and MUST NOT hard-code 20. Pads beyond the 8-slot
+ * length of that form and MUST NOT hard-code 32. Pads beyond the 8-slot
  * ceiling (pads_present is an 8-bit mask) still set their bit but get no
  * slot.
  *
  * Hosts MUST read and validate this before treating a vendor collection on
  * this usage page as the raw touch protocol - 0xFF00/0x01 is a commonly
- * squatted vendor pair. */
+ * squatted vendor pair. Validation means all three of: the magic below,
+ * protocol_version, and a body length of the 16 + 8 * N shape. */
 
-#define ZMK_RAW_TOUCH_PROTOCOL_VERSION 3
+#define ZMK_RAW_TOUCH_PROTOCOL_VERSION 4
+
+/* Identification magic: the ASCII bytes "RAWT", at a fixed offset in the
+ * feature report body. This is what makes an unrelated device on the
+ * generic 0xFF00/0x01 vendor pair distinguishable from a raw touch
+ * keyboard, so a host MUST reject a body whose magic does not match and
+ * MUST NOT write a claim command to such a device. Identification, not
+ * authentication: it carries no secret and proves nothing about who is
+ * talking. */
+#define ZMK_RAW_TOUCH_MAGIC_0 'R'
+#define ZMK_RAW_TOUCH_MAGIC_1 'A'
+#define ZMK_RAW_TOUCH_MAGIC_2 'W'
+#define ZMK_RAW_TOUCH_MAGIC_3 'T'
+#define ZMK_RAW_TOUCH_MAGIC_INIT                                                                   \
+    { ZMK_RAW_TOUCH_MAGIC_0, ZMK_RAW_TOUCH_MAGIC_1, ZMK_RAW_TOUCH_MAGIC_2, ZMK_RAW_TOUCH_MAGIC_3 }
+
+/* Device id: the SoC's own hardware identifier, from Zephyr's
+ * hwinfo_get_device_id() (the FICR DEVICEID pair on an nRF52), byte order
+ * exactly as hwinfo returns it. Eight bytes because that is what the
+ * supported SoCs report; a shorter answer is zero-padded on the right, a
+ * longer one truncated, and all-zero means "this build could not tell"
+ * (no HWINFO driver for the SoC).
+ *
+ * It is a stable per-chip identifier, so a host can recognize the SAME
+ * keyboard across transports - USB and Bluetooth expose no common
+ * identifier otherwise. Readable by any host that can read the feature
+ * report, which on BLE means a bonded one: an identifier, NOT a secret,
+ * and nothing may be authorized on the strength of it. Hosts MUST NOT
+ * reject a device over this field's value, including all-zero. */
+#define ZMK_RAW_TOUCH_DEVICE_ID_LEN 8
 
 /* Capabilities bit 0: the host claim is supported - the host may claim
  * the stream by writing the feature report (see zmk/raw_touch/gate.h),
@@ -137,8 +167,16 @@ struct zmk_raw_touch_feature_body {
      * central. Diagnostic only: protocol_version above is what a host
      * keys its parsing off. */
     uint8_t module_version;
+    /* ZMK_RAW_TOUCH_MAGIC_*, the ASCII bytes "RAWT". Fixed for the life
+     * of the protocol; protocol_version stays at byte 0 ahead of it so a
+     * host can read the version before it knows the layout. */
+    uint8_t magic[4];
+    /* ZMK_RAW_TOUCH_DEVICE_ID_LEN bytes of hwinfo device id; all-zero
+     * when this build could not read one. Diagnostic and identifying,
+     * never a compatibility or admission check. */
+    uint8_t device_id[ZMK_RAW_TOUCH_DEVICE_ID_LEN];
     /* Present pads in ascending pad-id order, one slot per pad compiled
-     * in. Hosts recover N from the report length as (len - 4) / 8 and
+     * in. Hosts recover N from the report length as (len - 16) / 8 and
      * read min(N, popcount(pads_present)) slots; any slot they do not
      * account for that way is zeroed. */
     struct zmk_raw_touch_feature_pad_slot pads[ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS];
@@ -163,6 +201,10 @@ void zmk_raw_touch_hid_set(uint8_t pad_id, uint16_t x, uint16_t y, uint8_t z, ui
 struct zmk_raw_touch_report *zmk_raw_touch_hid_get_report(void);
 
 void zmk_raw_touch_hid_set_feature_header(uint8_t pads_present);
+/* Copies up to ZMK_RAW_TOUCH_DEVICE_ID_LEN bytes of hwinfo device id into
+ * the feature report, zero-padding a shorter id and ignoring the tail of a
+ * longer one. Called once at init; the field is constant thereafter. */
+void zmk_raw_touch_hid_set_feature_device_id(const uint8_t *device_id, size_t len);
 void zmk_raw_touch_hid_set_feature_slot(int slot, uint8_t resolution, uint8_t orientation,
                                         uint16_t x_max, uint16_t y_max, uint8_t max_contacts,
                                         uint8_t module_version);
