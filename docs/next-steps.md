@@ -1756,6 +1756,30 @@ both Go60 halves against the vendored module). Firmware downloaded to
 
 ## ee. Key host state and config by device_id — NOT STARTED
 
+**Decisions 2026-09-22 (fifth `/impeccable critique`, 27/40, snapshot
+`2026-09-23T04-11-53Z__sources-rawtouchapp.md`; P0 = one keyboard modelled
+as two connections):** key config by `id:<device-id hex>` (fallback
+`usb:`/`bt:` only for firmware without one), non-destructive migration
+(rename a lone entry; if both exist adopt the connected transport's and
+leave the other as a "not connected" saved entry). Keyboards tab: KEEP
+the picker, renamed "Keyboard", HIDDEN when exactly one keyboard and no
+saved entries; Status states the mode once when transports agree; one
+section per physical pad; "Use RawTouch with this keyboard"; Identifier →
+"Hardware ID", last row; menu = one line per keyboard (the dead
+`deviceLine(for:)` sentence). Latency override: the adaptive feel verdict
+is IN (accepted) — delete `resampling.adaptive`, `latencyMs`,
+`bluetoothLatencyMs`, the two sliders and the toggle end to end; replace
+with a read-only measured-latency row. Ride-alongs approved: vocabulary
+("Flick sensitivity", mm/s for reference speed and the readout's peak,
+editable `pads.<id>.name`), tuner-loop fixes (transport moves to the
+readout's latency line, picker never re-selects while the window is
+open, stale readings fade, RawTouch's own Settings window should not
+scroll under a test flick), window height cap (~620 pt, scroll), split
+"Restore Defaults" from "Remove Settings", parallel switch grammar,
+⌘1/2/3. The user also asked for ideas to make the readout the main
+surface — see item v for the graphical follow-ons.
+
+
 One row and one `devices.<id>` entry per keyboard across USB and
 Bluetooth, instead of today's two per-transport rows. Migrate the
 existing `usb:<serial>` / `bt:<address>` keys, and once a keyboard is one
