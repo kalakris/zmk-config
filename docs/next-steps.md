@@ -1644,7 +1644,17 @@ peripheral hello + central cache, slot byte, README appendix; (4) sync
 vendor, flash both halves, verify the row on USB and BLE and with the
 LH powered off (unknown state); (5) tag module v0.1.0, app v0.1.0.
 
-## dd. Feature-report magic field + protocol 4 — IMPLEMENTED 2026-09-22 (module `8cd2121`, rawtouch `dcaf894`, zmk-config = the commit carrying this item; NOT flashed, app NOT deployed)
+## dd. Feature-report magic field + protocol 4 — DONE, FLASHED, DEPLOYED, HARDWARE-VERIFIED 2026-09-22 (module `8cd2121`, rawtouch `dcaf894`; USB + BLE, both halves)
+
+**Hardware result 2026-09-22 ~21:00:** both halves flashed 20:55 (watcher exit 0);
+passive monitor read the 32-byte body on USB and BLE: protocol 4, pads 0x03,
+module 0x02, magic RAWT, device_id A856ED2AC49F3E97 (= the USB serial) on
+both transports. Standard mode (app quit) scrolled on both pads; the app
+rebuilt from `dcaf894` (0.0.0-dev build 88, Developer ID, no re-grant)
+connected both endpoints as protocol v4 and the user confirmed RawTouch
+scrolling on both pads over USB and BLE and the Keyboards tab reading
+firmware 0.2 / protocol 4. BLE re-pair done via System-layer `BT_CLR`.
+Follow-up is item ee.
 
 The squatter-hardening half of item cc's "Protocol freeze decisions" (the
 publish brief), reversed on the same day it was recommended against: the
