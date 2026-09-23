@@ -1766,7 +1766,47 @@ both Go60 halves against the vendored module). Firmware downloaded to
 
 **Follow-up (not in this task):**
 
-## ee. Key host state and config by device_id — NOT STARTED
+## ee. Key host state and config by device_id — IMPLEMENTED, REVIEWED, DEPLOYED 2026-09-22 (rawtouch `d7e5f69`..`27fb0fc`, 488 tests, CI 35827907044 green; visual check pending)
+
+**Built 2026-09-22 evening** by an opus subagent from the brief below,
+then an independent review (7 findings: a HIGH config-wipe path in the
+one-time key rewrite when the file failed schema decoding; migrations
+missing from the CLI/service; USB-wins tie order-dependent; picker still
+re-selecting live; migration overwriting hand-written names; own-window
+check on the event thread even in the CLI and matching the menubar item;
+Latency row wrapping with two keyboards) — all fixed in `9ee3a34`,
+`63573d6`, `27fb0fc`. Config schema: `devices.id:<HEX16>` primary
+(legacy `usb:`/`bt:` only without a device id); migration lives in
+`RawTouchService` behind a 1 s endpoint-settle timer (USB → unknown →
+BT order, move only when no `id:` entry exists, `name` kept if
+hand-written); `devices.<key>.pads.<id>.name` (≤ 24 chars);
+`acceleration.referenceSpeed` (counts/s) → `referenceFingerSpeed` (mm/s,
+default 40 = 1,520 counts/s at 38 counts/mm, converted ÷38 once, rewrite
+skipped when the load reported an error); `resampling.adaptive` /
+`latencyMs` / `bluetoothLatencyMs` REMOVED (bench keeps
+`TouchScrollPipeline.fixedLatency`). UI: Keyboard picker hidden at
+keyboards + saved ≤ 1 and seeded once on appear (`KeyboardsTabSelection`),
+Status/Firmware once when transports agree, "Use RawTouch with this
+keyboard", Hardware ID last, one section per pad with a Name field,
+"Remove Settings…" as the tab's one action; menu one line per keyboard
+("Go60 Right · USB and Bluetooth: RawTouch mode"); readout source
+"Pad 0 · Go60 Right", latency "1.5 ms over USB", peak in mm/s, dimmed
+after 30 s; own-window gesture suppression (`CGWindowPointerOwnership`,
+CLI uses `NoPointerWindowOwnership`); Advanced Latency = read-only
+measured-per-connection lines; "Flick sensitivity", "Gain and direction",
+log slider for max coast speed; Keyboards tab capped + scrolls; ⌘1/2/3.
+Offline bench byte-identical to `dcaf894`.
+
+**Deployed 2026-09-22 ~21:45** (app rebuilt from `27fb0fc`, relaunched):
+log shows both endpoints keyed `id:A856ED2AC49F3E97`, the three removed
+keys logged as unknown, `referenceSpeed` converted once; the menu's AX
+tree reads "Go60 Right · USB and Bluetooth: RawTouch mode". **Not yet
+seen:** the screen locked before the Settings capture — still to eyeball
+on an unlocked screen: picker hidden, Advanced tab height (494 pt
+estimate), ⌘1/2/3, the Latency row, the pad Name field; then the user's
+feel check and a sixth `/impeccable critique` for the trend
+(`/tmp/claude/rt-critique/capture.sh shots11` — `./locked` first).
+
 
 **Decisions 2026-09-22 (fifth `/impeccable critique`, 27/40, snapshot
 `2026-09-23T04-11-53Z__sources-rawtouchapp.md`; P0 = one keyboard modelled
