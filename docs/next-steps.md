@@ -1839,7 +1839,11 @@ with the current name and select-all via the first responder; unchanged
 Return writes nothing) and the **Hardware ID row removed** (user: not
 needed — the key lives in every row's tooltip, the twins' picker tail, the
 saved entry's "Saved as", and the Remove Settings… text). Deployed
-2026-09-23 ~01:10 (491 tests, CI 35834500584). **Next (user decision):
+2026-09-23 ~01:10 (491 tests, CI 35834500584). **Punch-list decisions 2026-09-23 (user):** squash BOTH repos'
+history before v0.1.0 (see the publish brief); Fast User Switching stays
+"untested" in the README — closed; item x closed ("whatever we have
+works well"); item aa closed ("works awesome"); the demo video is shot
+(Discord cut) and the user will clean it up for the repo. **Next (user decision):
 drop the CLI daemon** (`rawtouch` target, LaunchAgent plist, README
 sections) — brief sent to the builder; then the sixth critique.
 

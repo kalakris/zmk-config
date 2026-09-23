@@ -353,7 +353,7 @@ host instructions must point at RawTouch before the flip.
   anyway now that the fork is not the shipped host.
 - [ ] **RawTouch public repo + menubar app** (next-steps item k) — the
   release's host artifact.
-- [ ] **Demo video** (shot list above) — the release leads with it.
+- [ ] **Demo video** — SHOT (user, 2026-09-23: the Discord cut exists; a repo-ready clean-up is the user's remaining step).
 - [x] **Notarized RawTouch releases** (next-steps item f) — done 2026-09-16:
   tag push → Developer ID-signed, notarized, stapled DMG + zip on a GitHub
   release (universal binary, app icon, version stamped from the tag).
@@ -404,10 +404,15 @@ host instructions must point at RawTouch before the flip.
   not 16 + 8N, and never claim a device over any of that — but never over
   the device id, which is an identifier, not an admission check. No
   protocol 3 compatibility, the same way v2 was dropped.
-- [ ] **Module history squash** (next-steps p.4) — user's call: 49
-  commits, only 2 name the `-wip` repo / the LinearMouse fork
-  (`2874645`, `3879ab2`), two author emails (48 mail@mrinal.net,
-  1 gmail). ~~Delete the merged `mode-gate` branch~~ — DONE 2026-09-22
+- [ ] **History squash, BOTH release repos** (decided 2026-09-23: the
+  user wants module and rawtouch squashed to a single initial commit for
+  the first release). Do it right before tagging v0.1.0, after the CLI
+  drop and the sixth critique: orphan commit with one author
+  (mail@mrinal.net), local backup branch + a `git bundle` in ~/Documents,
+  force-push `main` (the standing no-force-push rule is waived for this
+  one explicit step), re-pin the `unvendor` branch to the new module SHA,
+  re-sync `vendor/` (its `.vendored-from-sha`). `CFBundleVersion` (commit
+  count) restarts near 1. ~~Delete the merged `mode-gate` branch~~ — DONE 2026-09-22
   (local + origin; it was fully merged into `main`).
 - [x] **CONTRIBUTING in both release repos** — DONE 2026-09-22: module
   `e26b1f0` (examples-as-files rule, CI, protocol/version contracts,
