@@ -125,9 +125,18 @@ struct zmk_raw_touch_report {
  * built; hosts MUST check this bit before acquiring a lease. */
 #define ZMK_RAW_TOUCH_CAP_HOST_LEASE BIT(0)
 
+/* Capabilities bit 1: tap confirm supported - the firmware accepts the
+ * ZMK_RAW_TOUCH_CMD_TAP_CONFIRM feature command (see zmk/raw_touch/tap.h).
+ * Advertised with the lease; a host MUST check it before writing one. */
+#define ZMK_RAW_TOUCH_CAP_TAP_CONFIRM BIT(1)
+
+/* Pad slot byte +1. Bits 0-2 are the pad's mounting; bit 3 says the pad
+ * parks its scroll-context taps for host confirmation while a lease is
+ * held (tap-click together with tap-click-while-scrolling on the node). */
 #define ZMK_RAW_TOUCH_ORIENT_ROTATE_90 BIT(0)
 #define ZMK_RAW_TOUCH_ORIENT_X_INVERT BIT(1)
 #define ZMK_RAW_TOUCH_ORIENT_Y_INVERT BIT(2)
+#define ZMK_RAW_TOUCH_PAD_PARKS_SCROLL_TAPS BIT(3)
 
 /* One slot per pad compiled in, so the report is exactly as long as the
  * hardware needs and no longer. Derived from the devicetree rather than
@@ -148,7 +157,7 @@ struct zmk_raw_touch_report {
 
 struct zmk_raw_touch_feature_pad_slot {
     uint8_t resolution;   /* counts/mm, 0 = unknown */
-    uint8_t orientation;  /* ZMK_RAW_TOUCH_ORIENT_* */
+    uint8_t orientation;  /* ZMK_RAW_TOUCH_ORIENT_* | ZMK_RAW_TOUCH_PAD_* flags */
     uint16_t x_max;       /* little-endian */
     uint16_t y_max;       /* little-endian */
     uint8_t max_contacts; /* 1 on a Pinnacle */

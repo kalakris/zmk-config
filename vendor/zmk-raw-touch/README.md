@@ -68,7 +68,7 @@ Tested dependency versions:
 | Component | Tested revision |
 |---|---|
 | `moergo-sc/zmk` | `57a7b8e06b19898e59a4dbd5f554b7ed5677493b` |
-| `kalakris/cirque-input-module`, `intree-driver` branch | `cbb4eaada3b3be052939a16c0441081a72d7d6b9` |
+| `kalakris/cirque-input-module`, `intree-driver` branch | `89a08962f1c0bde4b499badd68cb068b8a369000` |
 
 That driver module packages Zephyr's Pinnacle driver for the older tree,
 with three patches for status handling, edge sensitivity, and calibration
@@ -93,12 +93,9 @@ which build each half of a split is running, but never something a host
 should parse the wire by. Today's pairing is RawTouch 0.1.x ↔ protocol 4 ↔
 module 0.2.x.
 
-Protocol 4 added the feature report's four identification bytes and an
-eight-byte device id, moving the geometry slots by twelve bytes; there is
-no protocol 3 compatibility in either the firmware or RawTouch. It is a report-map change, so hosts that
-cache the map — macOS over Bluetooth — need a forget and re-pair after
-upgrading, exactly as when a pad is added or removed
-(see [Troubleshooting](#troubleshooting)).
+Changes to the HID report map, including adding or removing a pad,
+require a fresh Bluetooth pairing on hosts that cache the map, including
+macOS (see [Troubleshooting](#troubleshooting)).
 
 ### Driver requirements
 
@@ -126,8 +123,11 @@ compatible absolute-mode driver, and `CONFIG_ZMK_POINTING=y`.
 
 ### 1. Add the module to your manifest
 
-Merge these entries into the existing `remotes` and `projects` lists in
-`config/west.yml`; keep your board's ZMK project and other dependencies:
+Choose a numbered tag from the module's
+[releases](https://github.com/kalakris/zmk-raw-touch/releases) and replace
+`<module-release-tag>` below with it. Merge these entries into the existing
+`remotes` and `projects` lists in `config/west.yml`; keep your board's ZMK
+project and other dependencies:
 
 ```yaml
 manifest:
@@ -137,16 +137,22 @@ manifest:
   projects:
     - name: zmk-raw-touch
       remote: kalakris
-      revision: main
+      revision: <module-release-tag>
 ```
 
-Pin `revision` to a commit once you have a working build. On the tested
-Zephyr 3.5 configuration, also add or override the driver project:
+Pin dependencies to numbered release tags so updates are deliberate and
+builds remain reproducible. Use these tags instead of development branches
+such as `main` or individual commit hashes. The optional `latest` tag
+moves to each new stable release; it does not pin a fixed version.
+
+On the tested Zephyr 3.5 configuration, also add or override the driver
+project. Replace `<driver-release-tag>` with the driver tag listed in the
+chosen module release's notes:
 
 ```yaml
     - name: cirque-input-module
       remote: kalakris
-      revision: cbb4eaada3b3be052939a16c0441081a72d7d6b9
+      revision: <driver-release-tag>
 ```
 
 ### 2. Start from a trackpad configuration
@@ -398,8 +404,10 @@ taps.
 With `tap-click`, the module supplies that detector: a touch must lift
 within `tap-max-ms` without exceeding `tap-max-movement`. The module also
 knows whether the touch was used for scrolling and suppresses clicks for
-those touches. This keeps tap behavior consistent in Standard and RawTouch
-modes, including when the host app is not running.
+those touches unless the pad sets `tap-click-while-scrolling` (see
+[Dedicated scrolling pad](#dedicated-scrolling-pad)). This keeps tap
+behavior consistent in Standard and RawTouch modes, including when the
+host app is not running.
 
 The module emits `INPUT_BTN_0` directly, so the old `tap_to_click` mapper
 is no longer needed. Remove processors that discard that button, such as
@@ -449,8 +457,26 @@ an overlay that replaces the base chain can change its behavior.
 This works independently per pad: one can always scroll while another
 points or uses a scroll layer. The overlay also removes `tap-click` from
 the dedicated pad's node: firmware suppresses taps for scroll-context
-touches, so the property would have no effect. Keyboard mouse-button
+touches, so the property alone would have no effect. Keyboard mouse-button
 bindings can still provide clicks.
+
+To keep taps on a dedicated scrolling pad, set `tap-click` together with
+`tap-click-while-scrolling` on the pad node instead of removing it. The
+module then reports taps for scroll-context touches too, and the
+listener chain decides what they do: MoErgo's stock Go60 keymap, for
+example, maps the left pad's taps to a right click with a
+`zmk,input-processor-code-mapper` from `INPUT_BTN_0` to `INPUT_BTN_1`;
+keep such a mapper before the idle filter. The property is per pad, so a
+pad that scrolls only on a layer keeps the default veto.
+
+In Standard mode such a tap is emitted at lift-off like any other. In
+RawTouch mode the firmware cannot tell it from a short touch that only
+stopped the host's momentum, so it parks the tap for 250 ms and emits it
+when the host confirms it; RawTouch confirms every scroll-context tap
+that did not catch a coast, with no setting involved. The pad advertises
+this in its feature-report slot, and the confirmed tap still goes
+through the listener chain, so the keymap decides what it does in both
+modes (see [Tap confirm](#tap-confirm) in the appendix).
 
 ### 4. Build and flash
 
@@ -623,12 +649,13 @@ hosts that follow the protocol (one timeline per pad, see the
 [appendix](#input-report)). Both halves must run a build that includes the
 module.
 
-The same processor also announces the peripheral's own module version,
-ahead of the first frame of each touch. The central publishes it in that
-pad's feature-report slot, so a host reading the feature report sees the
-build each half runs and not just the central's (see
-[Versioning](#versioning) and the [appendix](#feature-report)). That slot
-reads 0, for unknown, until the first touch after boot.
+The same processor also announces the peripheral's own module version
+before its first frame after boot, then before the next frame after any
+gap of at least 500 ms. Rapid successive touches do not each send an
+announcement. The central publishes the version in that pad's
+feature-report slot, so a host can read the build each half runs (see
+[Versioning](#versioning) and the [appendix](#feature-report)). The slot
+reads 0, for unknown, until an announcement arrives.
 
 ### Central: process the relayed touch samples
 
@@ -913,6 +940,7 @@ Each `zmk,raw-touch-pad` node describes one input device. See the
 | `rotate-90` | absent | Swap axes when deriving pointer motion; advertise the mounting to the host. |
 | `x-invert` / `y-invert` | absent | Invert the corresponding pointer axis after the swap; advertise the flags to the host. |
 | `tap-click` | absent | Enable firmware tap-to-click. |
+| `tap-click-while-scrolling` | absent | Also report taps for scroll-context touches (dedicated scrolling pads); parked for host confirmation in RawTouch mode. Requires `tap-click`. |
 | `tap-max-ms` | `180` | Maximum touch duration counted as a tap. |
 | `tap-max-movement` | `30` | Maximum displacement from touch-down on either raw axis, in counts. |
 
@@ -964,7 +992,10 @@ driver emits absolute events and release samples.
 
 **Tap-to-click does nothing.** Enable `tap-click`, check release samples,
 and make sure the listener does not consume the injected `INPUT_BTN_0`.
-Taps are deliberately suppressed for touches that entered scroll context.
+Taps are deliberately suppressed for touches that entered scroll context
+unless the pad sets `tap-click-while-scrolling`; with it, a tap in
+RawTouch mode needs the host's confirmation, which RawTouch sends for
+taps that did not catch a coast.
 
 **A pad is dead even in Standard mode, while keys work.** Check the
 driver, GPIOs, and split relay before the host app. Try power-cycling the
@@ -1099,7 +1130,7 @@ hard-code the two-pad length.
 |---|---|---|
 | 0 | 1 | `protocol_version`, 4 |
 | 1 | 1 | `pads_present`, bit `p` set for pad ID `p` |
-| 2 | 1 | `capabilities`, bit 0 = host lease supported; other bits reserved |
+| 2 | 1 | `capabilities`, bit 0 = host lease supported, bit 1 = tap confirm supported; other bits reserved |
 | 3 | 1 | `module_version` of the half answering, packed major.minor; 0 = unknown |
 | 4 | 4 | `magic`, the ASCII bytes `R` `A` `W` `T` (`52 41 57 54`) |
 | 8 | 8 | `device_id`, the SoC's hardware identifier; all-zero = unknown |
@@ -1143,7 +1174,7 @@ Each slot contains:
 | Slot offset | Bytes | Field |
 |---|---|---|
 | +0 | 1 | `resolution`, counts/mm; 0 = unknown |
-| +1 | 1 | `orientation`: bit 0 swaps X/Y (`rotate-90`), bit 1 inverts X, bit 2 inverts Y |
+| +1 | 1 | `orientation`: bit 0 swaps X/Y (`rotate-90`), bit 1 inverts X, bit 2 inverts Y; bit 3 = the pad parks scroll-context taps for host confirmation |
 | +2 | 2 | `x_max`, unsigned little-endian |
 | +4 | 2 | `y_max`, unsigned little-endian |
 | +6 | 1 | `max_contacts`, currently 1 |
@@ -1156,8 +1187,9 @@ ranges from one pad node; use the per-pad feature slots when pads differ.
 Both module versions pack major in the high nibble and minor in the low
 one: `0x01` is 0.1 and `0x10` is 1.0. Byte 3 is the half that answers the
 report, the central. A slot's byte 7 is the half that owns that pad, which
-for a pad relayed from a split peripheral is the peripheral — 0 until it
-announces its version, which it does with the first frame of a touch.
+for a pad relayed from a split peripheral is the peripheral — 0 until its
+version announcement arrives. The peripheral announces before its first
+frame after boot and before the next frame after a gap of at least 500 ms.
 Treat both as diagnostic: `protocol_version` is the compatibility contract.
 
 The configured pad count determines the descriptor's feature-report
@@ -1204,6 +1236,31 @@ Hosts must re-acquire leases after resume, reconnect, and device
 re-enumeration. They should acquire a lease only when ready to generate
 scroll events. RawTouch leaves the lease released when disabled or when
 Accessibility permission is unavailable.
+
+### Tap confirm
+
+Check `capabilities` bit 1 before writing. A pad whose slot has byte +1
+bit 3 set (`tap-click` with `tap-click-while-scrolling`) does not emit a
+scroll-context tap by itself while a lease is held: at lift-off of a
+touch that qualified as a tap by the firmware's own thresholds, it parks
+the tap for 250 ms. The host confirms it with this **4-byte command
+body**, framed exactly like the lease command:
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 1 | Command `0x02` |
+| 1 | 1 | `pad_id` of the touch being confirmed |
+| 2 | 2 | Reserved, must be zero |
+
+The firmware honors the command only from the endpoint that holds the
+lease and ignores it, without error, when nothing is parked or the
+window has passed, so a host may confirm liberally. The host should
+confirm exactly the scroll-context touches that were not catching a
+coasting momentum tail; the firmware's own `tap-max-ms` and
+`tap-max-movement` still apply, so a confirmation can never produce a
+tap the keymap would not have. The emitted tap enters the pad's listener
+chain like any other, so what it does is the keymap's decision. In
+Standard mode, and for pads without bit 3, taps are never parked.
 
 ### Delivery and lost releases
 

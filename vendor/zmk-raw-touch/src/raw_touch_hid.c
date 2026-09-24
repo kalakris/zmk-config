@@ -203,7 +203,7 @@ static struct zmk_raw_touch_feature_report touch_feature_report = {
               * read this report either.) */
              .capabilities = (IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB) ||
                               IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE))
-                                 ? ZMK_RAW_TOUCH_CAP_HOST_LEASE
+                                 ? (ZMK_RAW_TOUCH_CAP_HOST_LEASE | ZMK_RAW_TOUCH_CAP_TAP_CONFIRM)
                                  : 0},
 };
 

@@ -136,18 +136,22 @@
      * bits match the right pad's (both pads are mounted the same way) and
      * the geometry defaults apply.
      *
-     * NO tap-click here, unlike the right pad: this is a dedicated scroll
-     * pad (see &cirque_lh_listener below), and the module deliberately
-     * suppresses the firmware tap for any touch that was ever in scroll
-     * context (`tap_scroll_seen` in the module's raw_touch.c). Every touch
-     * on this pad is scroll context, so tap-click would be inert - leaving
-     * it set would only promise a click that can never fire. */
+     * tap-click WITH tap-click-while-scrolling: this is a dedicated scroll
+     * pad (see &cirque_lh_listener below), so every touch is scroll
+     * context and the module would otherwise veto its taps. With the
+     * property a tap is reported anyway and the chain's mapper turns it
+     * into a right click, as MoErgo's stock keymap does. In RawTouch mode
+     * the module parks the tap and RawTouch confirms it only if the touch
+     * did not catch a coast (module README, "Tap confirm"), so a dab that
+     * stops momentum never clicks. Hardware-verified 2026-09-23. */
     raw_touch_lh: raw_touch_lh {
         compatible = "zmk,raw-touch-pad";
         device = <&cirque_split>;    /* LH pad arrives via the split relay */
         pad-id = <1>;
         rotate-90;
         y-invert;
+        tap-click;
+        tap-click-while-scrolling;
     };
 };
 
@@ -186,9 +190,9 @@
  *
  * As on the right pad: no &zip_button_behaviors, and this listener's OWN
  * idle-filter instance stays LAST - the filter keeps per-node state and
- * must not be shared with the right pad's listener. (The pad's
- * tap-to-click is off on the raw_touch_lh node above: the module
- * suppresses taps for scroll-context touches, so it would be inert.) */
+ * must not be shared with the right pad's listener. The right-click
+ * mapper sits before it: the pad's taps (tap-click-while-scrolling on
+ * raw_touch_lh above) arrive here as BTN_0 and leave as BTN_1. */
 &cirque_lh_listener {
     status = "okay";
     device = <&cirque_split>;
@@ -196,6 +200,7 @@
                        <&zip_xy_to_hvscroll_mapper>,
                        <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
                        <&zip_scroll_scaler 1 72>,
+                       <&zip_click_to_right_click_mapper>,  /* tap -> right click */
                        <&zip_raw_touch_idle_filter_lh>;
 };
 

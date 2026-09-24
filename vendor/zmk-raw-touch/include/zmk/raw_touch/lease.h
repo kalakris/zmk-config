@@ -37,7 +37,9 @@
  * payload may additionally carry the leading report-ID byte). */
 #define ZMK_RAW_TOUCH_LEASE_CMD_LEN 4
 
-/* body[0]: command. 0x01 = host lease; everything else is rejected. */
+/* body[0]: command. 0x01 = host lease; 0x02 = tap confirm (see
+ * zmk/raw_touch/tap.h, dispatched by the same handler); everything else
+ * is rejected. */
 #define ZMK_RAW_TOUCH_LEASE_CMD_HOST_LEASE 0x01
 
 /* body[1]: operation. */
@@ -55,7 +57,12 @@
 #if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB) || IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE)
 
 /**
- * @brief Handle a lease command written by the host.
+ * @brief Handle a command written by the host to the feature report.
+ *
+ * The lease command is handled here; a tap-confirm command is forwarded
+ * to zmk_raw_touch_tap_confirm() when it comes from the endpoint that
+ * holds the lease, and otherwise ignored (0), since a confirmation from a
+ * host that is no longer scrolling refers to a touch it no longer owns.
  *
  * @param source The endpoint instance the write arrived on.
  * @param body The command body (without any report-ID prefix).

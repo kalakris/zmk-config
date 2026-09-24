@@ -80,6 +80,26 @@ properties:
       INPUT_BTN_0 (e.g. zmk,input-processor-behaviors mapping it to &none),
       or the injected click is swallowed.
 
+  tap-click-while-scrolling:
+    type: boolean
+    description: |
+      Also report taps for touches that were handled by a processor chain
+      marked with zmk,input-processor-raw-touch-scroll. Without this, a
+      touch that entered scroll context never produces a tap, which keeps
+      a flick on a scroll layer from clicking. Set it on a dedicated
+      scrolling pad whose taps should still click - for example, mapped to
+      a right click by the listener chain, as MoErgo's stock Go60 keymap
+      does with its left pad. Requires tap-click.
+
+      In Standard mode the tap is emitted at lift-off as usual. While a
+      host holds the lease, the firmware cannot tell such a tap from a
+      short touch that merely stopped the host's momentum, so it parks the
+      tap for a moment and emits it only when the host confirms it (a
+      feature-report command; RawTouch does this automatically for touches
+      that did not catch a coast). The listener chain decides what the tap
+      does in both cases. The pad advertises this in its feature-report
+      slot so a host knows to confirm.
+
   tap-max-ms:
     type: int
     default: 180

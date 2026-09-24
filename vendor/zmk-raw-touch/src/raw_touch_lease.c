@@ -61,6 +61,7 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 #include <zmk/events/endpoint_changed.h>
 
 #include <zmk/raw_touch/lease.h>
+#include <zmk/raw_touch/tap.h>
 
 #if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB)
 #include <zmk/usb.h>
@@ -150,6 +151,24 @@ int zmk_raw_touch_lease_handle_command(struct zmk_endpoint_instance source, cons
     if (len != ZMK_RAW_TOUCH_LEASE_CMD_LEN) {
         LOG_WRN("Rejected lease command with length %d", (int)len);
         return -EMSGSIZE;
+    }
+
+    if (body[0] == ZMK_RAW_TOUCH_CMD_TAP_CONFIRM) {
+        if (body[2] != 0 || body[3] != 0) {
+            LOG_WRN("Rejected tap confirm with nonzero reserved bytes");
+            return -EINVAL;
+        }
+
+        /* Only the leasing, selected endpoint has seen the touch it is
+         * confirming; a stale confirmation from another endpoint (after a
+         * switch, or a lapsed lease) must not click. Not an error. */
+        if (!zmk_endpoint_instance_eq(source, zmk_endpoints_selected()) ||
+            !zmk_raw_touch_lease_held_for_selected()) {
+            LOG_DBG("Ignored tap confirm for pad %d from an endpoint without the lease", body[1]);
+            return 0;
+        }
+
+        return zmk_raw_touch_tap_confirm(body[1]);
     }
 
     if (body[0] != ZMK_RAW_TOUCH_LEASE_CMD_HOST_LEASE) {
