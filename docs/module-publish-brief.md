@@ -375,7 +375,10 @@ Kconfig → per-half keymaps that `#include` the byte-identical stock
 docs commits. STOCK split roles kept (LEFT half = central, right pad
 relayed = pointer, left pad local = dedicated scroll pad) — the reverse
 of this keyboard, so hardware-untested; its `docs/hardware-checklist.md`
-says which combinations. `config/west.yml` carries TEMPORARY pins
+says which combinations. MoErgo ZMK is pinned to their numbered tag `v25.11` (Go60 board files
+identical to their `main`; the `go60-zmk0.3.0` branch the module's CI
+uses lacks `RGB_STATUS`, which the stock keymap needs, so it does not
+build there). `config/west.yml` carries TEMPORARY pins
 (driver SHA `89a0896`, module `main`) marked for replacement by
 `<driver-release-tag>` / `<module-release-tag>`; `main` cannot build in
 CI until the module is public (private clone), so validation runs on
