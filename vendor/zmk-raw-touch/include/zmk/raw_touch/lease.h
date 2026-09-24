@@ -87,6 +87,18 @@ int zmk_raw_touch_lease_handle_command(struct zmk_endpoint_instance source, cons
  */
 bool zmk_raw_touch_lease_held_for_selected(void);
 
+/**
+ * @brief Clear the lease of an endpoint whose host has gone away.
+ *
+ * For a transport to call when it loses the host behind @p endpoint, e.g.
+ * on the disconnect of a BLE profile's connection. A no-op when no lease
+ * is held there.
+ *
+ * @param endpoint The endpoint instance whose lease lapses.
+ * @param reason Short description for the log.
+ */
+void zmk_raw_touch_lease_clear(struct zmk_endpoint_instance endpoint, const char *reason);
+
 #else /* no host-facing transport: split peripheral, or both disabled */
 
 static inline int zmk_raw_touch_lease_handle_command(struct zmk_endpoint_instance source,

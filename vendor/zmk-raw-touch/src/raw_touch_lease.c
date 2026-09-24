@@ -20,7 +20,8 @@
  *  - USB detach/reset (zmk_usb_conn_state_changed leaving the HID state)
  *    clears the USB lease;
  *  - disconnect of a BLE connection clears the lease of the profile
- *    bonded to that peer, whether or not it is the active profile;
+ *    bonded to that peer, whether or not it is the active profile (the
+ *    BLE transport reports it through zmk_raw_touch_lease_clear());
  *  - an endpoint switch clears every lease except the newly selected
  *    endpoint's own. The leasing host may no longer be watching after a
  *    switch, and a wrongly-cleared lease self-heals: a live host
@@ -66,12 +67,6 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 #if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB)
 #include <zmk/usb.h>
 #include <zmk/events/usb_conn_state_changed.h>
-#endif
-
-#if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE)
-#include <zephyr/bluetooth/bluetooth.h>
-#include <zephyr/bluetooth/conn.h>
-#include <zmk/ble.h>
 #endif
 
 struct lease {
@@ -246,6 +241,10 @@ int zmk_raw_touch_lease_handle_command(struct zmk_endpoint_instance source, cons
     }
 }
 
+void zmk_raw_touch_lease_clear(struct zmk_endpoint_instance endpoint, const char *reason) {
+    lease_clear_index(zmk_endpoint_instance_to_index(endpoint), reason);
+}
+
 bool zmk_raw_touch_lease_held_for_selected(void) {
     struct lease *lease = lease_slot(zmk_endpoint_instance_to_index(zmk_endpoints_selected()));
 
@@ -298,36 +297,6 @@ ZMK_SUBSCRIPTION(zmk_raw_touch_lease, zmk_endpoint_changed);
 ZMK_SUBSCRIPTION(zmk_raw_touch_lease, zmk_usb_conn_state_changed);
 #endif
 
-#if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE)
-
-/* Our own connection callback rather than zmk_ble_active_profile_changed:
- * that event only fires for the ACTIVE profile, and a lease can belong to
- * any connected profile. zmk_ble_profile_index() maps the peer to its
- * profile (returning a negative value for non-host connections such as
- * split peripherals, which this must ignore). */
-static void lease_ble_disconnected(struct bt_conn *conn, uint8_t reason) {
-    ARG_UNUSED(reason);
-
-    int profile = zmk_ble_profile_index(bt_conn_get_dst(conn));
-
-    if (profile < 0) {
-        return;
-    }
-
-    struct zmk_endpoint_instance ble_endpoint = {
-        .transport = ZMK_TRANSPORT_BLE,
-        .ble = {.profile_index = profile},
-    };
-
-    lease_clear_index(zmk_endpoint_instance_to_index(ble_endpoint), "BLE profile disconnected");
-}
-
-BT_CONN_CB_DEFINE(zmk_raw_touch_lease_conn_callbacks) = {
-    .disconnected = lease_ble_disconnected,
-};
-
-#endif /* IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE) */
-
 static int lease_init(void) {
     for (size_t i = 0; i < ARRAY_SIZE(leases); i++) {
         k_work_init_delayable(&leases[i].expiry_work, lease_expiry_cb);
@@ -336,4 +305,7 @@ static int lease_init(void) {
     return 0;
 }
 
-SYS_INIT(lease_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+/* POST_KERNEL, ahead of every APPLICATION-level init: ZMK brings up USB and
+ * BLE there, so no transport can deliver a command before the expiry work
+ * items exist. */
+SYS_INIT(lease_init, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);

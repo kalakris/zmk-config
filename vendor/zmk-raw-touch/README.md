@@ -907,7 +907,7 @@ Each `zmk,raw-touch-pad` node describes one input device. See the
 | `x-invert` / `y-invert` | absent | Invert the corresponding pointer axis after the swap; advertise the flags to the host. |
 | `tap-click` | absent | Enable firmware tap-to-click. |
 | `tap-click-while-scrolling` | absent | Also report taps for scroll-context touches (dedicated scrolling pads); held for host confirmation in RawTouch mode. Requires `tap-click`. |
-| `tap-max-ms` | `180` | Maximum touch duration counted as a tap. |
+| `tap-max-ms` | `180` | Maximum touch duration counted as a tap; at most 5000. |
 | `tap-max-movement` | `30` | Maximum displacement from touch-down on either raw axis, in counts. |
 
 Geometry defaults describe a Cirque Pinnacle. Override them for other
@@ -930,7 +930,6 @@ All names below have the `CONFIG_` prefix in a `.conf` file.
 | `ZMK_RAW_TOUCH_USB_QUEUE_SIZE` | `4` | Buffered USB frames; range 2–255. |
 | `ZMK_RAW_TOUCH_BLE_QUEUE_SIZE` | `8` | Buffered BLE frames; range 2–255. |
 | `ZMK_RAW_TOUCH_BLE_THREAD_STACK_SIZE` | `ZMK_BLE_THREAD_STACK_SIZE` | Stack for the module's BLE work queue. |
-| `ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_MAX_DEVICES` | `4` | Input devices tracked by the scroll marker. Increase when using more marked devices. |
 | `ZMK_RAW_TOUCH_LOG_LEVEL_*` | inherited | Module logging level. |
 
 The marker, idle-filter and stamp processors enable automatically when

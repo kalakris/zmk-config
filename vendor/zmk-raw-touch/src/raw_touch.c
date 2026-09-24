@@ -76,6 +76,14 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 #include <zmk/raw_touch/tap.h>
 #include <zmk/raw_touch/transport.h>
 
+/* The input thread's queue is what makes re-injection work: the deltas and
+ * taps reported from inside a pad's input callback are dispatched after
+ * the event being handled, not nested inside it, and a tap confirmed from
+ * a transport's thread reaches the listener on the input thread like any
+ * other event. */
+BUILD_ASSERT(IS_ENABLED(CONFIG_INPUT_MODE_THREAD),
+             "zmk,raw-touch-pad requires CONFIG_INPUT_MODE_THREAD");
+
 struct raw_touch_pad_config {
     /* The input device producing the absolute touch events, and the
      * device the derived relative deltas and taps are injected back on. */
@@ -112,6 +120,11 @@ struct raw_touch_pad_data {
     /* Current frame, accumulated until the sync event. */
     uint16_t cur_x, cur_y;
     uint8_t cur_z;
+
+    /* Set by the scroll marker (zmk_raw_touch_scroll_mark()) when a chain
+     * containing it handles an event from this pad's device; taken on
+     * every event of the pad's own. */
+    atomic_t scroll_marked;
 
     /* Scroll-context marks seen while accumulating the current frame. */
     bool frame_open;
@@ -150,8 +163,9 @@ struct raw_touch_pad_data {
      * report went to: the only one a synthetic release may go to. */
     int stream_endpoint;
 
-    /* Tap detection state for the current touch. */
-    int64_t touch_down_ts;
+    /* Tap detection state for the current touch. touch_down_ts is the
+     * touch-down frame's timestamp, on the same timeline as the frames. */
+    uint16_t touch_down_ts;
     uint16_t touch_down_x, touch_down_y;
     bool tap_candidate;
     /* Some frame of this touch was in scroll context. */
@@ -202,9 +216,8 @@ static void raw_touch_emit_tap(const struct raw_touch_pad_config *cfg,
 
 /* Device-side sample time (HID Scan Time convention, 100 us units): hosts
  * derive finger velocity from this rather than from arrival time, which
- * BLE connection-interval batching distorts. Only computed when a report
- * actually goes out or a peripheral stamp arrives - the 64-bit divide is
- * not free on a Cortex-M.
+ * BLE connection-interval batching distorts. Read at most once per frame -
+ * the 64-bit divide is not free on a Cortex-M.
  *
  * This is the local pad's clock, read when the frame is processed. A pad
  * relayed from a split peripheral is processed here too, after the split
@@ -213,6 +226,9 @@ static void raw_touch_emit_tap(const struct raw_touch_pad_config *cfg,
  * zmk/raw_touch/split_stamp.h), and raw_touch_frame_timestamp() prefers
  * that. */
 static uint16_t raw_touch_timestamp(void) { return (uint16_t)zmk_raw_touch_split_stamp_now(); }
+
+/* Timestamp units per millisecond. */
+#define RT_TIMESTAMP_PER_MS 10
 
 /* The timestamp of the frame being processed, on the pad's one timeline:
  * its peripheral stamp when that arrived, and otherwise the local clock
@@ -235,7 +251,7 @@ enum raw_touch_tap_action {
 static enum raw_touch_tap_action raw_touch_tap_action(const struct raw_touch_pad_config *cfg,
                                                       const struct raw_touch_pad_data *data,
                                                       bool lease_held) {
-    if (!data->tap_candidate || (k_uptime_get() - data->touch_down_ts) > cfg->tap_max_ms) {
+    if (!data->tap_candidate) {
         return RT_TAP_NONE;
     }
 
@@ -287,9 +303,14 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
      * frame after a lease lapses or the endpoint switches away. */
     bool lease_held = zmk_raw_touch_lease_held_for_selected();
 
+    /* The frame's sample time. It also times taps, so that for a relayed
+     * pad the split link's delivery bunching cannot stretch or shorten a
+     * touch. */
+    uint16_t ts = raw_touch_frame_timestamp(data, have_stamp, stamp);
+
     if (touched && !data->prev_touched) {
         /* Touch-down: start a tap candidacy. */
-        data->touch_down_ts = k_uptime_get();
+        data->touch_down_ts = ts;
         data->touch_down_x = data->cur_x;
         data->touch_down_y = data->cur_y;
         data->tap_candidate = cfg->tap_click;
@@ -299,6 +320,16 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
     }
 
     data->touch_scrolled = data->touch_scrolled || scroll_mode;
+
+    /* The timestamps are 16-bit and wrap every 6.5 s, which the unsigned
+     * difference absorbs for any shorter touch. Longer touches are safe
+     * too: a touched pad reports every few ms, so the candidacy ends on the
+     * first frame past tap-max-ms (bounded well below the wrap by a
+     * BUILD_ASSERT), long before the difference can wrap back into range. */
+    if (data->tap_candidate &&
+        (uint16_t)(ts - data->touch_down_ts) > cfg->tap_max_ms * RT_TIMESTAMP_PER_MS) {
+        data->tap_candidate = false;
+    }
 
     if (touched && data->tap_candidate) {
         int travel_x = (int)data->cur_x - (int)data->touch_down_x;
@@ -337,8 +368,8 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
          * re-sending it would go nowhere either, and the host's silence
          * watchdog covers them. */
         zmk_raw_touch_hid_set(cfg->pad_id, data->cur_x, data->cur_y, data->cur_z, flags,
-                              data->seq++, raw_touch_frame_timestamp(data, have_stamp, stamp));
-        zmk_raw_touch_send_report();
+                              data->seq++, ts);
+        zmk_raw_touch_send_report(&zmk_raw_touch_hid_get_report()->body);
         data->stream_touched = touched;
         data->stream_endpoint = zmk_raw_touch_selected_endpoint();
     } else if (data->stream_touched) {
@@ -357,8 +388,8 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
         if (zmk_raw_touch_selected_endpoint() == data->stream_endpoint) {
             zmk_raw_touch_hid_set(cfg->pad_id, 0, 0, 0,
                                   scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0, data->seq++,
-                                  raw_touch_frame_timestamp(data, have_stamp, stamp));
-            zmk_raw_touch_send_report();
+                                  ts);
+            zmk_raw_touch_send_report(&zmk_raw_touch_hid_get_report()->body);
         }
         data->stream_touched = false;
     }
@@ -500,7 +531,7 @@ static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
      * the discard happens before the second event of the frame is even
      * dispatched, no mark belonging to this frame can be lost with it.
      */
-    bool marked = zmk_raw_touch_scroll_take(cfg->dev);
+    bool marked = atomic_clear(&data->scroll_marked);
 
     if (data->frame_open) {
         data->frame_scroll = data->frame_scroll || marked;
@@ -526,6 +557,7 @@ static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
 
 #define RT_INST(n)                                                                                 \
     BUILD_ASSERT(DT_INST_PROP(n, pad_id) < 8, "raw touch pad-id must be less than 8");             \
+    BUILD_ASSERT(DT_INST_PROP(n, tap_max_ms) <= 5000, "raw touch tap-max-ms must be <= 5000");     \
     /* feature_slot starts at "none": raw_touch_init() hands out the real                          \
      * ones, and nothing may write a slot it does not own before then. */                          \
     static struct raw_touch_pad_data rt_data_##n = {.feature_slot = -1};                           \
@@ -557,10 +589,21 @@ DT_INST_FOREACH_STATUS_OKAY(RT_INST)
 static const struct raw_touch_pad_config *const raw_touch_pads[] = {
     DT_INST_FOREACH_STATUS_OKAY(RT_CONFIG_REF)};
 
-/* Parallel to raw_touch_pads: same pad, same index. Only raw_touch_init()
- * needs it, to hand each pad the feature slot it was given. */
+/* Parallel to raw_touch_pads: same pad, same index. For the entry points
+ * that arrive from outside a pad's own input callback. */
 static struct raw_touch_pad_data *const raw_touch_pad_datas[] = {
     DT_INST_FOREACH_STATUS_OKAY(RT_DATA_REF)};
+
+/* Runs in the input thread, from inside a listener's processor chain. A
+ * device that feeds no pad (a marked chain on some other pointing device)
+ * matches nothing and is ignored. */
+void zmk_raw_touch_scroll_mark(const struct device *dev) {
+    for (size_t i = 0; i < ARRAY_SIZE(raw_touch_pads); i++) {
+        if (raw_touch_pads[i]->dev == dev) {
+            atomic_set(&raw_touch_pad_datas[i]->scroll_marked, 1);
+        }
+    }
+}
 
 int zmk_raw_touch_tap_confirm(uint8_t pad_id) {
     for (size_t i = 0; i < ARRAY_SIZE(raw_touch_pads); i++) {

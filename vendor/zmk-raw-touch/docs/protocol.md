@@ -255,9 +255,10 @@ queued release.
   detach, and transport errors can flush pending reports.
 - **BLE:** failed release notifications are retried at the head of the
   queue, 8 ms apart, for at most four attempts. Queued entries are bound
-  to the profile selected at enqueue time. Endpoint switches flush the
-  queue; disconnects discard entries for that profile. Old reports are
-  not forwarded to a different host.
+  to the profile selected at enqueue time and are sent while that profile
+  is the active BLE profile, even if output has since moved to USB. They
+  are discarded once another profile is active, or when their profile
+  disconnects. Old reports are not forwarded to a different host.
 
 These measures protect releases during ordinary congestion; they do not
 guarantee delivery. Link loss, power loss, endpoint changes, exhausted

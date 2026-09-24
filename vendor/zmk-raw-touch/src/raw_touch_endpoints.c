@@ -40,7 +40,10 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
  * src/endpoints.c under `(NOT CONFIG_ZMK_SPLIT) OR
  * CONFIG_ZMK_SPLIT_ROLE_CENTRAL`, so on a peripheral zmk_endpoints_selected()
  * does not exist and calling it would fail to link. */
-int zmk_raw_touch_send_report(void) { return -ENOTSUP; }
+int zmk_raw_touch_send_report(const struct zmk_raw_touch_report_body *body) {
+    ARG_UNUSED(body);
+    return -ENOTSUP;
+}
 
 int zmk_raw_touch_selected_endpoint(void) { return -1; }
 
@@ -53,7 +56,7 @@ int zmk_raw_touch_selected_endpoint(void) {
     return zmk_endpoint_instance_to_index(zmk_endpoints_selected());
 }
 
-int zmk_raw_touch_send_report(void) {
+int zmk_raw_touch_send_report(const struct zmk_raw_touch_report_body *body) {
     /* Stock ZMK has no ZMK_TRANSPORT_NONE, so the switch below is
      * exhaustive. */
     struct zmk_endpoint_instance current_instance = zmk_endpoints_selected();
@@ -61,7 +64,7 @@ int zmk_raw_touch_send_report(void) {
     switch (current_instance.transport) {
     case ZMK_TRANSPORT_USB: {
 #if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB)
-        int err = zmk_raw_touch_usb_send_report();
+        int err = zmk_raw_touch_usb_send_report(body);
         if (err) {
             /* Deliberately not LOG_ERR: frames stream at ~100 Hz while a
              * finger is down, so a host that has gone away would otherwise
@@ -77,10 +80,7 @@ int zmk_raw_touch_send_report(void) {
 
     case ZMK_TRANSPORT_BLE: {
 #if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE)
-        /* The report ID is carried by the report reference descriptor on
-         * BLE, not by the payload, so only the body is sent. */
-        struct zmk_raw_touch_report *report = zmk_raw_touch_hid_get_report();
-        int err = zmk_raw_touch_hog_send_report(&report->body);
+        int err = zmk_raw_touch_hog_send_report(body);
         if (err) {
             LOG_DBG("Failed to send raw touch report over HOG: %d", err);
         }

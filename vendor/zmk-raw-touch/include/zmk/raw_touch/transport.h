@@ -9,15 +9,16 @@
 #include <zmk/raw_touch/hid.h>
 
 /**
- * @brief Send the current raw touch report over the active ZMK endpoint.
+ * @brief Send a raw touch frame over the active ZMK endpoint.
  *
  * Dispatches on zmk_endpoints_selected() exactly as ZMK's own reports do,
  * so the raw frames follow the user's USB/BLE output selection and their
- * active BLE profile. Defined in src/raw_touch_endpoints.c.
+ * active BLE profile. Both transports copy @p body into their queue before
+ * returning. Defined in src/raw_touch_endpoints.c.
  *
  * @retval 0 on success, or a negative errno.
  */
-int zmk_raw_touch_send_report(void);
+int zmk_raw_touch_send_report(const struct zmk_raw_touch_report_body *body);
 
 /**
  * @brief Identify the endpoint zmk_raw_touch_send_report() sends to now.
@@ -31,7 +32,7 @@ int zmk_raw_touch_selected_endpoint(void);
 
 #if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_USB)
 /**
- * @brief Queue the current frame for the raw touch USB HID interface.
+ * @brief Queue a frame for the raw touch USB HID interface.
  *
  * Never blocks - it runs inline on the input dispatch path. The frame is
  * copied into a bounded ring; if the interrupt IN endpoint is idle it is
@@ -56,7 +57,7 @@ int zmk_raw_touch_selected_endpoint(void);
  *         (a mis-sized CONFIG_ZMK_RAW_TOUCH_USB_QUEUE_SIZE).
  * @retval other negative errno from hid_int_ep_write().
  */
-int zmk_raw_touch_usb_send_report(void);
+int zmk_raw_touch_usb_send_report(const struct zmk_raw_touch_report_body *body);
 #endif
 
 #if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH_BLE)
@@ -90,8 +91,9 @@ int zmk_raw_touch_usb_send_report(void);
  *
  * @retval 0 if the frame was queued.
  * @retval -ENODEV if the input report characteristic was not found.
+ * @retval -ENOTCONN if the active profile's host is not connected.
  * @retval -ENOBUFS if the queue was full of undelivered release frames
  *         (a mis-sized CONFIG_ZMK_RAW_TOUCH_BLE_QUEUE_SIZE).
  */
-int zmk_raw_touch_hog_send_report(struct zmk_raw_touch_report_body *body);
+int zmk_raw_touch_hog_send_report(const struct zmk_raw_touch_report_body *body);
 #endif

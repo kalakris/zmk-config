@@ -119,16 +119,6 @@ config ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL
       pad's events marks those frames as scroll context (frame flags
       bit 1). Place it first in the chain.
 
-config ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_MAX_DEVICES
-    int "Max input devices tracked by the scroll-context latch"
-    default 4
-    depends on ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL
-    help
-      The marker processor latches a flag per input device whose events
-      reach it, and each pad's frame handler reads and clears its own.
-      One table entry is taken per distinct input device that ever
-      reaches a marker - normally just the streaming pads.
-
 config ZMK_INPUT_PROCESSOR_RAW_TOUCH_IDLE_FILTER
     bool "Raw touch idle-sync filter input processor"
     default y

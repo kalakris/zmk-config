@@ -8,8 +8,8 @@
  * ZMK core's input listener is not extensible from a module, so scroll
  * context is detected by the marker input processor itself: when the
  * marker is reached by an event from a pad's input device, it latches a
- * flag for that device. The pad's frame handler reads and clears the flag
- * once per frame.
+ * flag in that pad's data. The pad's frame handler reads and clears the
+ * flag on each of its own events and folds it into the frame.
  *
  * This is reliable from the first frame of a touch because a frame is
  * three input events (ABS_X, ABS_Y, then ABS_Z carrying the sync) and the
@@ -25,23 +25,17 @@
 
 #pragma once
 
-#include <stdbool.h>
 #include <zephyr/device.h>
 
-#if IS_ENABLED(CONFIG_ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL)
+#if IS_ENABLED(CONFIG_ZMK_RAW_TOUCH)
 
-/** Latch that a marker processor was reached by an event from @p dev. */
+/** Latch that a marker processor was reached by an event from @p dev, for
+ * every pad whose input device @p dev is. Defined in src/raw_touch.c. */
 void zmk_raw_touch_scroll_mark(const struct device *dev);
-
-/** Read and clear the latch for @p dev. */
-bool zmk_raw_touch_scroll_take(const struct device *dev);
 
 #else
 
+/* No pads in this build: the marker has nothing to mark. */
 static inline void zmk_raw_touch_scroll_mark(const struct device *dev) { ARG_UNUSED(dev); }
-static inline bool zmk_raw_touch_scroll_take(const struct device *dev) {
-    ARG_UNUSED(dev);
-    return false;
-}
 
 #endif

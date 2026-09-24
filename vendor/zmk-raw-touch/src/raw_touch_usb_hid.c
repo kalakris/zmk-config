@@ -316,7 +316,7 @@ static const struct hid_ops ops = {
     .set_report = set_report_cb,
 };
 
-int zmk_raw_touch_usb_send_report(void) {
+int zmk_raw_touch_usb_send_report(const struct zmk_raw_touch_report_body *body) {
     if (hid_dev == NULL) {
         return -ENODEV;
     }
@@ -347,20 +347,10 @@ int zmk_raw_touch_usb_send_report(void) {
      * frame would sit there with nothing left to drain it. For a release
      * frame there is no next frame to nudge it out, which is exactly the
      * loss this queue exists to prevent. */
-    enum rt_txq_put_result res =
-        rt_txq_put(&usb_txq, &zmk_raw_touch_hid_get_report()->body, RT_TXQ_NO_BINDING);
+    int err = rt_txq_enqueue(&usb_txq, body, RT_TXQ_NO_BINDING, "USB");
 
-    switch (res) {
-    case RT_TXQ_PUT_EVICTED:
-        LOG_DBG("Raw touch USB queue full; evicted the oldest motion frame");
-        break;
-    case RT_TXQ_PUT_FULL:
-        LOG_WRN("Raw touch USB queue (%d) full of undelivered release frames; dropped an "
-                "incoming frame. Raise CONFIG_ZMK_RAW_TOUCH_USB_QUEUE_SIZE.",
-                CONFIG_ZMK_RAW_TOUCH_USB_QUEUE_SIZE);
-        return -ENOBUFS;
-    case RT_TXQ_PUT_OK:
-        break;
+    if (err) {
+        return err;
     }
 
     if (zmk_usb_get_status() == USB_DC_SUSPEND) {
@@ -370,7 +360,7 @@ int zmk_raw_touch_usb_send_report(void) {
          * racing this send finds the frame already queued. A host that has
          * not enabled remote wakeup refuses the request; the frame still
          * goes out when it resumes the bus itself. */
-        int err = usb_wakeup_request();
+        err = usb_wakeup_request();
 
         if (err) {
             LOG_DBG("USB remote wakeup request failed: %d", err);

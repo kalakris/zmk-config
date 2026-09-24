@@ -40,8 +40,8 @@
  * head.
  *
  * The generation counter closes the same window against the flush paths,
- * which run from other threads entirely (an endpoint switch, a disconnect,
- * a USB bus reset). Every operation that replaces what sits at the head
+ * which run from other threads entirely (a BLE disconnect, a USB bus reset
+ * or detach). Every operation that replaces what sits at the head
  * without going through rt_txq_drop_head() bumps it; rt_txq_peek() hands
  * the caller the current value and rt_txq_drop_head() refuses to drop if
  * it no longer matches. The transport then simply re-peeks: the frame it
@@ -61,14 +61,18 @@
  * the input dispatch thread while the drains run on the module's BLE work
  * queue and in USB callback context, and a spinlock (which locks
  * interrupts) is the only cheap primitive valid in all three.
+ *
+ * Includers declare the module's log module before including this.
  */
 
 #pragma once
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 #include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 
 #include <zmk/raw_touch/hid.h>
@@ -181,6 +185,29 @@ rt_txq_put(struct rt_txq *q, const struct zmk_raw_touch_report_body *body, int16
     return res;
 }
 
+/* rt_txq_put() for a transport's send path, logging what the put cost.
+ * `transport` names the queue in the log, and its size symbol as
+ * CONFIG_ZMK_RAW_TOUCH_<transport>_QUEUE_SIZE. Returns 0 if the frame was
+ * queued, or -ENOBUFS if it was dropped. */
+static inline int rt_txq_enqueue(struct rt_txq *q, const struct zmk_raw_touch_report_body *body,
+                                 int16_t binding, const char *transport) {
+    enum rt_txq_put_result res = rt_txq_put(q, body, binding);
+
+    if (res == RT_TXQ_PUT_FULL) {
+        LOG_WRN("Raw touch %s queue (%d) full of undelivered release frames; dropped an "
+                "incoming %s frame for pad %u. Raise CONFIG_ZMK_RAW_TOUCH_%s_QUEUE_SIZE.",
+                transport, q->size, rt_txq_is_release(body) ? "release" : "motion", body->pad_id,
+                transport);
+        return -ENOBUFS;
+    }
+
+    if (res == RT_TXQ_PUT_EVICTED) {
+        LOG_DBG("Raw touch %s queue full; evicted the oldest motion frame", transport);
+    }
+
+    return 0;
+}
+
 /* Copy the head out without consuming it, along with the generation to
  * hand back to rt_txq_drop_head() once it has been transmitted. */
 static inline bool rt_txq_peek(struct rt_txq *q, struct rt_txq_entry *out, uint32_t *generation) {
@@ -245,7 +272,7 @@ static inline bool rt_txq_is_empty(struct rt_txq *q) {
 }
 
 /* Discard everything. For the events that make every queued frame
- * meaningless at once: a USB bus reset or detach, an endpoint switch. */
+ * meaningless at once: a USB bus reset or detach. */
 static inline void rt_txq_flush(struct rt_txq *q) {
     k_spinlock_key_t key = k_spin_lock(&q->lock);
 

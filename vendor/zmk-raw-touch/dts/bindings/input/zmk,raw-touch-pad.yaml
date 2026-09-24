@@ -103,7 +103,9 @@ properties:
   tap-max-ms:
     type: int
     default: 180
-    description: Maximum touch duration still counted as a tap.
+    description: |
+      Maximum touch duration still counted as a tap, measured between the
+      frames' sample times. At most 5000.
 
   tap-max-movement:
     type: int
