@@ -217,6 +217,14 @@ flash watcher enforces its own single-instance rule (see the build loop).
 Repos (`v0-prototype` tag on the older four = validated prototype; binaries
 in `firmware/raw-touch-v0-prototype/`):
 - this repo, `main` — the daily driver (module architecture, v3, both pads)
+- `~/src/go60-rawtouch-config` (`kalakris/go60-rawtouch-config`, **private**
+  until the flip) — the **public starter** for newcomers: MoErgo's west
+  template + six adoption commits, STOCK split roles (left half central;
+  the reverse of this keyboard, so hardware-untested — its
+  `docs/hardware-checklist.md` says what). `main` cannot build in Actions
+  while the module is private; the throwaway branch `ci-vendored` vendors
+  it (delete after the flip). Its west.yml carries TEMPORARY pins marked
+  for the release tags. State: publish brief, "Public starter configuration"
 - `~/src/zmk-raw-touch` (`kalakris/zmk-raw-touch@main`) — **the module**: private HID report descriptor, second USB HID interface + second BLE HIDS instance, frame handler, `zip_raw_touch_scroll` marker, `zip_raw_touch_idle_filter`. Name final (renamed from `-wip`); still **private** — vendored into `vendor/` for CI
 - `~/src/zmk` (`kalakris/zmk@raw-touch`) — the old ZMK core patch. **Dead; safe to delete** — `cfc4b3e6` is salvaged as `patches/zmk-skip-empty-mouse-report-syncs.patch`
 - `~/src/cirque-input-module` — `@intree-driver` (tip `89a0896` since 2026-09-23: Zephyr main's driver vendored pristine + 3 patches, ALL Pete Johanson's own code from his module (`0759bf6`) that stock Go60 firmware runs — kept for that reason; the unused sample-rate commit was dropped and the branch force-pushed; patch 2 is inert on every Go60 (nobody sets `x/y-axis-z-min`), patch 3 recalibrates at the configured ADC gain after the driver's own reset calibration; patch 3/3's dead-pad boot race was **fixed 2026-08-28** — wait for SW_CC to assert before clearing, re-check DR after arming the edge interrupt — which cleared the must-fix gate before upstreaming) and the historical `@raw-touch` fork. Never PR abs-mode anywhere — see [docs/pinnacle-driver-landscape.md](docs/pinnacle-driver-landscape.md)
