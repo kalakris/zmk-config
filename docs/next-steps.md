@@ -8,6 +8,16 @@ v3, both pads streaming, USB + BLE verified) — see
 [module-publish-brief.md](module-publish-brief.md) for the publish plan.
 Each item below is self-contained enough to start cold.
 
+**Release-tag policy update (2026-09-23):** recommend fixed numbered
+release tags in user manifests; provide a moving `latest` tag for users
+who choose to follow stable releases. The publication checklist in
+[module-publish-brief.md](module-publish-brief.md#remaining-before-flipping-the-repo-public)
+now covers tagging the driver as well as the module and app, promoting
+`latest` only after validation, and replacing README placeholders with
+real release tags. Existing SHA pins and older suggested release numbers
+below are historical preparation notes; reconcile them with this policy
+and the current version header before publishing.
+
 **Punch-list pass (2026-09-22 evening):** tackled the items that need no
 hardware or decision — module `mode-gate` branch deleted (local +
 origin), CONTRIBUTING added to the module (`e26b1f0`) and rawtouch

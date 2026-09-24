@@ -343,6 +343,29 @@ The original decision blockers are all closed:
 
 ### Remaining before flipping the repo public
 
+**Release-tag policy (2026-09-23):** recommend numbered release tags in
+user manifests, rather than `main` or commit hashes. Published numbered
+tags stay fixed. Each release repository also provides a moving `latest`
+tag pointing to its newest stable release; using it is an explicit choice
+to follow releases rather than pin a version.
+
+- [ ] **Publish numbered dependency tags.** Tag the tested
+  `cirque-input-module` `intree-driver` revision and publish release notes.
+  Publish the module's numbered tag with a version matching `version.h`,
+  and list the tested driver tag and compatible ZMK release in its notes.
+  Before publication, replace the README's `<module-release-tag>` and
+  `<driver-release-tag>` placeholders with these real tags. Use numbered
+  tags in the public starter config and the prepared un-vendor manifest.
+- [ ] **Create and maintain `latest`.** In `rawtouch`, `zmk-raw-touch`,
+  and the released Cirque driver fork, create `latest` at the first stable
+  release commit. For every subsequent stable release, move only this tag
+  after CI, required hardware checks, and artifact publication succeed;
+  never move numbered release tags or point `latest` at a prerelease.
+  Add this promotion to the release workflow or its recurring checklist,
+  verify it resolves to the numbered release's commit, and document how
+  users refresh a locally cached moving tag. The Git tag `latest` is
+  separate from GitHub's `/releases/latest` download-page redirect.
+
 **Host-plan change 2026-08-30: the public host is RawTouch**
 (`~/src/rawtouch`), not the LinearMouse fork — the fork stays private
 and unreleased (decision recorded in next-steps item k). The README's
