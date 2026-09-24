@@ -193,8 +193,10 @@ static int usb_txq_kick(void) {
  * deliberately: the host's silence watchdog closes that gesture.
  *
  * Every other status change within the HID state kicks the queue unless
- * the bus is suspended: frames queued during a suspend have no transfer
- * in flight to drain them once the host resumes the bus.
+ * the bus is suspended, where it flushes instead: nothing queued survives
+ * a suspend. By the time the host resumes the bus the frames describe a
+ * touch from before it slept, and a leasing host re-reads the pad afresh
+ * after resume anyway.
  *
  * A timed forced reuse of a semaphore held too long was rejected: an
  * armed transfer has no deadline while a configured host is not polling,
@@ -210,7 +212,9 @@ static int usb_conn_state_listener(const zmk_event_t *eh) {
     if (ev->conn_state != ZMK_USB_CONN_HID) {
         rt_txq_flush(&usb_txq);
         k_sem_give(&hid_sem);
-    } else if (zmk_usb_get_status() != USB_DC_SUSPEND) {
+    } else if (zmk_usb_get_status() == USB_DC_SUSPEND) {
+        rt_txq_flush(&usb_txq);
+    } else {
         usb_txq_kick();
     }
 
@@ -340,6 +344,20 @@ int zmk_raw_touch_usb_send_report(const struct zmk_raw_touch_report_body *body) 
         break;
     }
 
+    if (zmk_usb_get_status() == USB_DC_SUSPEND) {
+        /* No transfer can complete on a suspended bus, and a frame held
+         * until the host resumes it would be stale (see
+         * usb_conn_state_listener()): ask the host to resume, and drop the
+         * frame. A host that has not enabled remote wakeup refuses the
+         * request. */
+        int err = usb_wakeup_request();
+
+        if (err) {
+            LOG_DBG("USB remote wakeup request failed: %d", err);
+        }
+        return -EAGAIN;
+    }
+
     /* Queue first, then try to take the endpoint - never the other way
      * round. Taking first and enqueueing only on failure loses the frame
      * whenever the in-flight transfer completes in between: in_ready_cb
@@ -351,21 +369,6 @@ int zmk_raw_touch_usb_send_report(const struct zmk_raw_touch_report_body *body) 
 
     if (err) {
         return err;
-    }
-
-    if (zmk_usb_get_status() == USB_DC_SUSPEND) {
-        /* No transfer can complete on a suspended bus: leave the frame
-         * queued and ask the host to resume, which kicks the queue from
-         * usb_conn_state_listener(). Read after queueing, so a resume
-         * racing this send finds the frame already queued. A host that has
-         * not enabled remote wakeup refuses the request; the frame still
-         * goes out when it resumes the bus itself. */
-        err = usb_wakeup_request();
-
-        if (err) {
-            LOG_DBG("USB remote wakeup request failed: %d", err);
-        }
-        return 0;
     }
 
     /* K_NO_WAIT, not a timeout: this runs inline on the input dispatch

@@ -43,8 +43,9 @@ int zmk_raw_touch_selected_endpoint(void);
  * failure. As on BLE, a full queue evicts the oldest MOTION frame and
  * never a release.
  *
- * While the bus is suspended the frame is queued and a remote wakeup is
- * requested; the queue drains once the host resumes the bus.
+ * While the bus is suspended the frame is dropped and a remote wakeup is
+ * requested, and a suspend flushes anything still queued: frames held
+ * until the host resumes would describe a touch from before it slept.
  *
  * A bus reset or detach flushes the queue: those frames belong to a bus
  * that is gone, and the host's silence watchdog is what closes that
@@ -53,6 +54,7 @@ int zmk_raw_touch_selected_endpoint(void);
  * @retval 0 if the frame was queued, or queued and written.
  * @retval -ENODEV if the interface is missing or the bus is not in the
  *         HID state.
+ * @retval -EAGAIN if the bus is suspended (the frame is dropped).
  * @retval -ENOBUFS if the queue was full of undelivered release frames
  *         (a mis-sized CONFIG_ZMK_RAW_TOUCH_USB_QUEUE_SIZE).
  * @retval other negative errno from hid_int_ep_write().
