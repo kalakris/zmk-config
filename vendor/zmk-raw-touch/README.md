@@ -4,18 +4,18 @@
 
 A ZMK module that sends a keyboard trackpad's absolute position and contact
 state to a host application over USB or Bluetooth. The macOS companion,
-[RawTouch](https://github.com/kalakris/rawtouch), uses those reports for
-vertical and horizontal scrolling with lift-off momentum and touch-to-stop
-behavior.
+[RawTouch](https://github.com/kalakris/rawtouch), turns those reports into
+native macOS scroll gestures: vertical and horizontal scrolling, lift-off
+momentum, and touch-to-stop.
 
 The module also derives ordinary pointer movement and optional tap-to-click
-from the same input. A wheel processor chain keeps scrolling available
-when no host app is running. It adds its own HID interface and Bluetooth HID
+from the same input, and your wheel processors keep scrolling working when
+no host app is running. It adds its own HID interface and Bluetooth HID
 service without patching ZMK core.
 
 [Compatibility](#compatibility) · [Setup](#setup) ·
 [Split keyboards](#split-keyboards) · [Configuration](#configuration-reference) ·
-[Troubleshooting](#troubleshooting) · [Protocol](#appendix-wire-format-protocol-v4)
+[Troubleshooting](#troubleshooting) · [Protocol](docs/protocol.md)
 
 ## What it does
 
@@ -28,9 +28,10 @@ toggling a key.
 - **RawTouch mode:** the module sends touch samples to the host, including
   finger position, contact state, timing, and whether the active processor
   chain is marked for scrolling. RawTouch uses these samples to generate
-  scroll gestures and lift-off momentum. Touching a pad in scroll mode
-  stops momentum. The module suppresses its own wheel motion for those
-  touches; configured pointer movement and taps stay in firmware.
+  scroll gestures and lift-off momentum on both axes. Touching a pad in
+  scroll mode stops momentum. The module suppresses its own wheel motion
+  for those touches; configured pointer movement and taps stay in
+  firmware.
 - **Standard mode:** the module derives pointer movement and optional
   taps from the absolute samples, and your wheel processors handle
   scrolling. No host app is needed and no raw touch samples are sent.
@@ -46,28 +47,15 @@ project's scope: contributions for TPS43 and other multi-touch pads are
 welcome. These would need additional firmware and host support, and may
 need protocol extensions.
 
-RawTouch supports vertical, horizontal, and diagonal scrolling and
-momentum, with an option to restrict each pad to one axis.
-
 ## Compatibility
 
-Tested on a MoErgo Go60 with two Cirque Pinnacle pads, MoErgo ZMK v0.3.0 /
-Zephyr 3.5, and RawTouch on macOS 26 over USB and Bluetooth.
-
-Test reports from other keyboards, trackpads, and host setups are welcome
-and will help expand this compatibility list. Please include your
-hardware, firmware and OS versions, connection type, and what worked or
-failed in an [issue](https://github.com/kalakris/zmk-raw-touch/issues).
-
-Tested configurations include dedicated scrolling pads and pads that use
-a layer to switch between pointing and scrolling, with vertical,
-horizontal, and diagonal scrolling in both Standard and RawTouch modes.
-
-Tested dependency versions:
+Tested on a MoErgo Go60 with two Cirque Pinnacle pads, running MoErgo's
+ZMK distribution (ZMK 0.3 / Zephyr 3.5), with RawTouch on macOS 26 over
+USB and Bluetooth.
 
 | Component | Tested revision |
 |---|---|
-| `moergo-sc/zmk` | `57a7b8e06b19898e59a4dbd5f554b7ed5677493b` |
+| `moergo-sc/zmk` | Release `v25.11` (the [Go60 starter configuration](https://github.com/kalakris/go60-rawtouch-config)), and `57a7b8e0` on the `go60-zmk0.3.0` branch (this repository's CI) |
 | `kalakris/cirque-input-module`, `intree-driver` branch | `89a08962f1c0bde4b499badd68cb068b8a369000` |
 
 That driver module packages Zephyr's Pinnacle driver for the older tree,
@@ -79,23 +67,29 @@ Other boards and drivers need integration and testing. Upstream ZMK
 uses Zephyr's legacy USB stack; `USB_DEVICE_STACK_NEXT` requires a port.
 Check this before adding the module to an existing build.
 
+Test reports from other keyboards, trackpads, and host setups are welcome
+and will help expand this list. Please include your hardware, firmware
+and OS versions, connection type, and what worked or failed in an
+[issue](https://github.com/kalakris/zmk-raw-touch/issues).
+
 ### Versioning
 
-The module is semantically versioned from git tags, starting at `v0.1.0`.
-It is pre-1.0, so a minor release may change interfaces.
-[`include/zmk/raw_touch/version.h`](include/zmk/raw_touch/version.h) is the
-single source of truth for the number: the firmware reports it in the
-feature report, and CI fails a `v*` tag whose major.minor disagrees with it.
+Releases are tagged `v0.y.z`, starting at `v0.1.0`. The module is pre-1.0,
+so a minor release may change interfaces. The moving tag `stable` always
+points at the newest stable release.
+[`include/zmk/raw_touch/version.h`](include/zmk/raw_touch/version.h) holds
+the number: the firmware reports it to the host, and CI rejects a `v*` tag
+that disagrees with it.
 
-The protocol version is the only compatibility contract with a host. The
-module version is diagnostic — useful for a bug report, and for seeing
-which build each half of a split is running, but never something a host
-should parse the wire by. Today's pairing is RawTouch 0.1.x ↔ protocol 4 ↔
-module 0.2.x.
+The protocol version is the only compatibility contract with a host; the
+module version is diagnostic. RawTouch's
+[compatibility table](https://github.com/kalakris/rawtouch#firmware-compatibility)
+lists which app versions speak which protocol.
 
 Changes to the HID report map, including adding or removing a pad,
 require a fresh Bluetooth pairing on hosts that cache the map, including
-macOS (see [Troubleshooting](#troubleshooting)).
+macOS (see [Troubleshooting](#troubleshooting)). Release notes say when
+an update does this.
 
 ### Driver requirements
 
@@ -118,16 +112,23 @@ samples, breaking normal lift-off and firmware tap detection.
 
 ## Setup
 
-You need an existing ZMK configuration that builds for your board, a
-compatible absolute-mode driver, and `CONFIG_ZMK_POINTING=y`.
+**Go60 users:** the
+[Go60 RawTouch configuration](https://github.com/kalakris/go60-rawtouch-config)
+provides a stock keymap with RawTouch already configured. Fork it and
+build with GitHub Actions, or use its adoption guide to add the changes
+to an existing Go60 configuration.
+
+For manual integration, you need an existing ZMK configuration that
+builds for your board, a compatible absolute-mode driver, and
+`CONFIG_ZMK_POINTING=y`. Decide how each pad should scroll: on a layer
+(the walkthrough below), or always, as a
+[dedicated scrolling pad](#dedicated-scrolling-pad) (a small change at
+the end of step 3).
 
 ### 1. Add the module to your manifest
 
-Choose a numbered tag from the module's
-[releases](https://github.com/kalakris/zmk-raw-touch/releases) and replace
-`<module-release-tag>` below with it. Merge these entries into the existing
-`remotes` and `projects` lists in `config/west.yml`; keep your board's ZMK
-project and other dependencies:
+Merge these entries into the existing `remotes` and `projects` lists in
+`config/west.yml`; keep your board's ZMK project and other dependencies:
 
 ```yaml
 manifest:
@@ -137,13 +138,15 @@ manifest:
   projects:
     - name: zmk-raw-touch
       remote: kalakris
-      revision: <module-release-tag>
+      revision: v0.1.0
 ```
 
-Pin dependencies to numbered release tags so updates are deliberate and
-builds remain reproducible. Use these tags instead of development branches
-such as `main` or individual commit hashes. The optional `latest` tag
-moves to each new stable release; it does not pin a fixed version.
+Use a numbered tag from the
+[releases](https://github.com/kalakris/zmk-raw-touch/releases) for a
+reproducible build that changes only when you edit it, or `stable` to
+follow new releases as they are published. Avoid `main`: it carries
+unreleased work. GitHub Actions fetches `stable` afresh on every build; a
+local west workspace keeps its old copy until `west update --fetch=always`.
 
 On the tested Zephyr 3.5 configuration, also add or override the driver
 project. Replace `<driver-release-tag>` with the driver tag listed in the
@@ -299,9 +302,10 @@ The changes have five jobs:
 3. **Move orientation and tap handling to the module.** `rotate-90` and
    `y-invert` replace this example's listener transforms so both pointer
    motion and host scrolling use the same mounting. `tap-click` replaces
-   the driver's relative-mode tap setting and button mapper. Do not apply
-   orientation twice; remove driver-level `invert-x`, `invert-y`, or `swap-xy` if
-   present and describe the mounting on the raw-touch pad node instead.
+   the driver's relative-mode tap setting and button mapper (see *Why
+   the module handles taps* below). Do not apply orientation twice;
+   remove driver-level `invert-x`, `invert-y`, or `swap-xy` if present and
+   describe the mounting on the raw-touch pad node instead.
 4. **Mark the scrolling chain.** `zip_raw_touch_scroll` tells the host
    when to scroll. Keep the wheel processors for Standard mode. Absolute
    counts can need a different wheel divisor: `1 24` is a starting point
@@ -360,9 +364,6 @@ The files in this section live under [`examples/trackpad/`](examples/trackpad/).
 CI compiles the "after" files on a Go60 against the pinned trees in
 [`ci/`](ci/), so the configuration shown here is known to build.
 
-For a pad that always scrolls, use the
-[dedicated scrolling variant](#dedicated-scrolling-pad) below.
-
 `zip_xy_to_scroll_mapper` is provided by ZMK's `input/processors.dtsi`
 in the tested tree: it maps `INPUT_REL_X` to `INPUT_REL_HWHEEL` and
 `INPUT_REL_Y` to `INPUT_REL_WHEEL`. The scroll scaler handles both wheel
@@ -386,7 +387,72 @@ Two processor rules matter:
   needs its own filter instance. A listener may reuse its instance in
   its base and layer chains; different listeners must not share it.
 
-#### Why the module handles taps
+If a hold-tap key activates the scroll layer, check its undecided window:
+trackpad input does not resolve the key's hold-tap decision, so a quick
+flick can start before the layer activates. `hold-while-undecided` makes
+the layer active while the decision is pending; choose it deliberately
+for your keymap.
+
+#### Dedicated scrolling pad
+
+To make the pad scroll without holding a key, put the marker and wheel
+processors in its base chain. For the example above, this overlay removes
+the `scroll` child, replaces the pointer chain, and keeps taps working:
+
+<!-- example: examples/trackpad/dedicated-scroll.overlay -->
+```dts
+&trackpad_listener {
+    /delete-node/ scroll;
+    input-processors = <&zip_raw_touch_scroll>,
+                       <&zip_xy_to_scroll_mapper>,
+                       <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
+                       <&zip_scroll_scaler 1 24>,
+                       <&zip_raw_touch_idle_filter>;
+};
+
+&raw_touch_pad {
+    /* Every touch on this pad is scroll context, and the module drops
+     * taps from scroll-context touches unless this is set. */
+    tap-click-while-scrolling;
+};
+```
+
+The pad node and includes stay as defined above. No layer binding is
+needed for this pad. Check any other listener overlays too: an overlay
+that replaces the base chain can change its behavior.
+
+- In **Standard mode**, the wheel processors convert finger movement to
+  horizontal and vertical wheel events.
+- In **RawTouch mode**, the marker sets the scroll flag on the raw frames.
+  The host generates two-axis scrolling and firmware suppresses the wheel
+  motion. RawTouch's per-pad **Scroll axes** setting can restrict its
+  output to one direction; it does not change Standard-mode wheel mapping.
+
+This works independently per pad: one can always scroll while another
+points or uses a scroll layer.
+
+**Taps on a scrolling pad.** The module normally drops taps from touches
+that were used for scrolling, which on a dedicated pad is every touch.
+`tap-click-while-scrolling` lifts that for one pad, so its taps reach the
+listener chain, which decides what they do. A tap left-clicks by default;
+MoErgo's stock Go60 keymap, for example, turns the left pad's taps into
+right clicks with a `zmk,input-processor-code-mapper` from `INPUT_BTN_0`
+to `INPUT_BTN_1`. Keep such a mapper before the idle filter. Delete the
+property instead if the pad should not click at all.
+
+In Standard mode such a tap is emitted at lift-off like any other. In
+RawTouch mode the firmware cannot tell a tap from a short touch that only
+stopped the host's momentum, so it holds the tap for up to 250 ms and
+emits it when the host confirms it. RawTouch confirms taps that did not
+stop momentum and stayed within its own limits: 300 ms and 60 counts of
+movement from touch-down on either raw axis. These host limits are fixed,
+with no app setting; the firmware's `tap-max-ms` and `tap-max-movement`
+still apply, so raising them beyond the host limits allows taps in
+Standard mode that RawTouch mode rejects. See
+[Tap confirm](docs/protocol.md#tap-confirm) for the protocol details.
+
+<details>
+<summary>Why the module handles taps</summary>
 
 In relative mode, the Pinnacle hardware recognizes taps and reports them
 as button presses. The driver forwards those reports; it does not detect
@@ -404,79 +470,15 @@ taps.
 With `tap-click`, the module supplies that detector: a touch must lift
 within `tap-max-ms` without exceeding `tap-max-movement`. The module also
 knows whether the touch was used for scrolling and suppresses clicks for
-those touches unless the pad sets `tap-click-while-scrolling` (see
-[Dedicated scrolling pad](#dedicated-scrolling-pad)). This keeps tap
-behavior consistent in Standard and RawTouch modes, including when the
-host app is not running.
+those touches unless the pad sets `tap-click-while-scrolling`. This keeps
+tap behavior consistent in Standard and RawTouch modes, including when
+the host app is not running.
 
 The module emits `INPUT_BTN_0` directly, so the old `tap_to_click` mapper
 is no longer needed. Remove processors that discard that button, such as
 a `zip_button_behaviors` instance mapping it to `&none`.
 
-For a hold-tap key that activates the scroll layer, check the undecided
-window: trackpad input does not resolve the key's hold-tap decision.
-Consider `hold-while-undecided` if quick flicks start before the layer
-activates. It makes the layer active while the hold-tap decision is still
-pending, so choose it deliberately for your keymap.
-
-#### Dedicated scrolling pad
-
-To make the pad scroll without holding a key, put the marker and wheel
-processors in its base chain. For the example above, this overlay removes
-the `scroll` child and replaces the pointer chain:
-
-<!-- example: examples/trackpad/dedicated-scroll.overlay -->
-```dts
-&trackpad_listener {
-    /delete-node/ scroll;
-    input-processors = <&zip_raw_touch_scroll>,
-                       <&zip_xy_to_scroll_mapper>,
-                       <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                       <&zip_scroll_scaler 1 24>,
-                       <&zip_raw_touch_idle_filter>;
-};
-
-&raw_touch_pad {
-    /* Firmware suppresses taps for scroll-context touches, so tap-click
-     * would have no effect on a pad that always scrolls. */
-    /delete-property/ tap-click;
-};
-```
-
-The pad node and includes stay as defined above. No layer
-binding is needed for this pad. Check any other listener overlays too:
-an overlay that replaces the base chain can change its behavior.
-
-- In **Standard mode**, the wheel processors convert finger movement to
-  horizontal and vertical wheel events.
-- In **RawTouch mode**, the marker sets the scroll flag on the raw frames.
-  The host generates two-axis scrolling and firmware suppresses the wheel
-  motion. RawTouch's per-pad **Scroll axes** setting can restrict its
-  output to one direction; it does not change Standard-mode wheel mapping.
-
-This works independently per pad: one can always scroll while another
-points or uses a scroll layer. The overlay also removes `tap-click` from
-the dedicated pad's node: firmware suppresses taps for scroll-context
-touches, so the property alone would have no effect. Keyboard mouse-button
-bindings can still provide clicks.
-
-To keep taps on a dedicated scrolling pad, set `tap-click` together with
-`tap-click-while-scrolling` on the pad node instead of removing it. The
-module then reports taps for scroll-context touches too, and the
-listener chain decides what they do: MoErgo's stock Go60 keymap, for
-example, maps the left pad's taps to a right click with a
-`zmk,input-processor-code-mapper` from `INPUT_BTN_0` to `INPUT_BTN_1`;
-keep such a mapper before the idle filter. The property is per pad, so a
-pad that scrolls only on a layer keeps the default veto.
-
-In Standard mode such a tap is emitted at lift-off like any other. In
-RawTouch mode the firmware cannot tell it from a short touch that only
-stopped the host's momentum, so it parks the tap for 250 ms and emits it
-when the host confirms it; RawTouch confirms every scroll-context tap
-that did not catch a coast, with no setting involved. The pad advertises
-this in its feature-report slot, and the confirmed tap still goes
-through the listener chain, so the keymap decides what it does in both
-modes (see [Tap confirm](#tap-confirm) in the appendix).
+</details>
 
 ### 4. Build and flash
 
@@ -484,50 +486,40 @@ Set `CONFIG_ZMK_POINTING=y` in your configuration. An enabled
 `zmk,raw-touch-pad` node then enables the module automatically. Available
 USB and BLE transports default to enabled on the central half.
 
+With two or more pads, also give the input subsystem headroom. The stock
+16-message input queue drops events when full, and the stock 512-byte
+input thread stack is thin for long processor chains. The tested two-pad
+build uses:
+
+```conf
+CONFIG_INPUT_QUEUE_MAX_MSGS=64
+CONFIG_INPUT_THREAD_STACK_SIZE=2048
+```
+
 The module uses USB interface `HID_1` alongside ZMK's `HID_0`, and defaults
 `CONFIG_USB_HID_DEVICE_COUNT` to 2. An explicit lower value fails the
 build. Another module that also takes `HID_1` needs integration work;
 increasing the count alone does not assign it a different interface.
 
 Build with your usual ZMK workflow and flash the resulting firmware.
-For initial split-keyboard setup, build and flash both halves together;
-see [Split keyboards](#split-keyboards) before doing so.
+For a split keyboard, see [Split keyboards](#split-keyboards) first and
+flash both halves from the same build.
 
 ### 5. Check both modes
 
 1. With no host app running, check wheel scrolling on the dedicated pad
-   or while your scroll layer is active. Also check pointer movement and
-   taps where configured. This is Standard mode.
-2. Install [RawTouch](https://github.com/kalakris/rawtouch),
-   then grant it Accessibility.
-3. Drag vertically, horizontally, and diagonally in a view that scrolls
-   both ways, activating the scroll layer if configured. Flick and lift
-   to check momentum; touch down again in scroll mode to stop it.
-4. Quit RawTouch normally and verify Standard-mode scrolling resumes.
-5. Test USB and Bluetooth separately. After the first firmware install,
-   Bluetooth may need a fresh pairing because the HID services changed.
+   or while your scroll layer is active, and pointer movement and taps
+   where configured. This is Standard mode. Check USB and Bluetooth
+   separately: after the first install, Bluetooth hosts need a
+   [fresh pairing](#troubleshooting) because the HID services changed.
+2. Install RawTouch and follow its
+   [Get started](https://github.com/kalakris/rawtouch#get-started) steps,
+   which end with a first RawTouch-mode scroll.
+3. Quit RawTouch normally and check that Standard-mode scrolling resumes.
 
 The firmware also works in Standard mode on hosts without RawTouch.
 RawTouch-mode scrolling on another operating system needs a host
-implementation of the [protocol below](#appendix-wire-format-protocol-v4).
-
-You can check device discovery separately from scrolling. On macOS,
-inspect the HID device list:
-
-```sh
-ioreg -c IOHIDDevice -r -l
-```
-
-Look for a collection with `PrimaryUsagePage` 65280 (`0xFF00`) and
-`PrimaryUsage` 1. This does not require RawTouch to be running. It confirms
-that a matching HID collection is visible, not that touch samples are
-being delivered. Other devices may use the same usage values.
-
-To check mode switching, enable `CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL_INF=y`
-and run RawTouch with Accessibility permission. A successfully acquired
-USB lease logs `Raw touch lease acquired by USB (timeout 30s)`. The log
-also records when leases clear after a release, disconnect, or endpoint
-switch, and when a lease expires without a renewal.
+implementation of the [protocol](docs/protocol.md).
 
 ## Split keyboards
 
@@ -634,28 +626,19 @@ half: the central does that. If your existing driver or split relay
 transforms or filters the input, remove those transformations here and
 apply the mounting on the central's raw-touch node instead.
 
-**The stamp processor on the relay sends each frame with the peripheral's
-own sample time.** The module's frame handler runs on the central, so a
-relayed pad's frames would otherwise be timestamped after the split hop,
-with the link's delivery jitter in the timestamp the host derives velocity
-from (up to one poll cycle on a polled wired link — see
-[Wired split timing](#wired-split-timing)). Chain it on the relay, on the
-peripheral only; its cell is the relay's own `reg`. The processor sends one
-extra input event per frame through the relay, just ahead of the frame's
-sync; the central's frame handler uses its value in place of its own clock
-and needs no configuration. The stamp itself changes nothing on the wire
-to the host, and it is in the peripheral's clock domain, which is fine for
-hosts that follow the protocol (one timeline per pad, see the
-[appendix](#input-report)). Both halves must run a build that includes the
-module.
+**The stamp processor sends each frame with the peripheral's own sample
+time.** Without it, a relayed pad's frames are timestamped on the central
+after the split hop, and the link's delivery jitter lands in the
+timestamps the host derives velocity from. Chain it on the relay, on the
+peripheral only; its cell is the relay's own `reg`. It sends one extra
+input event per frame through the relay, and the central's frame handler
+uses it in place of its own clock with no configuration. Nothing changes
+on the wire to the host.
 
-The same processor also announces the peripheral's own module version
-before its first frame after boot, then before the next frame after any
-gap of at least 500 ms. Rapid successive touches do not each send an
-announcement. The central publishes the version in that pad's
-feature-report slot, so a host can read the build each half runs (see
-[Versioning](#versioning) and the [appendix](#feature-report)). The slot
-reads 0, for unknown, until an announcement arrives.
+The same processor also announces the peripheral's module version before
+its first frame after boot, and again after any pause of at least 500 ms,
+so a host can show which build each half runs. Until an announcement
+arrives, that pad's version reads as unknown.
 
 ### Central: process the relayed touch samples
 
@@ -867,62 +850,43 @@ peripheral one on the Go60's left half and the central one on its right.
 
 For a dedicated remote scrolling pad, move its scroll processors into its
 base chain as in the [dedicated scrolling example](#dedicated-scrolling-pad),
-keeping `zip_raw_touch_idle_filter_remote` as its filter. Remove `tap-click`
-from `raw_touch_remote`, since touches used for scrolling do not generate
-clicks.
+keeping `zip_raw_touch_idle_filter_remote` as its filter, and add
+`tap-click-while-scrolling` to `raw_touch_remote` if it should keep taps.
+
+### Wireless splits
+
+Over a Bluetooth split link, ZMK relays each input event in its own
+notification from the input thread. A stamped frame is four events (X, Y,
+stamp, Z), and with the stock three transmit buffers the fourth blocks the
+input thread until the next connection event, which delays the next
+frame's stamp. Add these to the **peripheral** half's `.conf`; they are
+harmless on a wired split:
+
+```conf
+CONFIG_BT_L2CAP_TX_BUF_COUNT=8
+CONFIG_BT_CONN_TX_MAX=8
+CONFIG_BT_BUF_ACL_TX_COUNT=8
+```
 
 ### Wired split timing
 
-The tested Go60 uses a polled, half-duplex wired link: the peripheral
-queues events until the central asks for them. With the stock timings,
-active polling was measured at roughly 22.5 ms, so the pad's roughly
-10 ms samples arrived in bursts of two or three. Pointer and key events
-also wait for the next poll.
-
-The module's USB and BLE queues can absorb these bursts, but cannot
-remove time already spent waiting on the split link. The following
-central-side settings reduced the measured poll cycle to roughly 5 ms.
-In the tested wired-split/USB setup, samples then arrived individually
-at about 10 ms intervals.
-
-Add these settings to the central half's `.conf` file in your ZMK config
-repository—for example, `config/go60_rh.conf` when the Go60's right half
-is the central:
+The Go60's wired split link is polled: the peripheral queues input until
+the central asks for it. At stock timings a poll cycle measured about
+22.5 ms, so a relayed pad's 10 ms samples arrive in bursts of two or three,
+and key events wait for the next poll too. With the stamp processor the
+bursts no longer affect scroll velocity, only latency. These central-side
+settings shortened the cycle to about 5 ms on the Go60:
 
 ```conf
 CONFIG_ZMK_SPLIT_WIRED_HALF_DUPLEX_RX_COMPLETE_TIMEOUT=3
 CONFIG_ZMK_SPLIT_WIRED_HALF_DUPLEX_RX_TIMEOUT=5
 ```
 
-Changing only these timing settings requires rebuilding and reflashing
-only the central. Treat the values as Go60 tuning, not defaults for every
-split keyboard. More frequent polling can increase power use on both
-halves; that cost has not been measured. Check typing as well as trackpad
+Add them to the central half's `.conf`; changing only these needs a
+reflash of the central alone. Treat them as Go60 tuning, not defaults for
+every split keyboard: more frequent polling can cost power on both
+halves, which has not been measured. Check typing as well as trackpad
 input after changing them.
-
-A wireless split has different timing and batching behavior and needs its
-own checks. A queue on the central can buffer samples it has received;
-it cannot recover events lost before they arrive or remove split-link
-delay. See [Delivery and lost releases](#delivery-and-lost-releases) for
-the limits of the module's USB and BLE queues.
-
-The tested two-pad build also uses `CONFIG_INPUT_QUEUE_MAX_MSGS=64` and
-`CONFIG_INPUT_THREAD_STACK_SIZE=2048` for the input queue and processor
-chains.
-
-The module timestamps frames where it processes them. For a relayed pad,
-that is on the central, after the split hop — unless the peripheral runs
-the stamp processor (see [Peripheral: send absolute
-samples](#peripheral-send-absolute-samples)), in which case the frame
-carries the peripheral's own sample time and the split link's batching
-no longer shows in the timestamps at all. Measured on the Go60 without
-the stamp: the relayed pad's inter-frame timestamp spacing was bimodal
-at 0.3 / 22.8 ms with stock polling and still varied by up to 5 ms with
-the settings above, against a steady 10 ms for the central's own pad.
-With the stamp, the poll cadence only decides delivery latency (frames
-still arrive in bursts, one poll cycle late at worst) and peripheral
-power, not velocity accuracy. Wireless splits need their own timing and
-reliability checks.
 
 ## Configuration reference
 
@@ -940,7 +904,7 @@ Each `zmk,raw-touch-pad` node describes one input device. See the
 | `rotate-90` | absent | Swap axes when deriving pointer motion; advertise the mounting to the host. |
 | `x-invert` / `y-invert` | absent | Invert the corresponding pointer axis after the swap; advertise the flags to the host. |
 | `tap-click` | absent | Enable firmware tap-to-click. |
-| `tap-click-while-scrolling` | absent | Also report taps for scroll-context touches (dedicated scrolling pads); parked for host confirmation in RawTouch mode. Requires `tap-click`. |
+| `tap-click-while-scrolling` | absent | Also report taps for scroll-context touches (dedicated scrolling pads); held for host confirmation in RawTouch mode. Requires `tap-click`. |
 | `tap-max-ms` | `180` | Maximum touch duration counted as a tap. |
 | `tap-max-movement` | `30` | Maximum displacement from touch-down on either raw axis, in counts. |
 
@@ -949,8 +913,8 @@ hardware. Frames carry raw coordinates; orientation flags describe how
 to interpret them.
 
 Pad IDs need only be unique within one keyboard. RawTouch keeps different
-keyboards separate; see its [per-keyboard overrides](https://github.com/kalakris/rawtouch#per-keyboard-overrides)
-if you need different settings for each.
+keyboards separate and can apply
+[settings per keyboard](https://github.com/kalakris/rawtouch/blob/main/docs/configuration.md#per-keyboard-overrides).
 
 ### Kconfig
 
@@ -967,9 +931,9 @@ All names below have the `CONFIG_` prefix in a `.conf` file.
 | `ZMK_INPUT_PROCESSOR_RAW_TOUCH_SCROLL_MAX_DEVICES` | `4` | Input devices tracked by the scroll marker. Increase when using more marked devices. |
 | `ZMK_RAW_TOUCH_LOG_LEVEL_*` | inherited | Module logging level. |
 
-The marker and idle-filter processors enable automatically when their
-nodes are used. Queue sizes count frames across all pads, not per pad.
-Larger queues can absorb bursts but also retain older input longer.
+The marker, idle-filter and stamp processors enable automatically when
+their nodes are used. Queue sizes count frames across all pads, not per
+pad. Larger queues can absorb bursts but also retain older input longer.
 Disabling only `ZMK_RAW_TOUCH_BLE` leaves Standard-mode pointing and wheel
 scrolling available over Bluetooth while retaining raw reports over USB.
 
@@ -978,12 +942,11 @@ scrolling available over Bluetooth while retaining raw reports over USB.
 **USB works; Bluetooth raw scrolling does not.** Forget the keyboard on
 the host, clear the corresponding keyboard bond with `&bt BT_CLR`, then
 pair again. Do this after adding the second HID service or changing the
-HID report/GATT layout, including adding or removing a streaming pad and
+HID report layout, including adding or removing a streaming pad and
 upgrading across a protocol version that changes a report body.
 macOS can retain a stale report map even when typing and feature-report
 reads still work. If a fresh pairing still fails, disconnect and
-reconnect once before investigating further. A change only to feature
-characteristic write permission does not itself change the report map.
+reconnect once before investigating further.
 
 **Pointer works; RawTouch scrolling does not.** Check the host's
 Accessibility permission and master switch, then confirm that the active
@@ -1002,15 +965,35 @@ driver, GPIOs, and split relay before the host app. Try power-cycling the
 affected half. If it recurs, report the driver revision, how long the half
 had been running, and whether a power cycle restored it.
 
+**A relayed pad stutters over a wireless split.** Add the peripheral's
+[transmit buffer settings](#wireless-splits).
+
 **Scrolling stops after the host app is force-quit.** Relaunch the app
 or wait up to 30 seconds for Standard mode to return. A normal quit
 returns to Standard mode promptly.
 
-For connection diagnostics, enable `CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL_INF=y`.
-Logs distinguish lease acquisitions, releases, disconnects, endpoint
-switches, and expiry. Report the board, ZMK/Zephyr and module revisions,
-driver revision, transport, and whether Standard mode works. Battery impact, other boards,
-and deep sleep/wake still need broader testing.
+### Diagnostics
+
+To check that the host can see the device, independent of RawTouch,
+inspect the HID device list on macOS:
+
+```sh
+ioreg -c IOHIDDevice -r -l
+```
+
+Look for a collection with `PrimaryUsagePage` 65280 (`0xFF00`) and
+`PrimaryUsage` 1. This confirms that a matching HID collection is
+visible, not that touch samples are being delivered. Other devices may
+use the same usage values.
+
+To check mode switching, enable `CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL_INF=y`
+and run RawTouch with Accessibility permission. A successfully acquired
+USB lease logs `Raw touch lease acquired by USB (timeout 30s)`. The log
+also records lease releases, disconnects, endpoint switches, and expiry.
+
+When reporting a problem, include the board, ZMK/Zephyr, module and
+driver revisions, the transport, and whether Standard mode works. Battery
+impact, other boards, and deep sleep/wake still need broader testing.
 
 ## Implementation and contributions
 
@@ -1020,273 +1003,15 @@ derived from ZMK's HID implementation. No ZMK core files are modified.
 
 Useful contributions include tested board configurations, ports to newer
 ZMK/Zephyr transports, and host implementations for other operating
-systems. Include the exact firmware tree and hardware used when reporting
-a working configuration. Wire-format changes need coordinated firmware
-and host work, and can require Bluetooth re-pairing.
+systems; see [CONTRIBUTING](CONTRIBUTING.md). Wire-format changes need
+coordinated firmware and host work, and can require Bluetooth re-pairing.
 
 ## Credits and license
 
-[MIT](LICENSE), including the protocol documentation below. The transport
-code derives from ZMK. The module approach follows
+[MIT](LICENSE), including the [protocol specification](docs/protocol.md).
+The transport code derives from ZMK. The module approach follows
 [`zzeneg/zmk-raw-hid`](https://github.com/zzeneg/zmk-raw-hid) and
 [`badjeff/zmk-hid-io`](https://github.com/badjeff/zmk-hid-io).
 The pad integration builds on Zephyr's Pinnacle driver and Peter
 Johanson's Cirque work. The macOS companion credits its
 [LinearMouse](https://github.com/linearmouse/linearmouse) origins separately.
-
-## Appendix: wire format (protocol v4)
-
-This appendix defines the reports for host implementers. The current
-firmware sends one contact per pad; the presence of a contact ID field
-does not imply implemented multi-touch support.
-
-### Collection and report framing
-
-| Field | Value |
-|---|---|
-| Usage page | `0xFF00` |
-| Usage | `0x01` |
-| Report ID | `0x04` for input and feature reports |
-| USB | Separate HID interface, currently `HID_1` |
-| Bluetooth | Separate HID-over-GATT service instance |
-
-The vendor usage pair is not unique to this project. A host **must read
-and validate the feature report before interpreting input or acquiring
-a lease on the device**: the four magic bytes, the protocol version, and the body
-length must all match before a device is treated as this protocol, and a
-device that fails the check must never be sent a lease command.
-Discovery is protocol identification, not authentication.
-
-All lengths and offsets below refer to report bodies. USB transfers
-include a leading report ID; BLE uses the report-reference descriptor
-and carries the body alone. Host HID APIs may expose the ID separately
-or retain it in a returned buffer, so normalize framing before parsing.
-In particular, macOS feature GETs have been observed ID-prefixed on USB
-and bare on BLE.
-
-### Input report
-
-The body is **11 bytes**. All multi-byte integers are little-endian.
-
-| Offset | Bytes | Field |
-|---|---|---|
-| 0 | 1 | `pad_id`, 0–7 |
-| 1 | 1 | `contact_id`, currently always 0 |
-| 2 | 2 | `x`, unsigned raw coordinate |
-| 4 | 2 | `y`, unsigned raw coordinate |
-| 6 | 1 | `z`, touch strength; not a calibrated force measurement |
-| 7 | 1 | `flags` |
-| 8 | 1 | `seq`, per-pad counter incremented for each emitted report, wrapping modulo 256 |
-| 9 | 2 | `timestamp`, device-side time in 100 µs units, wrapping every 6.5536 seconds |
-
-Flag bits:
-
-| Bit | Name | Meaning |
-|---|---|---|
-| 0 | `touched` | A contact is present. Clear means release. |
-| 1 | `scroll_mode` | The pad's events reached a processor chain marked for scrolling. |
-| 2 | `lease_held` | The selected sending endpoint held a live host lease when the report was produced. |
-| 3–7 | reserved | Sent as zero. |
-
-While a lease is held, firmware emits reports for active samples (about 100 Hz
-with the tested pads), including pointer-context samples, and one report
-on lift-off. It suppresses repeated idle reports. A normal release has
-`touched` clear and X/Y/Z zero; hosts **must use the flag**, not the
-coordinate values, to determine contact state.
-
-If the lease lapses mid-touch, firmware attempts one trailing release
-with `touched` and `lease_held` clear, X/Y/Z zero, and `scroll_mode`
-reflecting that frame's context. It then stops sending until a lease is
-acquired again. That trailing release may not reach the previous host after an
-endpoint switch or disconnection.
-
-Hosts **must generate scrolling only while both `scroll_mode` and
-`lease_held` are set**. They must still handle transitions out of those
-states: losing scroll context ends the drag, and a trailing release
-without the lease bit cancels it **without momentum**, because firmware scrolling has
-resumed. Do not simply discard these transitions and leave a gesture open.
-
-Use the device timestamp for velocity estimation, with wrap handling;
-USB/BLE arrival times can be batched. The timestamp is taken during
-module processing, not read from the sensor. On a split relay it is
-taken after events reach the central, unless the peripheral runs the
-module's stamp processor, in which case it is the peripheral's own
-clock. Pads may therefore be in different clock domains: hosts MUST keep
-one timeline per pad and MUST NOT compare timestamps across pads (the
-timestamp field itself is unchanged either way). Sequence gaps indicate
-reports missing from the delivered sequence; they do not measure events
-lost before the module produced a report. Reconnects and endpoint changes
-also require resetting or reconciling host timing state.
-
-### Feature report
-
-Read with USB `GET_REPORT(FEATURE)` or the BLE feature characteristic
-(report-reference type `0x03`). Its body is **16 + 8 × N bytes**, for
-1–8 configured pads. A two-pad build is 32 bytes, or 33 including the
-USB report ID. Hosts must support variable pad counts and must not
-hard-code the two-pad length.
-
-| Offset | Bytes | Field |
-|---|---|---|
-| 0 | 1 | `protocol_version`, 4 |
-| 1 | 1 | `pads_present`, bit `p` set for pad ID `p` |
-| 2 | 1 | `capabilities`, bit 0 = host lease supported, bit 1 = tap confirm supported; other bits reserved |
-| 3 | 1 | `module_version` of the half answering, packed major.minor; 0 = unknown |
-| 4 | 4 | `magic`, the ASCII bytes `R` `A` `W` `T` (`52 41 57 54`) |
-| 8 | 8 | `device_id`, the SoC's hardware identifier; all-zero = unknown |
-| 16 + 8 × i | 8 | Geometry slot `i` |
-
-The magic is fixed and is what separates this protocol from anything else
-that happens to sit on `0xFF00`/`0x01`. `protocol_version` stays at byte 0
-in every version of the protocol, so a host can read it before it decides
-which layout to parse. **Reject** a body whose magic differs, whose
-protocol version is not 4, or whose length is not `16 + 8 × N`, and do
-not write a lease command to it.
-
-`device_id` is the value Zephyr's `hwinfo_get_device_id()` returns for the
-SoC — the FICR `DEVICEID` pair on an nRF52 — in the byte order hwinfo
-returns it, zero-padded if the SoC reports fewer than eight bytes and
-truncated if it reports more. It is stable for the life of the chip and
-identical on every transport, which is what lets a host recognize that the
-keyboard it sees over USB and the one it sees over Bluetooth are the same
-keyboard; nothing else in either transport exposes a shared identifier.
-All-zero means the firmware could not read one, which hosts must tolerate
-along with every other value: **never reject or admit a device over this
-field**. It is readable by any host that can read the feature report —
-over Bluetooth, one that is bonded — so treat it as an identifier, not a
-secret, and do not authorize anything on the strength of it. Note that a
-board may already derive its USB serial number from the same hwinfo id
-(the MoErgo Go60 does), in which case the two agree by construction.
-
-For a valid firmware configuration, slots describe the present pads in
-ascending pad-ID order. IDs need not be contiguous: a mask naming pads
-0 and 3 has two slots, for pads 0 and 3. IDs must be unique and less
-than 8; configurations exceeding that are not supported.
-
-Recover the number of complete slots from the normalized body length as
-`(len - 16) / 8` and read no more than `min(N, popcount(pads_present))`
-slots. Valid bodies have the `16 + 8 × N` shape; a host that requires
-exactly 32 bytes will refuse a one-pad or three-pad keyboard using the
-same protocol.
-
-Each slot contains:
-
-| Slot offset | Bytes | Field |
-|---|---|---|
-| +0 | 1 | `resolution`, counts/mm; 0 = unknown |
-| +1 | 1 | `orientation`: bit 0 swaps X/Y (`rotate-90`), bit 1 inverts X, bit 2 inverts Y; bit 3 = the pad parks scroll-context taps for host confirmation |
-| +2 | 2 | `x_max`, unsigned little-endian |
-| +4 | 2 | `y_max`, unsigned little-endian |
-| +6 | 1 | `max_contacts`, currently 1 |
-| +7 | 1 | `module_version` of the half that owns the pad, packed; 0 = unknown |
-
-Orientation applies after reading raw coordinates: swap axes first,
-then apply axis inversions. The HID descriptor also declares coordinate
-ranges from one pad node; use the per-pad feature slots when pads differ.
-
-Both module versions pack major in the high nibble and minor in the low
-one: `0x01` is 0.1 and `0x10` is 1.0. Byte 3 is the half that answers the
-report, the central. A slot's byte 7 is the half that owns that pad, which
-for a pad relayed from a split peripheral is the peripheral — 0 until its
-version announcement arrives. The peripheral announces before its first
-frame after boot and before the next frame after a gap of at least 500 ms.
-Treat both as diagnostic: `protocol_version` is the compatibility contract.
-
-The configured pad count determines the descriptor's feature-report
-length. Adding or removing a pad — or upgrading across a protocol version
-that changes the body — therefore changes the report map and requires a
-fresh Bluetooth pairing on hosts that cache it, including macOS.
-
-### Host lease
-
-Check `capabilities` bit 0 before writing. The feature report accepts this
-**4-byte command body** through USB `SET_REPORT(FEATURE)` or a BLE
-feature-characteristic write:
-
-| Offset | Bytes | Field |
-|---|---|---|
-| 0 | 1 | Command `0x01` |
-| 1 | 1 | `0x01` acquire or renew; `0x00` release |
-| 2 | 1 | Lease timeout in seconds; nonzero to acquire or renew, clamped to 5–120; ignored for release |
-| 3 | 1 | Reserved, must be zero |
-
-For example, `01 01 1e 00` requests 30 seconds and `01 00 00 00`
-releases. USB accepts a body with or without its leading report ID;
-BLE writes carry only the body. Invalid USB requests are stalled. BLE
-rejects a wrong length with `Invalid Attribute Value Length`, invalid
-fields with `Value Not Allowed`, nonzero offsets with `Invalid Offset`,
-and writes from a peer outside the bonded host profiles with
-`Write Not Permitted`.
-
-A lease belongs to the USB endpoint or the specific BLE profile that
-wrote it. It suppresses wheel motion only while that endpoint is
-selected. It covers all configured pads on that endpoint, not an
-individual pad. Pointer-context relative motion, taps, and key reports
-continue in both modes.
-
-Hosts must renew at intervals no longer than half the effective lease,
-and should release on a clean exit. Release is safe when no lease is
-held. A lease lapses on expiry, USB detach/reset, disconnection of its
-BLE profile, or an endpoint switch away from it, and ends on explicit
-release. A lease already held by the newly selected endpoint can take
-effect when switching to it. Switching back does not restore a lapsed
-lease; the host must acquire it again.
-
-Hosts must re-acquire leases after resume, reconnect, and device
-re-enumeration. They should acquire a lease only when ready to generate
-scroll events. RawTouch leaves the lease released when disabled or when
-Accessibility permission is unavailable.
-
-### Tap confirm
-
-Check `capabilities` bit 1 before writing. A pad whose slot has byte +1
-bit 3 set (`tap-click` with `tap-click-while-scrolling`) does not emit a
-scroll-context tap by itself while a lease is held: at lift-off of a
-touch that qualified as a tap by the firmware's own thresholds, it parks
-the tap for 250 ms. The host confirms it with this **4-byte command
-body**, framed exactly like the lease command:
-
-| Offset | Bytes | Field |
-|---|---|---|
-| 0 | 1 | Command `0x02` |
-| 1 | 1 | `pad_id` of the touch being confirmed |
-| 2 | 2 | Reserved, must be zero |
-
-The firmware honors the command only from the endpoint that holds the
-lease and ignores it, without error, when nothing is parked or the
-window has passed, so a host may confirm liberally. The host should
-confirm exactly the scroll-context touches that were not catching a
-coasting momentum tail; the firmware's own `tap-max-ms` and
-`tap-max-movement` still apply, so a confirmation can never produce a
-tap the keymap would not have. The emitted tap enters the pad's listener
-chain like any other, so what it does is the keymap's decision. In
-Standard mode, and for pads without bit 3, taps are never parked.
-
-### Delivery and lost releases
-
-Both transports use bounded queues shared by all pads. When full, a queue
-evicts the oldest eligible motion frame, preserving queued releases and
-the head currently being transmitted. If no entry is eligible, the
-incoming report is dropped, even if it is a release. Queues preserve
-order among retained reports; a new touch does not overtake an earlier
-queued release.
-
-- **USB:** transfer completion drains the queue. A busy interrupt
-  endpoint can defer a release without immediately losing it. Bus reset,
-  detach, and transport errors can flush pending reports.
-- **BLE:** failed release notifications are retried at the head of the
-  queue, 8 ms apart, for at most four attempts. Queued entries are bound
-  to the profile selected at enqueue time. Endpoint switches flush the
-  queue; disconnects discard entries for that profile. Old reports are
-  not forwarded to a different host.
-
-These measures protect releases during ordinary congestion; they do not
-guarantee delivery. Link loss, power loss, endpoint changes, exhausted
-retries, or a queue with no evictable entry can still lose a release.
-
-**A host must close a contact after roughly 150 ms of report silence if
-its last state was touched.** This watchdog is required on both
-transports. Device removal and a trailing release without the lease bit
-should also close the current gesture. Absolute coordinates allow motion to
-continue after a missing sample, but do not make dropped input or
-transport latency irrelevant.

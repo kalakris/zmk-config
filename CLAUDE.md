@@ -122,7 +122,7 @@ that is the same over USB and BLE, so a host can tell that two rows are
 one keyboard. The Go60's USB serial is built from the same eight bytes by
 the board itself (`moergo.com:GO60-A856ED2AC49F3E97`), so CONFIG_HWINFO
 was already on and the module's `select HWINFO` changes nothing there.
-Spec = the module README's appendix, authoritative). Release frames are retained on both transports (BLE since
+Spec = the module's `docs/protocol.md` (moved out of the README 2026-09-24), authoritative). Release frames are retained on both transports (BLE since
 2026-09-04: spinlocked ring, motion-only eviction, head-of-line retry,
 queue default 8; USB since 2026-09-05: queued, drained on transfer
 completion), but the host's 150 ms silence watchdog stays REQUIRED for
@@ -219,11 +219,14 @@ in `firmware/raw-touch-v0-prototype/`):
 - this repo, `main` — the daily driver (module architecture, v3, both pads)
 - `~/src/go60-rawtouch-config` (`kalakris/go60-rawtouch-config`, **private**
   until the flip) — the **public starter** for newcomers: MoErgo's west
-  template + six adoption commits, STOCK split roles (left half central;
+  template + four integration commits (west, workflow, conf, keymap) +
+  one docs commit (folded 2026-09-24; pushed as branch `main-folded`
+  until the user force-updates `main`; old history in
+  `backup/main-pre-fold` + `~/Documents/go60-rawtouch-config-pre-fold-2026-09-24.bundle`), STOCK split roles (left half central;
   the reverse of this keyboard, so hardware-untested — its
   `docs/hardware-checklist.md` says what). `main` cannot build in Actions
   while the module is private; the throwaway branch `ci-vendored` vendors
-  it (delete after the flip). Its west.yml carries TEMPORARY pins marked
+  it (pre-fold history; delete after the flip). Its west.yml carries TEMPORARY pins marked
   for the release tags. State: publish brief, "Public starter configuration"
 - `~/src/zmk-raw-touch` (`kalakris/zmk-raw-touch@main`) — **the module**: private HID report descriptor, second USB HID interface + second BLE HIDS instance, frame handler, `zip_raw_touch_scroll` marker, `zip_raw_touch_idle_filter`. Name final (renamed from `-wip`); still **private** — vendored into `vendor/` for CI
 - `~/src/zmk` (`kalakris/zmk@raw-touch`) — the old ZMK core patch. **Dead; safe to delete** — `cfc4b3e6` is salvaged as `patches/zmk-skip-empty-mouse-report-syncs.patch`
@@ -252,7 +255,16 @@ first frame of each touch, and the host re-reads the report on that frame
 its first touch; power-cycle the RIGHT half to reproduce "unknown").
 Hardware-verified USB + BLE 2026-09-22 (515 tests as of 2026-09-23). The three 2026-09-16
 pipeline-test releases v0.1.0–v0.1.2 were DELETED; the first real release
-will be v0.1.0 (tags not yet pushed). To see the native UI without computer use: AppleScript opens menu/Settings, `screencapture -l <CG window id>` captures it (both unsandboxed); judge accessibility with the AX API, NOT System Events `name` (SwiftUI buttons label via AXDescription only). There is no CLI any more (dropped 2026-09-23). Legacy LinearMouse loop: `./linearmouse/build-and-install.sh`, config live-reloads.
+will be v0.1.0 — for the app AND the module (decision 2026-09-24:
+module `version.h` reset 0.2 → 0.1, and both repos' histories are
+squashed before tagging; the starter keeps its own history). The moving
+tag is **`stable`** (never `latest`; leaves room for `testing`/`nightly`),
+in the module, app and driver. Push the app's v0.1.0 tag only AFTER the
+repo is public, or the release gets no provenance attestation. Tags not
+yet pushed. README layout since 2026-09-24: rawtouch README = user path
+only, reference in `docs/configuration.md`, internals in
+`docs/how-it-works.md`, build/sign/release in CONTRIBUTING; module
+README keeps setup + split + reference, protocol in `docs/protocol.md`. To see the native UI without computer use: AppleScript opens menu/Settings, `screencapture -l <CG window id>` captures it (both unsandboxed); judge accessibility with the AX API, NOT System Events `name` (SwiftUI buttons label via AXDescription only). There is no CLI any more (dropped 2026-09-23). Legacy LinearMouse loop: `./linearmouse/build-and-install.sh`, config live-reloads.
 - **Host release** (since 2026-09-16, next-steps item f done): `cd ~/src/rawtouch && git tag vX.Y.Z && git push origin vX.Y.Z` — the tag-only `Release` workflow (`.github/workflows/release.yml`, `release` environment secrets) builds, signs with Developer ID, notarizes, staples and attaches a **DMG + zip** to a GitHub release in ~1 min, version stamped from the tag; provenance attestation is gated on the repo being public. Local equivalent: `./scripts/make-app.sh && ./scripts/notarize.sh` (keychain profile `rawtouch-notary`; Apple's first-ever submission took 30 min, later ones seconds). Verify a download with `spctl --assess --type open --context context:primary-signature -v X.dmg`. App icon: `resources/RawTouch.icns`, regenerated from `resources/icon/*.svg` by `scripts/make-icon.sh` (needs `rsvg-convert`). **Secrets never pass through chat** — the user runs `gh secret set` / `notarytool store-credentials` at a prompt; the .p12 backup is in `~/Documents`.
 - **CI in both release repos** (since 2026-09-21): rawtouch `.github/workflows/ci.yml` on `macos-26` (swift build, swift test, `scroll-bench --offline`, `make-app.sh` ad-hoc signed, `nm -u` event-tap check; push to main / PR / dispatch; ~80 s, no cache) — `release.yml` `needs` it. Module: `examples/{trackpad,split}/` ARE the README's config blocks (`<!-- example: path -->` / `<!-- example-diff: name before after -->` markers; `scripts/check-readme-examples.py --write` regenerates the README from the files, plain run = the CI check, orphan example files fail it) and `ci/` is a ZMK config dir that compiles the after-files on both Go60 halves via ZMK's `build-user-config.yml@v0.3` against the pinned trees in `ci/west.yml` (bump with the README's compatibility table; the per-half keymaps `#define` the README's generic labels onto the board's nodes and reach `examples/` through `-DDTS_EXTRA_CPPFLAGS=-I$GITHUB_WORKSPACE`). After editing an example: run the script with `--write`, commit both. No upstream-ZMK-main canary by design.
 - **UI verification without computer use**: the tools live in `/tmp/claude/rt-critique/` (`capture.sh <dir>` = menu + every tab as PNG + AX dumps, `ax dump|all|press|focused`, `axactions` = AX action names per heading/tab, `locked` = check the screen lock FIRST — a locked screen makes every capture look like a hang). System Events can wedge (every AppleEvent -1712 after ~60 s): `killall "System Events"`. Hidden ⌘-shortcut Buttons become AppKit's initial first responder → `.focusable(false)`. The user does NOT want synthetic pointer clicks on the app (System Events `click at`) — leave click tests to them. Sixth `/impeccable critique` 2026-09-23: 32/40 (trend 23→30→27→30→27→32); snapshots in rawtouch `.impeccable/critique/`.

@@ -7,8 +7,8 @@ and the checks a change has to pass.
 
 Include the exact firmware tree (ZMK fork and commit, Zephyr version,
 Cirque driver module and commit), the board and trackpad, the transport
-(USB or Bluetooth), and the log lines from the README's "Check both
-modes" section. For Bluetooth problems, say whether you forgot and
+(USB or Bluetooth), and the log lines from the README's "Diagnostics"
+section. For Bluetooth problems, say whether you forgot and
 re-paired the keyboard after flashing: macOS caches the HID report map,
 so a stale pairing looks like dead frame parsing while keys keep working.
 
@@ -19,7 +19,7 @@ so a stale pairing looks like dead frame parsing while keys keep working.
   targets ZMK 0.3 / Zephyr 3.5 because that is what the maintainer can
   run; keep the current tree building.
 - Host implementations for other operating systems, built against the
-  README's wire-format appendix.
+  [wire format](docs/protocol.md).
 
 ## Rules for changes
 
@@ -33,7 +33,7 @@ so a stale pairing looks like dead frame parsing while keys keep working.
   `ci/west.yml`. A change to an example must build there.
 - **Wire-format changes are protocol changes.** The protocol integer in
   `include/zmk/raw_touch/hid.h` is the only compatibility contract with
-  hosts. Bump it, update the appendix, and note that a report-layout
+  hosts. Bump it, update `docs/protocol.md`, and note that a report-layout
   change needs a Bluetooth forget and re-pair. Coordinate with the
   RawTouch host before merging.
 - **The module version lives in `include/zmk/raw_touch/version.h`.**

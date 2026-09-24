@@ -5,7 +5,7 @@
  *
  * Wire format for raw touch frames (protocol v4).
  *
- * The README's wire-format appendix is the normative description of this
+ * docs/protocol.md is the normative description of this
  * layout; the structs here are its C spelling and must match it byte for
  * byte (src/raw_touch_hid.c BUILD_ASSERTs the sizes).
  *
@@ -151,7 +151,7 @@ struct zmk_raw_touch_report {
  * WARNING: changing the pad count changes the report body's length,
  * which changes the HID report descriptor - and macOS caches the HOGP
  * report map at pairing time. Adding or removing a pad therefore needs a
- * forget + re-pair on the host (see the README's Known issues; the
+ * forget + re-pair on the host (see the README's Troubleshooting; the
  * failure is deceptively partial - USB fine, BLE frames unparseable). */
 #define ZMK_RAW_TOUCH_FEATURE_PAD_SLOTS CLAMP(DT_NUM_INST_STATUS_OKAY(zmk_raw_touch_pad), 1, 8)
 

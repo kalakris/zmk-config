@@ -343,11 +343,29 @@ The original decision blockers are all closed:
 
 ### Remaining before flipping the repo public
 
-**Release-tag policy (2026-09-23):** recommend numbered release tags in
-user manifests, rather than `main` or commit hashes. Published numbered
-tags stay fixed. Each release repository also provides a moving `latest`
-tag pointing to its newest stable release; using it is an explicit choice
-to follow releases rather than pin a version.
+**Release-tag policy (2026-09-23, tag renamed 2026-09-24):** recommend
+numbered release tags in user manifests, rather than `main` or commit
+hashes. Published numbered tags stay fixed. Each release repository also
+provides a moving **`stable`** tag pointing to its newest release; using
+it is an explicit choice to follow releases rather than pin a version.
+The user prefers people follow `stable` over `main`. Named `stable`, not
+`latest`, to leave room for `testing` or `nightly` channels later.
+
+**Versions and history (decision 2026-09-24):** the app AND the module
+both start at `v0.1.0`. The module's `version.h` was reset 0.2 → 0.1
+(`77f430c`); the app's compatibility table reads module 0.1.x. Both repos
+are squashed to a single commit before the first tag (force-push waived
+for that one step; backup branch + `git bundle` in ~/Documents first).
+The starter config keeps its own history: folded 2026-09-24 to the
+template + four integration commits + one docs commit, pushed as branch
+`main-folded` for the user to force-update `main` (old history:
+`backup/main-pre-fold` + `~/Documents/go60-rawtouch-config-pre-fold-2026-09-24.bundle`).
+Its README's adoption table names those four hashes, so do not rewrite
+the starter's history again.
+
+**Order at release:** flip rawtouch public BEFORE pushing its `v0.1.0`
+tag: `release.yml` skips the provenance attestation on a private repo,
+and the README tells users to `gh attestation verify` the DMG.
 
 - [ ] **Publish numbered dependency tags.** Tag the tested
   `cirque-input-module` `intree-driver` revision and publish release notes.
@@ -356,14 +374,15 @@ to follow releases rather than pin a version.
   Before publication, replace the README's `<module-release-tag>` and
   `<driver-release-tag>` placeholders with these real tags. Use numbered
   tags in the public starter config and the prepared un-vendor manifest.
-- [ ] **Create and maintain `latest`.** In `rawtouch`, `zmk-raw-touch`,
-  and the released Cirque driver fork, create `latest` at the first stable
+- [ ] **Create and maintain `stable`.** In `rawtouch`, `zmk-raw-touch`,
+  and the released Cirque driver fork, create `stable` at the first
   release commit. For every subsequent stable release, move only this tag
   after CI, required hardware checks, and artifact publication succeed;
-  never move numbered release tags or point `latest` at a prerelease.
+  never move numbered release tags or point `stable` at a prerelease.
   Add this promotion to the release workflow or its recurring checklist,
   verify it resolves to the numbered release's commit, and document how
-  users refresh a locally cached moving tag. The Git tag `latest` is
+  users refresh a locally cached moving tag (the module README says
+  `west update --fetch=always`). The Git tag `stable` is
   separate from GitHub's `/releases/latest` download-page redirect.
 
 **Public starter configuration (2026-09-23):** `~/src/go60-rawtouch-config`
