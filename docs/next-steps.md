@@ -18,6 +18,13 @@ real release tags. Existing SHA pins and older suggested release numbers
 below are historical preparation notes; reconcile them with this policy
 and the current version header before publishing.
 
+**Starter config built (2026-09-23 late):** `kalakris/go60-rawtouch-config`
+(private; `~/src/go60-rawtouch-config`) — MoErgo's west template + the
+RawTouch integration with stock keymap and pad roles; see the publish
+brief's "Public starter configuration" paragraph for the branch map, the
+temporary pins, the vendored CI branches to delete, and the open
+right-click decision (module branch `tap-click-while-scrolling`).
+
 **Punch-list pass (2026-09-22 evening):** tackled the items that need no
 hardware or decision — module `mode-gate` branch deleted (local +
 origin), CONTRIBUTING added to the module (`e26b1f0`) and rawtouch

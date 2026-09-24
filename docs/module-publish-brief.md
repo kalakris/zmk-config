@@ -366,6 +366,32 @@ to follow releases rather than pin a version.
   users refresh a locally cached moving tag. The Git tag `latest` is
   separate from GitHub's `/releases/latest` download-page redirect.
 
+**Public starter configuration (2026-09-23):** `~/src/go60-rawtouch-config`
+= `kalakris/go60-rawtouch-config` (PRIVATE until the flip). MoErgo's
+`go60-zmk-config-west` template (history kept, root `176e9a0`) + four
+adoption commits (west pin/module/driver → workflow `@v0.3` → per-half
+Kconfig → per-half keymaps that `#include` the byte-identical stock
+`go60.keymap` plus `raw-touch-{glidepoint,peripheral,central}.dtsi`) +
+docs commits. STOCK split roles kept (LEFT half = central, right pad
+relayed = pointer, left pad local = dedicated scroll pad) — the reverse
+of this keyboard, so hardware-untested; its `docs/hardware-checklist.md`
+says which combinations. `config/west.yml` carries TEMPORARY pins
+(driver SHA `89a0896`, module `main`) marked for replacement by
+`<driver-release-tag>` / `<module-release-tag>`; `main` cannot build in
+CI until the module is public (private clone), so validation runs on
+throwaway branches `ci-vendored-module` / `ci-vendored-right-click` that
+vendor the module under `vendor/` — delete both after the flip.
+**Right-click gap:** stock left-pad tap = right click, but the module
+vetoes taps for scroll-context touches, so the starter's `main`
+documents the loss; the fix is module branch `tap-click-while-scrolling`
+(`~/src/zmk-raw-touch`, one commit, NOT merged: opt-in boolean pad
+property that lifts the veto for that pad) and the starter's
+`left-pad-right-click` branch sets it. Decide + merge the module branch
+before v0.2.0 is tagged (protocol unchanged; caveat: in RawTouch mode a
+<180 ms momentum-stop dab can right-click). Before publication also add
+a LICENSE to `cirque-input-module` (neither Pete's module nor the fork
+has one; the vendored Zephyr driver files are Apache-2.0, Ilia Kharin).
+
 **Host-plan change 2026-08-30: the public host is RawTouch**
 (`~/src/rawtouch`), not the LinearMouse fork — the fork stays private
 and unreleased (decision recorded in next-steps item k). The README's
