@@ -220,8 +220,7 @@ in `firmware/raw-touch-v0-prototype/`):
 - `~/src/go60-rawtouch-config` (`kalakris/go60-rawtouch-config`, **private**
   until the flip) — the **public starter** for newcomers: MoErgo's west
   template + four integration commits (west, workflow, conf, keymap) +
-  one docs commit (folded 2026-09-24; pushed as branch `main-folded`
-  until the user force-updates `main`; old history in
+  one docs commit (folded 2026-09-24, `main` = `2aa75da`; old history in
   `backup/main-pre-fold` + `~/Documents/go60-rawtouch-config-pre-fold-2026-09-24.bundle`), STOCK split roles (left half central;
   the reverse of this keyboard, so hardware-untested — its
   `docs/hardware-checklist.md` says what). `main` cannot build in Actions

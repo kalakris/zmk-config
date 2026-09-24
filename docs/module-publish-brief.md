@@ -357,11 +357,15 @@ both start at `v0.1.0`. The module's `version.h` was reset 0.2 → 0.1
 are squashed to a single commit before the first tag (force-push waived
 for that one step; backup branch + `git bundle` in ~/Documents first).
 The starter config keeps its own history: folded 2026-09-24 to the
-template + four integration commits + one docs commit, pushed as branch
-`main-folded` for the user to force-update `main` (old history:
+template + four integration commits + one docs commit; `main` is
+`2aa75da` (force-updated 2026-09-24; old history:
 `backup/main-pre-fold` + `~/Documents/go60-rawtouch-config-pre-fold-2026-09-24.bundle`).
 Its README's adoption table names those four hashes, so do not rewrite
 the starter's history again.
+
+**Release environment (2026-09-24):** rawtouch's `release` environment
+(signing + notary secrets) deploys only from tags matching `v[0-9]*`
+(deployment branch policy, set via the API).
 
 **Order at release:** flip rawtouch public BEFORE pushing its `v0.1.0`
 tag: `release.yml` skips the provenance attestation on a private repo,
