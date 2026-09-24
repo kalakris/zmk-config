@@ -192,9 +192,11 @@ Tap-to-click is firmware-side; the pads' chains must NOT contain
 `&zip_button_behaviors`, which would eat the injected BTN_0.
 **Per-pad roles (2026-09-15):** the LEFT pad is a **dedicated two-axis
 scroll pad** — `&zip_raw_touch_scroll` sits in its BASE listener chain, so
-every touch is scroll context on every layer, with no pointer motion and
-no tap (`tap-click` is off on `raw_touch_lh`: the module suppresses taps
-for scroll-context touches). The RIGHT pad is unchanged — pointer + tap on
+every touch is scroll context on every layer, with no pointer motion; a
+tap RIGHT-clicks (since 2026-09-23: `tap-click` +
+`tap-click-while-scrolling` on `raw_touch_lh`, mapper in the chain; in
+RawTouch mode the firmware parks the tap and the host confirms it unless
+the touch caught a coast — module README "Tap confirm"). The RIGHT pad is unchanged — pointer + tap on
 the base layer, scroll while Nav is held. Both fallback chains are
 two-axis (X→`REL_HWHEEL`, Y→`REL_WHEEL`, `INPUT_TRANSFORM_Y_INVERT` only);
 the host is two-axis too (`axes`, `pads.<id>.axes`,

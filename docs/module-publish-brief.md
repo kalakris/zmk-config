@@ -384,16 +384,21 @@ build there). `config/west.yml` carries TEMPORARY pins
 CI until the module is public (private clone), so validation runs on
 throwaway branches `ci-vendored-module` / `ci-vendored-right-click` that
 vendor the module under `vendor/` — delete both after the flip.
-**Right-click gap:** stock left-pad tap = right click, but the module
-vetoes taps for scroll-context touches, so the starter's `main`
-documents the loss; the fix is module branch `tap-click-while-scrolling`
-(`~/src/zmk-raw-touch`, one commit, NOT merged: opt-in boolean pad
-property that lifts the veto for that pad) and the starter's
-`left-pad-right-click` branch sets it. Decide + merge the module branch
-before v0.2.0 is tagged (protocol unchanged; caveat: in RawTouch mode a
-<180 ms momentum-stop dab can right-click). Before publication also add
-a LICENSE to `cirque-input-module` (neither Pete's module nor the fork
-has one; the vendored Zephyr driver files are Apache-2.0, Ilia Kharin).
+**Right-click (RESOLVED 2026-09-23, hardware-verified, merged
+everywhere):** stock left-pad tap = right click, but the module vetoed
+taps for scroll-context touches. Now: pad property
+`tap-click-while-scrolling` (module `b4c4e65`) lifts the veto per pad;
+in RawTouch mode the firmware PARKS such a tap for 250 ms and emits it
+only on the host's **tap confirm** (module `a087587`: feature command
+`02 <pad> 00 00`, capabilities bit 1, slot byte +1 bit 3 — additive
+under protocol 4), which RawTouch (`3a38985`, 531 tests) writes for
+every scroll-context touch that did not catch a coast. No host setting;
+the keymap's mapper decides the button. The starter's `main` sets it on
+the left pad; zmk-config `main` (`465cf0a`) sets it on `raw_touch_lh`
+with the right-click mapper. The throwaway CI branch is now
+`ci-vendored` (one). Before publication also add a LICENSE to
+`cirque-input-module` (neither Pete's module nor the fork has one; the
+vendored Zephyr driver files are Apache-2.0, Ilia Kharin).
 
 **Host-plan change 2026-08-30: the public host is RawTouch**
 (`~/src/rawtouch`), not the LinearMouse fork — the fork stays private
