@@ -40,6 +40,8 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
  * (this processor only ever looks at the sync event). */
 #define RTSS_TOUCH_GAP_MS 500
 
+/* Per devicetree node, so one node serves one relay: two relays sharing a
+ * node would each see the other's frames as the ongoing touch. */
 struct rtss_data {
     /* Uptime of the last frame stamped, and whether there has been one. */
     int64_t last_frame_ms;
@@ -57,9 +59,10 @@ static void rtss_report(uint8_t reg, uint16_t code, int32_t value) {
                      .sync = 0,
                  }}};
 
-    /* Not fatal for either message: the central stamps the frame with its
-     * own clock when no stamp arrives, and keeps the version it already
-     * had (the transport already warns when its queue is full). */
+    /* Not fatal for either message: the central dates a frame whose stamp
+     * is missing from its own clock plus the last stamp's offset, and
+     * keeps the version it already had (the transport already warns when
+     * its queue is full). */
     int ret = zmk_split_peripheral_report_event(&ev);
     if (ret < 0) {
         LOG_DBG("Split message 0x%04x not sent: %d", (unsigned int)code, ret);

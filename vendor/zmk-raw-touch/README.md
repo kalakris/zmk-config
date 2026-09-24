@@ -638,7 +638,9 @@ on the wire to the host.
 The same processor also announces the peripheral's module version before
 its first frame after boot, and again after any pause of at least 500 ms,
 so a host can show which build each half runs. Until an announcement
-arrives, that pad's version reads as unknown.
+arrives, that pad's version reads as unknown. Each stamp node tracks
+those pauses for one relay, so a peripheral with two relayed pads needs
+two stamp nodes.
 
 ### Central: process the relayed touch samples
 
@@ -898,7 +900,7 @@ Each `zmk,raw-touch-pad` node describes one input device. See the
 | Property | Default | Meaning |
 |---|---|---|
 | `device` | required | Physical absolute-input device, or a split relay on the central. |
-| `pad-id` | `0` | Unique ID from 0 to 7. Give every pad a different ID. |
+| `pad-id` | required | Unique ID from 0 to 7. Give every pad a different ID. |
 | `x-max` / `y-max` | `2047` / `1535` | Maximum raw coordinates; set these for your sensor. |
 | `resolution` | `38` | Sensor counts/mm; `0` means unknown. |
 | `rotate-90` | absent | Swap axes when deriving pointer motion; advertise the mounting to the host. |

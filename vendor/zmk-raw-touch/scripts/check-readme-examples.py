@@ -44,7 +44,7 @@ def read_example(rel: str) -> list[str]:
     path = ROOT / rel
     if not path.is_file():
         sys.exit(f"{README.name}: marker names a missing file: {rel}")
-    return path.read_text().split("\n")[:-1]  # drop the trailing newline's empty element
+    return path.read_text().splitlines()
 
 
 def expected_lines(is_diff: bool, args: str) -> tuple[list[str], set[str]]:

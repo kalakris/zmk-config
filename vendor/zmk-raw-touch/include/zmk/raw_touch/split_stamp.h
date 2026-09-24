@@ -26,7 +26,9 @@
  * The stamp is in the PERIPHERAL's clock domain - the halves' clocks are
  * not synchronised. That matches what the wire protocol already asks of
  * hosts: one reconstructed timeline per pad, never a comparison of
- * timestamps across pads.
+ * timestamps across pads. A frame whose stamp is lost on the link stays
+ * on that timeline too: the frame handler dates it from its own clock
+ * plus the offset the last stamp showed.
  */
 
 #pragma once

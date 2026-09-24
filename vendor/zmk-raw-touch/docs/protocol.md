@@ -68,8 +68,9 @@ coordinate values, to determine contact state.
 If the lease lapses mid-touch, firmware attempts one trailing release
 with `touched` and `lease_held` clear, X/Y/Z zero, and `scroll_mode`
 reflecting that frame's context. It then stops sending until a lease is
-acquired again. That trailing release may not reach the previous host after an
-endpoint switch or disconnection.
+acquired again. The trailing release goes only to the endpoint that
+received the touch; after an endpoint switch or a disconnection, the
+previous host's silence watchdog closes the gesture instead.
 
 Hosts **must generate scrolling only while both `scroll_mode` and
 `lease_held` are set**. They must still handle transitions out of those

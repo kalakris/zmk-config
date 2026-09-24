@@ -17,7 +17,7 @@
  * with the raw touch frame notifications for connection events,
  * which is felt as stuttering scroll.
  *
- * ZMK core fixes this inside the listener, by skipping a sync whose
+ * The proper fix belongs inside the listener: skip a sync whose
  * accumulated x/y/wheel values are all zero and which requested no button
  * transition. A module cannot patch the listener, so the same decision is
  * made one step earlier, from the events themselves: stopping a sync event

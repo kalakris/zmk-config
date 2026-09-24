@@ -34,9 +34,9 @@ config ZMK_RAW_TOUCH_USB
     default y
     depends on ZMK_USB
     # Only the central half talks to the host. The core ZMK_RAW_TOUCH symbol
-    # deliberately does NOT carry this dependency: it also re-injects the
-    # relative deltas that ordinary pointing needs, so compiling it out on a
-    # peripheral would kill the cursor.
+    # needs no such dependency: the pad nodes that enable it belong on the
+    # central, and a build with no transport at all still links against a
+    # no-op send (src/raw_touch_endpoints.c) and keeps Standard mode.
     depends on !ZMK_SPLIT || ZMK_SPLIT_ROLE_CENTRAL
     help
       Registers a SECOND USB HID interface (HID_1) carrying only the raw
@@ -91,8 +91,7 @@ config ZMK_RAW_TOUCH_BLE_QUEUE_SIZE
       several intervals' worth. A frame older than that is useless for
       scrolling: the host reconstructs motion from the device timestamps in
       the frames it does get, and a stale position only delays the fresh
-      one behind it. The old default of 30 (~0.3 s) just deferred the same
-      drop by a quarter second of added latency.
+      one behind it.
 
       When the queue is full the oldest MOTION frame is evicted; release
       frames (touched = 0) are never evicted and are retried on a transient

@@ -25,7 +25,7 @@ properties:
 
   pad-id:
     type: int
-    default: 0
+    required: true
     description: |
       Identifies this pad in streamed frames (byte 0) and sets the pad's
       bit in the feature report's pads-present bitmask. Must be unique and

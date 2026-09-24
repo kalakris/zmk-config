@@ -118,7 +118,9 @@ static inline bool rt_txq_is_release(const struct zmk_raw_touch_report_body *fra
 }
 
 /* Ring slot holding the frame `offset` places behind the head. Callers
- * keep offset <= count <= size - 1, so one subtraction wraps. */
+ * keep offset < size - count may equal size, but rt_txq_put() addresses
+ * slot `count` only after evicting below it - and head < size, so one
+ * subtraction wraps. */
 static inline uint8_t rt_txq_slot(const struct rt_txq *q, uint8_t offset) {
     uint16_t i = (uint16_t)q->head + offset;
 
@@ -233,6 +235,15 @@ static inline bool rt_txq_pop(struct rt_txq *q, struct rt_txq_entry *out) {
     return have;
 }
 
+static inline bool rt_txq_is_empty(struct rt_txq *q) {
+    k_spinlock_key_t key = k_spin_lock(&q->lock);
+    bool empty = q->count == 0;
+
+    k_spin_unlock(&q->lock, key);
+
+    return empty;
+}
+
 /* Discard everything. For the events that make every queued frame
  * meaningless at once: a USB bus reset or detach, an endpoint switch. */
 static inline void rt_txq_flush(struct rt_txq *q) {
@@ -251,15 +262,25 @@ static inline void rt_txq_flush(struct rt_txq *q) {
 static inline void rt_txq_discard_binding(struct rt_txq *q, int16_t binding) {
     k_spinlock_key_t key = k_spin_lock(&q->lock);
 
-    for (uint8_t i = 0; i < q->count;) {
-        if (q->buf[rt_txq_slot(q, i)].binding == binding) {
-            if (rt_txq_remove_at(q, i)) {
-                q->generation++;
-            }
-            /* Everything behind the removed entry shifted down into i. */
-        } else {
-            i++;
+    /* One compaction pass: each kept entry moves down to the next free
+     * position, which never lies ahead of the one being read. A kept head
+     * stays where it is; a discarded one is replaced by whatever is kept
+     * first, which is a head replacement like any other. */
+    bool head_discarded = q->count > 0 && q->buf[q->head].binding == binding;
+    uint8_t kept = 0;
+
+    for (uint8_t i = 0; i < q->count; i++) {
+        const struct rt_txq_entry entry = q->buf[rt_txq_slot(q, i)];
+
+        if (entry.binding != binding) {
+            q->buf[rt_txq_slot(q, kept++)] = entry;
         }
+    }
+
+    q->count = kept;
+
+    if (head_discarded) {
+        q->generation++;
     }
 
     k_spin_unlock(&q->lock, key);

@@ -31,8 +31,8 @@
 #define ZMK_RAW_TOUCH_REPORT_ID 0x04
 
 /* Input report: one 11-byte frame, emitted per pad sample while touched
- * (~100 Hz), plus exactly one release frame (touched = 0, z = 0) on
- * lift-off. */
+ * and a host lease is held (~100 Hz), plus exactly one release frame
+ * (touched = 0, z = 0) on lift-off. */
 
 /* Touched. Clear marks a RELEASE frame - the one emitted at lift-off, and
  * the single synthetic one emitted when a host lease lapses mid-touch.

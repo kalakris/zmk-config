@@ -39,9 +39,9 @@
  * not, and must never appear here.
  *
  * lease_expiry_cb() cannot be brought under that rule -- it IS the timer --
- * so it stays as it was: it takes lease_lock and then re-reads the work's
- * busy flags, declining to clear a lease whose expiry a concurrent
- * renewal has just re-armed. The lock order is the same on every path
+ * so instead it takes lease_lock and then re-reads the work's busy flags,
+ * declining to clear a lease whose expiry a concurrent renewal has just
+ * re-armed. The lock order is the same on every path
  * (lease_lock, then the kernel's own work-queue lock inside the k_work_*
  * call), so the two can never deadlock against each other.
  */
@@ -148,7 +148,7 @@ static void lease_expiry_cb(struct k_work *work) {
 
 int zmk_raw_touch_lease_handle_command(struct zmk_endpoint_instance source, const uint8_t *body,
                                       size_t len) {
-    if (len != ZMK_RAW_TOUCH_LEASE_CMD_LEN) {
+    if (len != ZMK_RAW_TOUCH_CMD_LEN) {
         LOG_WRN("Rejected lease command with length %d", (int)len);
         return -EMSGSIZE;
     }

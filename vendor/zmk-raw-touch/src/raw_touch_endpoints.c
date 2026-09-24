@@ -28,23 +28,30 @@ LOG_MODULE_DECLARE(zmk_raw_touch, CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL);
 
 #if !ZMK_RAW_TOUCH_HAS_TRANSPORT
 
-/* Both transports are central-only, so on a split peripheral this file is all
- * that is left of the send path -- and it must not reference ZMK's endpoints
- * API at all. ZMK compiles its own src/endpoints.c under
- * `(NOT CONFIG_ZMK_SPLIT) OR CONFIG_ZMK_SPLIT_ROLE_CENTRAL`, so on a
- * peripheral zmk_endpoints_selected() does not exist and calling it would
- * fail to link.
+/* No host-facing transport is built: both are disabled in the .conf, or a
+ * zmk,raw-touch-pad node sits on a split peripheral (the README puts every
+ * pad node on the central), where the transports' central-only dependency
+ * turns both off. The frame handler still links against this file and
+ * still provides Standard mode - the relative deltas and taps it
+ * re-injects need no transport - so only the raw frames are unavailable
+ * and the send is a no-op.
  *
- * The module core still runs there on purpose: it re-injects the relative
- * deltas that ordinary pointing needs, and the split link forwards those to
- * the central. Only the raw frames themselves are unavailable, so the frame
- * handler's send is a no-op. */
+ * Nothing here may reference ZMK's endpoints API: ZMK compiles its own
+ * src/endpoints.c under `(NOT CONFIG_ZMK_SPLIT) OR
+ * CONFIG_ZMK_SPLIT_ROLE_CENTRAL`, so on a peripheral zmk_endpoints_selected()
+ * does not exist and calling it would fail to link. */
 int zmk_raw_touch_send_report(void) { return -ENOTSUP; }
+
+int zmk_raw_touch_selected_endpoint(void) { return -1; }
 
 #else
 
 #include <zmk/endpoints.h>
 #include <zmk/endpoints_types.h>
+
+int zmk_raw_touch_selected_endpoint(void) {
+    return zmk_endpoint_instance_to_index(zmk_endpoints_selected());
+}
 
 int zmk_raw_touch_send_report(void) {
     /* Stock ZMK has no ZMK_TRANSPORT_NONE, so the switch below is

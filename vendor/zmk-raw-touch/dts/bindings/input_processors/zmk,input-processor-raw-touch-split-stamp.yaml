@@ -27,6 +27,10 @@ description: |
   cell rather than a phandle property so the relay -> processor ->
   relay reference does not form a devicetree dependency cycle.
 
+  Each devicetree node keeps one relay's touch-gap timer, which decides
+  when the version announcement is due. Chain one node on one relay:
+  declare a second node for a second relayed pad.
+
   The processor is built only on a split peripheral; declare its node in
   the peripheral's overlay:
 

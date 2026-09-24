@@ -65,12 +65,12 @@ static K_SEM_DEFINE(hid_sem, 1, 1);
 /* ---------------------------------------------------------------------
  * Transmit queue
  *
- * The interrupt IN endpoint carries one transfer at a time, and a frame
- * produced while the previous transfer is still in flight used to be
- * dropped on the spot. That is acceptable for motion frames and is not
- * acceptable for a RELEASE frame (ZMK_RAW_TOUCH_FLAGS_TOUCHED clear:
- * lift-off, or the synthetic frame from a mid-touch lease lapse), which the
- * producer never re-sends: losing one leaves the host holding a phantom
+ * The interrupt IN endpoint carries one transfer at a time, so a frame
+ * produced while the previous transfer is still in flight has to wait.
+ * Dropping it instead would be acceptable for a motion frame and is not
+ * for a RELEASE frame (ZMK_RAW_TOUCH_FLAGS_TOUCHED clear: lift-off, or
+ * the synthetic frame from a mid-touch lease lapse), which the producer
+ * never re-sends: losing one leaves the host holding a phantom
  * finger-down until its own ~150 ms silence watchdog fires, which costs
  * the gesture its lift-off momentum and can join a quick re-touch onto
  * it. It does not take a broken link to hit - two pads share this
@@ -86,9 +86,9 @@ static K_SEM_DEFINE(hid_sem, 1, 1);
  * polls the endpoint, and a release cannot be lost while the bus is
  * healthy.
  *
- * The pacing assumption the BUILD_ASSERT above rests on is unchanged:
- * still one transfer, of one packet, in flight at a time. The queue only
- * decides what the NEXT transfer carries; it never arms a second one.
+ * The pacing assumption the BUILD_ASSERT above rests on holds: one
+ * transfer, of one packet, in flight at a time. The queue only decides
+ * what the NEXT transfer carries; it never arms a second one.
  *
  * Entries carry RT_TXQ_NO_BINDING. Unlike a BLE profile, USB has one bus
  * and one host, and the events that invalidate queued frames (bus reset,
@@ -122,9 +122,16 @@ static struct zmk_raw_touch_report tx_report;
 static int usb_txq_send_next(void) {
     struct rt_txq_entry entry;
 
-    if (!rt_txq_pop(&usb_txq, &entry)) {
+    while (!rt_txq_pop(&usb_txq, &entry)) {
         k_sem_give(&hid_sem);
-        return 0;
+
+        /* A producer that queued between the pop and the give found the
+         * semaphore taken and left its frame to us. Take the semaphore
+         * back and send it - unless the queue is still empty, or someone
+         * else has already taken the semaphore and will. */
+        if (rt_txq_is_empty(&usb_txq) || k_sem_take(&hid_sem, K_NO_WAIT) != 0) {
+            return 0;
+        }
     }
 
     tx_report.report_id = ZMK_RAW_TOUCH_REPORT_ID;
@@ -162,55 +169,49 @@ static void in_ready_cb(const struct device *dev) {
     }
 }
 
+/* Send the head of the queue if the endpoint is idle. The take is checked:
+ * a busy semaphore means a transfer is still reading tx_report, and its
+ * completion drains the queue instead. */
+static int usb_txq_kick(void) {
+    if (k_sem_take(&hid_sem, K_NO_WAIT) != 0) {
+        return 0;
+    }
+
+    return usb_txq_send_next();
+}
+
 /* Bus-state recovery for hid_sem and the queue.
  *
- * An interrupt IN transfer that is in flight when the cable is pulled (or
- * the bus resets) is simply abandoned by the controller: in_ready_cb never
- * fires, so the semaphore taken for it is never returned. The bus-down
- * branch in zmk_raw_touch_usb_send_report() cannot heal this on its own,
- * because it only runs when something sends while the bus is down -- and
- * the moment USB detaches, ZMK switches the selected endpoint to BLE, so
- * the USB send path goes quiet until after replug, by which point
- * zmk_usb_get_status() is healthy again and that branch is unreachable.
- * Net effect without this listener: one frame in flight at unplug time
- * wedges the vendor interface permanently (feature GETs and keys fine,
- * zero input frames) until the keyboard is power-cycled.
+ * Leaving ZMK_USB_CONN_HID (detach, bus reset, error; the same condition
+ * raw_touch_lease.c drops the USB lease on) abandons any armed transfer:
+ * in_ready_cb never fires for it, and nothing else would return its
+ * semaphore - after a detach ZMK sends to BLE, so no USB send runs to
+ * notice. So the queue is flushed, then the semaphore re-armed. Nothing
+ * reads tx_report any more, and a late in_ready_cb finds an empty queue
+ * and saturates the semaphore at 1; flushing first keeps it from pushing
+ * a frame meant for the old bus. Those frames' releases are lost
+ * deliberately: the host's silence watchdog closes that gesture.
  *
- * So re-arm the semaphore whenever the USB connection state leaves
- * ZMK_USB_CONN_HID (detach, bus reset, error -- every transition that
- * kills an in-flight transfer; the same condition raw_touch_lease.c uses to
- * drop the USB lease). Safe against a genuinely in-flight transfer by
- * construction: leaving the HID state means the controller has abandoned
- * any armed IN transfer, so nothing reads tx_report any more, and a late
- * in_ready_cb -- were a driver ever to deliver one for an aborted
- * transfer -- finds an empty queue and just saturates the semaphore at
- * its limit of 1.
+ * Every other status change within the HID state kicks the queue unless
+ * the bus is suspended: frames queued during a suspend have no transfer
+ * in flight to drain them once the host resumes the bus.
  *
- * The queue is flushed in the same breath, and before the semaphore is
- * given: frames addressed to a bus that has gone away are garbage, and
- * re-arming first would let a late in_ready_cb push one of them at
- * whatever comes back. This is the one case where a queued release IS
- * lost -- deliberately, since there is no longer a host to receive it,
- * and the host's silence watchdog is what closes that gesture.
- *
- * Deliberately NOT added: a time-based forced reuse in the send path
- * ("sem held > 100 ms, take it anyway"). A pending interrupt IN transfer
- * has no deadline in the legacy stack: with the interface configured but
- * the host not polling the endpoint (no open handle, host-side
- * scheduling), the transfer stays armed indefinitely with the endpoint
- * still set up to DMA from tx_report, and a timed reuse would overwrite
- * that buffer while the host can still collect it -- corrupting a frame
- * on the wire. The checked non-blocking take in the send path below
- * leaves the frame in the queue instead of overwriting a buffer an
- * in-flight transfer may still be reading. A stalled-but-configured host
- * needs no forced reuse anyway: the moment it polls again, the pending
- * transfer completes and in_ready_cb drains what accumulated. */
+ * A timed forced reuse of a semaphore held too long was rejected: an
+ * armed transfer has no deadline while a configured host is not polling,
+ * and reusing tx_report under it would corrupt a frame the host can still
+ * collect. */
 static int usb_conn_state_listener(const zmk_event_t *eh) {
     const struct zmk_usb_conn_state_changed *ev = as_zmk_usb_conn_state_changed(eh);
 
-    if (ev != NULL && ev->conn_state != ZMK_USB_CONN_HID) {
+    if (ev == NULL) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+
+    if (ev->conn_state != ZMK_USB_CONN_HID) {
         rt_txq_flush(&usb_txq);
         k_sem_give(&hid_sem);
+    } else if (zmk_usb_get_status() != USB_DC_SUSPEND) {
+        usb_txq_kick();
     }
 
     return ZMK_EV_EVENT_BUBBLE;
@@ -269,19 +270,21 @@ static int get_report_cb(const struct device *dev, struct usb_setup_packet *setu
     return 0;
 }
 
-/* SET_REPORT(FEATURE) carries the protocol's single host-to-device path:
- * the host lease (see src/raw_touch_lease.c). Everything else is still
- * rejected with -ENOTSUP, exactly as Zephyr's default handler would.
+/* SET_REPORT(FEATURE) carries the protocol's host-to-device commands: the
+ * host lease and tap confirm (see src/raw_touch_lease.c). Everything else
+ * is still rejected with -ENOTSUP, exactly as Zephyr's default handler
+ * would.
  *
  * Per HID 1.11 a control-pipe report on a device using report IDs is
  * ID-prefixed, matching what get_report_cb returns; but host stacks are
  * not uniform about the prefix on Set_Report, so a bare 4-byte body is
- * accepted too. The two forms cannot collide: the command byte 0x01 is
- * fixed and distinct from the report ID 0x04.
+ * accepted too. The two forms cannot collide: the command bytes (0x01,
+ * 0x02) are distinct from the report ID 0x04.
  *
  * CONFIG_ENABLE_HID_INT_OUT_EP stays untouched -- it is a global symbol
  * that would add an interrupt OUT endpoint to ZMK's keyboard interface as
- * well, and the control pipe is plenty for a ~0.03 Hz lease renewal. */
+ * well, and the control pipe is plenty for a lease renewal every few
+ * seconds and a confirm per tap. */
 static int set_report_cb(const struct device *dev, struct usb_setup_packet *setup, int32_t *len,
                          uint8_t **data) {
     if ((setup->wValue & HID_GET_REPORT_TYPE_MASK) != HID_REPORT_TYPE_FEATURE) {
@@ -297,7 +300,7 @@ static int set_report_cb(const struct device *dev, struct usb_setup_packet *setu
     const uint8_t *body = *data;
     size_t body_len = *len;
 
-    if (body_len == ZMK_RAW_TOUCH_LEASE_CMD_LEN + 1 && body[0] == ZMK_RAW_TOUCH_REPORT_ID) {
+    if (body_len == ZMK_RAW_TOUCH_CMD_LEN + 1 && body[0] == ZMK_RAW_TOUCH_REPORT_ID) {
         body++;
         body_len--;
     }
@@ -319,8 +322,6 @@ int zmk_raw_touch_usb_send_report(void) {
     }
 
     switch (zmk_usb_get_status()) {
-    case USB_DC_SUSPEND:
-        return usb_wakeup_request();
     case USB_DC_ERROR:
     case USB_DC_RESET:
     case USB_DC_DISCONNECTED:
@@ -362,21 +363,28 @@ int zmk_raw_touch_usb_send_report(void) {
         break;
     }
 
-    /* The take is checked: a busy semaphore means the previous transfer is
-     * still reading tx_report, so overwriting it would corrupt a frame that
-     * is already on the wire. The frame just queued goes out from
-     * in_ready_cb when that transfer completes. K_NO_WAIT, not a timeout:
-     * this runs inline on the input dispatch path, so waiting here
-     * head-of-line blocks pointer deltas and taps whenever USB degrades in
-     * a way the status switch above does not catch. */
-    if (k_sem_take(&hid_sem, K_NO_WAIT) != 0) {
+    if (zmk_usb_get_status() == USB_DC_SUSPEND) {
+        /* No transfer can complete on a suspended bus: leave the frame
+         * queued and ask the host to resume, which kicks the queue from
+         * usb_conn_state_listener(). Read after queueing, so a resume
+         * racing this send finds the frame already queued. A host that has
+         * not enabled remote wakeup refuses the request; the frame still
+         * goes out when it resumes the bus itself. */
+        int err = usb_wakeup_request();
+
+        if (err) {
+            LOG_DBG("USB remote wakeup request failed: %d", err);
+        }
         return 0;
     }
 
-    /* Endpoint free: send the head, which is this frame unless in_ready_cb
-     * had already emptied the queue past it. Always from the head, so
-     * frames stay in the order they were sampled. */
-    return usb_txq_send_next();
+    /* K_NO_WAIT, not a timeout: this runs inline on the input dispatch
+     * path, so waiting here head-of-line blocks pointer deltas and taps
+     * whenever USB degrades in a way the status switch above does not
+     * catch. With the endpoint free the head goes out - this frame unless
+     * in_ready_cb had already emptied the queue past it - so frames stay
+     * in the order they were sampled. */
+    return usb_txq_kick();
 }
 
 static int raw_touch_usb_hid_init(void) {

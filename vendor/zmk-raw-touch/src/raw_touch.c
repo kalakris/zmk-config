@@ -14,8 +14,8 @@
  * Without a lease, nothing is emitted - nobody is listening, and
  * at ~100 Hz of 11-byte reports the wasted BLE airtime is real. If the
  * lease lapses mid-touch, one final synthetic release report (touched =
- * 0, flags bit 2 clear) closes the host's gesture before the stream goes
- * quiet. Each frame carries a per-pad sequence number (drop detection)
+ * 0, flags bit 2 clear) closes the gesture of the host that saw the touch
+ * before the stream goes quiet. Each frame carries a per-pad sequence number (drop detection)
  * and a device-side timestamp in 100 us units (host-side velocity that
  * BLE batching cannot
  * distort). A feature report on the same report ID describes the
@@ -48,10 +48,10 @@
  * counts (Chebyshev distance) from its touch-down point - and never had a
  * scroll-mode frame, unless tap-click-while-scrolling is set - injects an
  * INPUT_BTN_0 press + release into the pad's normal input pipeline, so
- * existing button processors apply. A scroll-context tap that a leasing
- * host watched is parked instead of emitted, until the host confirms it
- * (zmk/raw_touch/tap.h): the host is the only party that knows whether
- * the touch merely caught a coasting momentum tail.
+ * existing button processors apply. A scroll-context tap that lifts off
+ * while a host holds the lease is parked instead of emitted, until the
+ * host confirms it (zmk/raw_touch/tap.h): the host is the only party that
+ * knows whether the touch merely caught a coasting momentum tail.
  */
 
 #define DT_DRV_COMPAT zmk_raw_touch_pad
@@ -123,6 +123,13 @@ struct raw_touch_pad_data {
     bool stamp_valid;
     uint16_t stamp;
 
+    /* The last stamp minus the local clock when its frame was processed
+     * (wrapping, in the timestamp's units). A frame whose stamp was lost
+     * is dated local clock + this, which keeps it on the pad's one
+     * timeline in the peripheral's clock domain. 0 for a pad that has
+     * never been stamped, which leaves it on the local clock. */
+    uint16_t stamp_offset;
+
     /* Previous frame state for release dedup and delta derivation. */
     bool prev_touched;
     bool have_prev_pos;
@@ -139,19 +146,23 @@ struct raw_touch_pad_data {
      * finger-down, and this is the state that says one is owed. */
     bool stream_touched;
 
+    /* The endpoint (zmk_raw_touch_selected_endpoint()) the last emitted
+     * report went to: the only one a synthetic release may go to. */
+    int stream_endpoint;
+
     /* Tap detection state for the current touch. */
     int64_t touch_down_ts;
     uint16_t touch_down_x, touch_down_y;
     bool tap_candidate;
-    bool tap_scroll_seen;
-    /* A leasing host saw this touch in scroll context, so a tap from it
-     * is the host's to confirm (see zmk/raw_touch/tap.h). */
-    bool tap_scroll_leased;
-    /* Uptime until which a parked tap accepts a confirmation; 0 = none.
-     * Written on the input thread, read and cleared from the transport's
-     * thread by zmk_raw_touch_tap_confirm(); a torn 64-bit read can at
-     * worst misjudge one window edge by a tick, which is harmless. */
-    int64_t pending_tap_until;
+    /* Some frame of this touch was in scroll context. */
+    bool touch_scrolled;
+    /* k_uptime_get_32() deadline until which a parked tap accepts a
+     * confirmation; 0 = none. Set on the input thread and taken by
+     * zmk_raw_touch_tap_confirm() on the transport's thread. */
+    atomic_t pending_tap_until;
+    /* An INPUT_BTN_0 release the input queue had no room for; retried by
+     * the pad's next input callback. Set from either thread. */
+    atomic_t release_owed;
 
     /* This pad's slot in the feature report, assigned by raw_touch_init(),
      * or -1 for a pad that got none (more pads than slots). Only a relayed
@@ -164,28 +175,87 @@ struct raw_touch_pad_data {
     uint8_t peer_version;
 };
 
-static void raw_touch_emit_tap(const struct raw_touch_pad_config *cfg) {
-    /* K_NO_WAIT: dropping a click beats deadlocking the input queue we
-     * are dispatched from. Press and release are separate sync'd events,
-     * so the listener sends a button-down report followed by a button-up
-     * report through the pad's normal processor chain. */
-    input_report_key(cfg->dev, INPUT_BTN_0, 1, true, K_NO_WAIT);
-    input_report_key(cfg->dev, INPUT_BTN_0, 0, true, K_NO_WAIT);
+/* How long a confirmed tap, emitted from the transport's thread rather
+ * than the input thread, may wait for room in the input queue. */
+#define RT_TAP_CONFIRM_TIMEOUT K_MSEC(20)
+
+/* Release INPUT_BTN_0, or owe the release when the input queue has no
+ * room: raw_touch_input_event() retries it on the pad's next callback, so
+ * a press that went in is never left held. */
+static void raw_touch_release_tap(const struct raw_touch_pad_config *cfg,
+                                  struct raw_touch_pad_data *data, k_timeout_t timeout) {
+    if (input_report_key(cfg->dev, INPUT_BTN_0, 0, true, timeout) != 0) {
+        atomic_set(&data->release_owed, 1);
+    }
+}
+
+/* Press and release are separate sync'd events, so the listener sends a
+ * button-down report followed by a button-up report through the pad's
+ * normal processor chain. A press that did not go in is a dropped click
+ * and owes no release. */
+static void raw_touch_emit_tap(const struct raw_touch_pad_config *cfg,
+                               struct raw_touch_pad_data *data, k_timeout_t timeout) {
+    if (input_report_key(cfg->dev, INPUT_BTN_0, 1, true, timeout) == 0) {
+        raw_touch_release_tap(cfg, data, timeout);
+    }
 }
 
 /* Device-side sample time (HID Scan Time convention, 100 us units): hosts
  * derive finger velocity from this rather than from arrival time, which
  * BLE connection-interval batching distorts. Only computed when a report
- * actually goes out - the 64-bit divide is not free on a Cortex-M.
+ * actually goes out or a peripheral stamp arrives - the 64-bit divide is
+ * not free on a Cortex-M.
  *
  * This is the local pad's clock, read when the frame is processed. A pad
  * relayed from a split peripheral is processed here too, after the split
  * hop, so for it this reading would carry the link's delivery jitter; the
  * peripheral can send its own reading along with the frame instead (see
- * zmk/raw_touch/split_stamp.h), and raw_touch_process_frame() prefers
- * that when it arrived. */
-static uint16_t raw_touch_timestamp(void) {
-    return (uint16_t)(k_ticks_to_us_floor64(k_uptime_ticks()) / 100);
+ * zmk/raw_touch/split_stamp.h), and raw_touch_frame_timestamp() prefers
+ * that. */
+static uint16_t raw_touch_timestamp(void) { return (uint16_t)zmk_raw_touch_split_stamp_now(); }
+
+/* The timestamp of the frame being processed, on the pad's one timeline:
+ * its peripheral stamp when that arrived, and otherwise the local clock
+ * shifted by the last stamp's offset. A pad that has never been stamped
+ * has offset 0, i.e. the local clock. */
+static uint16_t raw_touch_frame_timestamp(const struct raw_touch_pad_data *data, bool have_stamp,
+                                          uint16_t stamp) {
+    return have_stamp ? stamp : (uint16_t)(raw_touch_timestamp() + data->stamp_offset);
+}
+
+enum raw_touch_tap_action {
+    RT_TAP_NONE,
+    RT_TAP_EMIT,
+    /* Held for the host to confirm (see zmk/raw_touch/tap.h). */
+    RT_TAP_PARK,
+};
+
+/* What a lift-off does about a tap, decided once from the whole touch and
+ * the lease as it stands at lift-off. */
+static enum raw_touch_tap_action raw_touch_tap_action(const struct raw_touch_pad_config *cfg,
+                                                      const struct raw_touch_pad_data *data,
+                                                      bool lease_held) {
+    if (!data->tap_candidate || (k_uptime_get() - data->touch_down_ts) > cfg->tap_max_ms) {
+        return RT_TAP_NONE;
+    }
+
+    if (!data->touch_scrolled) {
+        return RT_TAP_EMIT;
+    }
+
+    /* Scroll context vetoes the tap unless the pad opts out of the veto:
+     * a flick on a scroll layer, or a touch that stops momentum in
+     * RawTouch mode, must not click by default, but a dedicated scrolling
+     * pad may want its taps (e.g. mapped to a right click downstream). */
+    if (!cfg->tap_click_while_scrolling) {
+        return RT_TAP_NONE;
+    }
+
+    /* A leasing host runs the momentum, so only it knows whether the touch
+     * merely caught a coasting tail: park the tap and let it decide.
+     * Without the lease this is Standard mode, where taps are never
+     * parked. */
+    return lease_held ? RT_TAP_PARK : RT_TAP_EMIT;
 }
 
 static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
@@ -195,6 +265,10 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
     bool have_stamp = data->stamp_valid;
     uint16_t stamp = data->stamp;
     data->stamp_valid = false;
+
+    if (have_stamp) {
+        data->stamp_offset = (uint16_t)(stamp - raw_touch_timestamp());
+    }
 
     /* An absolute-mode pad marks lift-off with an all-zeros idle frame. */
     bool touched = !(data->cur_x == 0 && data->cur_y == 0 && data->cur_z == 0);
@@ -212,6 +286,37 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
      * and the wheel suppression below must all revert on the very next
      * frame after a lease lapses or the endpoint switches away. */
     bool lease_held = zmk_raw_touch_lease_held_for_selected();
+
+    if (touched && !data->prev_touched) {
+        /* Touch-down: start a tap candidacy. */
+        data->touch_down_ts = k_uptime_get();
+        data->touch_down_x = data->cur_x;
+        data->touch_down_y = data->cur_y;
+        data->tap_candidate = cfg->tap_click;
+        data->touch_scrolled = false;
+        /* A new touch supersedes a parked tap the host never confirmed. */
+        atomic_clear(&data->pending_tap_until);
+    }
+
+    data->touch_scrolled = data->touch_scrolled || scroll_mode;
+
+    if (touched && data->tap_candidate) {
+        int travel_x = (int)data->cur_x - (int)data->touch_down_x;
+        int travel_y = (int)data->cur_y - (int)data->touch_down_y;
+        if (MAX(abs(travel_x), abs(travel_y)) > cfg->tap_max_movement) {
+            data->tap_candidate = false;
+        }
+    }
+
+    enum raw_touch_tap_action tap =
+        touched ? RT_TAP_NONE : raw_touch_tap_action(cfg, data, lease_held);
+
+    if (tap == RT_TAP_PARK) {
+        /* Before the release frame goes out, so the tap is already parked
+         * by the time the host can confirm it. */
+        atomic_set(&data->pending_tap_until,
+                   (atomic_val_t)(k_uptime_get_32() + ZMK_RAW_TOUCH_TAP_CONFIRM_WINDOW_MS));
+    }
 
     if (lease_held) {
         uint8_t flags = (touched ? ZMK_RAW_TOUCH_FLAGS_TOUCHED : 0) |
@@ -232,56 +337,35 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
          * re-sending it would go nowhere either, and the host's silence
          * watchdog covers them. */
         zmk_raw_touch_hid_set(cfg->pad_id, data->cur_x, data->cur_y, data->cur_z, flags,
-                              data->seq++, have_stamp ? stamp : raw_touch_timestamp());
+                              data->seq++, raw_touch_frame_timestamp(data, have_stamp, stamp));
         zmk_raw_touch_send_report();
         data->stream_touched = touched;
+        data->stream_endpoint = zmk_raw_touch_selected_endpoint();
     } else if (data->stream_touched) {
         /* The lease ended mid-touch (timeout, host release, endpoint
-         * switch - see raw_touch_lease.c) and the last report the host saw said
-         * touched. Emit exactly one synthetic release report so the host
-         * closes its gesture instead of holding a phantom finger-down
+         * switch - see raw_touch_lease.c) and the last report the host saw
+         * said touched. Emit exactly one synthetic release report so the
+         * host closes its gesture instead of holding a phantom finger-down
          * (runaway momentum), then go silent. Bit 2 is clear - its meaning
          * stays exact: "a host lease was held when this frame was
          * sampled" - which also tells the host the wheel fallback is live
-         * again, so it must not add lift-off momentum on top. */
-        zmk_raw_touch_hid_set(cfg->pad_id, 0, 0, 0,
-                              scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0, data->seq++,
-                              have_stamp ? stamp : raw_touch_timestamp());
-        zmk_raw_touch_send_report();
+         * again, so it must not add lift-off momentum on top.
+         *
+         * Only to the endpoint that saw the touch: after an endpoint
+         * switch the report would reach a host that never did, so nothing
+         * is sent and the old host's silence watchdog closes the gesture. */
+        if (zmk_raw_touch_selected_endpoint() == data->stream_endpoint) {
+            zmk_raw_touch_hid_set(cfg->pad_id, 0, 0, 0,
+                                  scroll_mode ? ZMK_RAW_TOUCH_FLAGS_SCROLL_MODE : 0, data->seq++,
+                                  raw_touch_frame_timestamp(data, have_stamp, stamp));
+            zmk_raw_touch_send_report();
+        }
         data->stream_touched = false;
     }
-    /* No lease and nothing owed: emit nothing. Everything below - tap
-     * detection, relative-delta derivation, prev_x/prev_y tracking - keeps
-     * running regardless, because it IS Standard mode (cursor + tap +
-     * wheel fallback). */
-
-    if (touched && !data->prev_touched) {
-        /* Touch-down: start a tap candidacy. */
-        data->touch_down_ts = k_uptime_get();
-        data->touch_down_x = data->cur_x;
-        data->touch_down_y = data->cur_y;
-        data->tap_candidate = cfg->tap_click;
-        data->tap_scroll_seen = false;
-        data->tap_scroll_leased = false;
-        /* A new touch supersedes a parked tap the host never confirmed. */
-        data->pending_tap_until = 0;
-    }
-
-    /* Scroll context vetoes the tap unless the pad opts out of the veto:
-     * a flick on a scroll layer, or a touch that stops momentum in
-     * RawTouch mode, must not click by default, but a dedicated scrolling
-     * pad may want its taps (e.g. mapped to a right click downstream). */
-    data->tap_scroll_seen =
-        data->tap_scroll_seen || (scroll_mode && !cfg->tap_click_while_scrolling);
-    data->tap_scroll_leased = data->tap_scroll_leased || (scroll_mode && lease_held);
-
-    if (touched && data->tap_candidate) {
-        int travel_x = (int)data->cur_x - (int)data->touch_down_x;
-        int travel_y = (int)data->cur_y - (int)data->touch_down_y;
-        if (MAX(abs(travel_x), abs(travel_y)) > cfg->tap_max_movement) {
-            data->tap_candidate = false;
-        }
-    }
+    /* No lease and nothing owed: emit nothing. Everything else - tap
+     * detection above, relative-delta derivation and prev_x/prev_y
+     * tracking below - runs regardless, because it IS Standard mode
+     * (cursor + tap + wheel fallback). */
 
     /* Dual mode: derive relative deltas for the normal pointer pipeline,
      * even in scroll mode - an existing wheel-mapping overlay then
@@ -320,15 +404,10 @@ static void raw_touch_process_frame(const struct raw_touch_pad_config *cfg,
         }
     }
 
-    if (!touched && data->tap_candidate && !data->tap_scroll_seen &&
-        (k_uptime_get() - data->touch_down_ts) <= cfg->tap_max_ms) {
-        if (data->tap_scroll_leased) {
-            /* The host watched this scroll-context touch and may know it
-             * was a catch, not a tap: park it and let the host decide. */
-            data->pending_tap_until = k_uptime_get() + ZMK_RAW_TOUCH_TAP_CONFIRM_WINDOW_MS;
-        } else {
-            raw_touch_emit_tap(cfg);
-        }
+    if (tap == RT_TAP_EMIT) {
+        /* K_NO_WAIT: dropping a click beats deadlocking the input queue we
+         * are dispatched from. */
+        raw_touch_emit_tap(cfg, data, K_NO_WAIT);
     }
 
     if (touched) {
@@ -365,6 +444,13 @@ static void raw_touch_set_peer_version(const struct raw_touch_pad_config *cfg,
 
 static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
                                   struct raw_touch_pad_data *data, struct input_event *evt) {
+    /* Every callback for the pad, whatever the event, is a chance to send
+     * an owed tap release - the first is usually the tap's own press
+     * coming back through the queue, which has freed a slot. */
+    if (atomic_clear(&data->release_owed)) {
+        raw_touch_release_tap(cfg, data, K_NO_WAIT);
+    }
+
     if (evt->type == ZMK_RAW_TOUCH_SPLIT_STAMP_TYPE) {
         switch (evt->code) {
         case ZMK_RAW_TOUCH_SPLIT_STAMP_CODE:
@@ -485,12 +571,12 @@ int zmk_raw_touch_tap_confirm(uint8_t pad_id) {
             continue;
         }
 
-        int64_t until = data->pending_tap_until;
+        /* Taken, not read, so a parked tap is emitted at most once. */
+        uint32_t until = (uint32_t)atomic_clear(&data->pending_tap_until);
 
-        if (until != 0 && k_uptime_get() <= until) {
-            data->pending_tap_until = 0;
+        if (until != 0 && (int32_t)(until - k_uptime_get_32()) >= 0) {
             LOG_DBG("Raw touch pad %d tap confirmed by the host", pad_id);
-            raw_touch_emit_tap(cfg);
+            raw_touch_emit_tap(cfg, data, RT_TAP_CONFIRM_TIMEOUT);
         } else {
             LOG_DBG("Raw touch pad %d tap confirm with nothing parked", pad_id);
         }
