@@ -8,7 +8,7 @@ state to a host application over USB or Bluetooth. The macOS companion,
 native macOS scroll gestures: vertical and horizontal scrolling, lift-off
 momentum, and touch-to-stop.
 
-<p align="center"><img src="https://raw.githubusercontent.com/kalakris/rawtouch/main/docs/images/demo.webp" width="240" alt="A finger on a Go60's built-in trackpad scrolls a web page through RawTouch: the page follows the finger, coasts after a flick, and stops when the finger touches down again"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/kalakris/rawtouch/main/docs/images/demo.gif" width="240" alt="A finger on a Go60's built-in trackpad scrolls a web page through RawTouch: the page follows the finger, coasts after a flick, and stops when the finger touches down again"></p>
 
 The module also derives ordinary pointer movement and optional tap-to-click
 from the same input, and your wheel processors keep scrolling working when
