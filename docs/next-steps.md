@@ -2212,3 +2212,7 @@ menu or Settings → Advanced, writing the same CSV the offline bench and
 do not invite recordings (README review round 2, 2026-09-26). When
 built: re-add the invitation to CONTRIBUTING / how-it-works, point
 `record.py` at it, and retire the zmk-config monitor for capture use.
+Also before the public flip if possible, else with this item: rawtouch's
+`bench/safari-bounce/record.py` defaults to
+`~/zmk-config/scripts/raw-touch-monitor.swift` (unpublished) — point it
+at the in-app recorder or ship the monitor with rawtouch.
