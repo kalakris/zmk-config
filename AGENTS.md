@@ -222,10 +222,11 @@ in `firmware/raw-touch-v0-prototype/`):
   template + four integration commits (west, workflow, conf, keymap) +
   one docs commit (folded 2026-09-24, `main` = `2aa75da`; old history in
   `backup/main-pre-fold` + `~/Documents/go60-rawtouch-config-pre-fold-2026-09-24.bundle`), STOCK split roles (left half central;
-  the reverse of this keyboard, so hardware-untested — its
-  `docs/hardware-checklist.md` says what). `main` cannot build in Actions
+  the reverse of this keyboard) — HARDWARE-VERIFIED 2026-09-25 (every
+  checklist item, USB + BLE, wired + wireless; Standard-mode scroll
+  direction now matches stock, faster wired-split polling on `main`). `main` cannot build in Actions
   while the module is private; the throwaway branch `ci-vendored` vendors
-  it (pre-fold history; delete after the flip). Its west.yml carries TEMPORARY pins marked
+  it (module `0e80639`; delete after the flip). Its west.yml carries TEMPORARY pins marked
   for the release tags. State: publish brief, "Public starter configuration"
 - `~/src/zmk-raw-touch` (`kalakris/zmk-raw-touch@main`) — **the module**: private HID report descriptor, second USB HID interface + second BLE HIDS instance, frame handler, `zip_raw_touch_scroll` marker, `zip_raw_touch_idle_filter`. Name final (renamed from `-wip`); still **private** — vendored into `vendor/` for CI
 - `~/src/zmk` (`kalakris/zmk@raw-touch`) — the old ZMK core patch. **Dead; safe to delete** — `cfc4b3e6` is salvaged as `patches/zmk-skip-empty-mouse-report-syncs.patch`
