@@ -251,14 +251,18 @@ order among retained reports; a new touch does not overtake an earlier
 queued release.
 
 - **USB:** transfer completion drains the queue. A busy interrupt
-  endpoint can defer a release without immediately losing it. Bus reset,
-  detach, and transport errors can flush pending reports.
+  endpoint can defer a release without immediately losing it. Suspending
+  USB flushes the queue; new reports received while suspended are dropped
+  and request remote wakeup. Bus reset, detach, and transport errors can
+  also flush pending reports.
 - **BLE:** failed release notifications are retried at the head of the
-  queue, 8 ms apart, for at most four attempts. Queued entries are bound
-  to the profile selected at enqueue time and are sent while that profile
-  is the active BLE profile, even if output has since moved to USB. They
-  are discarded once another profile is active, or when their profile
-  disconnects. Old reports are not forwarded to a different host.
+  queue, 8 ms apart, for at most four attempts, except when the host has
+  not subscribed (`-EINVAL`); those reports are dropped without retrying.
+  Queued entries are bound to the profile selected at enqueue time and
+  are sent while that profile is the active BLE profile, even if output
+  has since moved to USB. They are discarded once another profile is
+  active, or when their profile disconnects. Old reports are not
+  forwarded to a different host.
 
 These measures protect releases during ordinary congestion; they do not
 guarantee delivery. Link loss, power loss, endpoint changes, exhausted
