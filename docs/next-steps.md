@@ -2199,3 +2199,16 @@ consistent (and on average a bit higher) than with
 Lift-off *prediction* from strength was rejected: the firmware already
 sends the release immediately, so ≤ 10–20 ms of momentum start is all
 it could buy, against false lifts on light touches.
+
+## ff. POST-RELEASE: session recording from the app UI (2026-09-26)
+
+Bug reports about scroll feel need a recording of the pad's frames, but
+the only capture tool is `scripts/raw-touch-monitor.swift` in this
+private repo (rawtouch's `bench/safari-bounce/record.py` defaults to it,
+`bench/captures/README.md` describes its output). The user's decision:
+recording belongs in the RawTouch UI (e.g. "Record a session…" in the
+menu or Settings → Advanced, writing the same CSV the offline bench and
+`CaptureTrace` replay), not a separate tool. Until then the public docs
+do not invite recordings (README review round 2, 2026-09-26). When
+built: re-add the invitation to CONTRIBUTING / how-it-works, point
+`record.py` at it, and retire the zmk-config monitor for capture use.
