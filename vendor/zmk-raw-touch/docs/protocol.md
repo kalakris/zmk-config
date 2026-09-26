@@ -11,6 +11,23 @@ contact ID field does not imply implemented multi-touch support.
 
 Like the rest of the repository, this specification is MIT-licensed.
 
+## Host lifecycle
+
+1. **Find the device.** Match HID collections with usage page `0xFF00`
+   and usage `0x01` ([framing](#collection-and-report-framing)).
+2. **Identify it.** Read the [feature report](#feature-report) and check
+   its magic, protocol version, and `16 + 8 × N` length. Skip a device
+   that fails; never send it a command.
+3. **Acquire the lease** if `capabilities` bit 0 is set, once ready to
+   generate scroll events ([host lease](#host-lease)).
+4. **Renew the lease** at intervals no longer than half its timeout.
+5. **Parse input reports** ([input report](#input-report)), closing a
+   touch after about 150 ms of silence
+   ([delivery and lost releases](#delivery-and-lost-releases)).
+6. **Confirm taps** if `capabilities` bit 1 is set
+   ([tap confirm](#tap-confirm)).
+7. **Release the lease** on exit.
+
 ## Collection and report framing
 
 | Field | Value |
@@ -18,7 +35,7 @@ Like the rest of the repository, this specification is MIT-licensed.
 | Usage page | `0xFF00` |
 | Usage | `0x01` |
 | Report ID | `0x04` for input and feature reports |
-| USB | Separate HID interface, currently `HID_1` |
+| USB | A second HID interface, separate from the keyboard's |
 | Bluetooth | Separate HID-over-GATT service instance |
 
 The vendor usage pair is not unique to this project. A host **must read
@@ -183,12 +200,20 @@ feature-characteristic write:
 | 3 | 1 | Reserved, must be zero |
 
 For example, `01 01 1e 00` requests 30 seconds and `01 00 00 00`
-releases. USB accepts a body with or without its leading report ID;
-BLE writes carry only the body. Invalid USB requests are stalled. BLE
-rejects a wrong length with `Invalid Attribute Value Length`, invalid
-fields with `Value Not Allowed`, nonzero offsets with `Invalid Offset`,
-and writes from a peer outside the bonded host profiles with
-`Write Not Permitted`.
+releases.
+
+Send the four bytes alone, or zero-padded to the feature report's body
+length (`16 + 8 × N`): Windows' `HidD_SetFeature`, and hidapi on
+Windows, always write the declared length. Every padding byte must be
+zero. Over USB, a leading report ID is accepted where the host API
+includes it. BLE writes carry no report ID, and the command must arrive
+in a single write: the firmware refuses long writes, so a padded body
+has to fit the link's ATT MTU.
+
+Invalid USB requests are stalled. BLE rejects a short body or nonzero
+padding with `Invalid Attribute Value Length`, invalid fields with
+`Value Not Allowed`, nonzero offsets with `Invalid Offset`, and writes
+from a peer outside the bonded host profiles with `Write Not Permitted`.
 
 A lease belongs to the USB endpoint or the specific BLE profile that
 wrote it. It suppresses wheel motion only while that endpoint is
@@ -224,15 +249,19 @@ body**, framed exactly like the lease command:
 | 1 | 1 | `pad_id` of the touch being confirmed |
 | 2 | 2 | Reserved, must be zero |
 
-The firmware honors the command only from the endpoint that holds the
-lease and ignores it, without error, when nothing is parked or the
-window has passed, so a host may confirm liberally. The host should
-confirm exactly the scroll-context touches that were not catching a
-coasting momentum tail; the firmware's own `tap-max-ms` and
+A confirm with nonzero reserved bytes is rejected like an invalid lease
+command. Otherwise the firmware honors the command only from the
+endpoint that holds the lease, and ignores it without error from any
+other endpoint. From the leasing endpoint it is also ignored without
+error when nothing is parked or the window has passed, so a host may
+confirm liberally; a `pad_id` the keyboard does not have is rejected.
+The host should confirm exactly the scroll-context touches that were not
+catching a coasting momentum tail; the firmware's own `tap-max-ms` and
 `tap-max-movement` still apply, so a confirmation can never produce a
-tap the keymap would not have. The emitted tap enters the pad's listener
-chain like any other, so what it does is the keymap's decision. In
-Standard mode, and for pads without bit 3, taps are never parked.
+tap the firmware's own detector would not have. The emitted tap enters
+the pad's listener chain like any other, so what it does is the keymap's
+decision. In Standard mode, and for pads without bit 3, taps are never
+parked.
 
 The RawTouch app additionally requires the touch to stay in scroll
 context throughout, last no more than 300 ms, and move no more than

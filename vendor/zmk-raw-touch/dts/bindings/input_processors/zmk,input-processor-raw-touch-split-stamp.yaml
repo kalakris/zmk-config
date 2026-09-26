@@ -16,7 +16,8 @@ description: |
   handler uses it in place of its own. Nothing is needed on the central,
   and the wire protocol is unchanged - the timestamp just gets better.
 
-  Ahead of the first frame of each touch it also sends this half's module
+  Before its first frame after boot, and again before the next frame
+  after a gap of at least 500 ms, it also sends this half's module
   version, which the central publishes in the relayed pad's feature-report
   slot, so a host can see which build each half runs.
 

@@ -558,6 +558,15 @@ static void raw_touch_input_event(const struct raw_touch_pad_config *cfg,
 #define RT_INST(n)                                                                                 \
     BUILD_ASSERT(DT_INST_PROP(n, pad_id) < 8, "raw touch pad-id must be less than 8");             \
     BUILD_ASSERT(DT_INST_PROP(n, tap_max_ms) <= 5000, "raw touch tap-max-ms must be <= 5000");     \
+    /* The feature slot stores resolution in one byte and the ranges in                            \
+     * 16 bits, and any pad may be the one the HID descriptor declares its                         \
+     * signed 16-bit logical maxima from (raw_touch_hid.c): out-of-range                           \
+     * values would otherwise build and be truncated. */                                           \
+    BUILD_ASSERT(DT_INST_PROP(n, resolution) <= 255, "raw touch resolution must be <= 255");       \
+    BUILD_ASSERT(DT_INST_PROP(n, x_max) > 0 && DT_INST_PROP(n, x_max) <= 0x7FFF,                   \
+                 "raw touch x-max must be between 1 and 32767");                                   \
+    BUILD_ASSERT(DT_INST_PROP(n, y_max) > 0 && DT_INST_PROP(n, y_max) <= 0x7FFF,                   \
+                 "raw touch y-max must be between 1 and 32767");                                   \
     /* feature_slot starts at "none": raw_touch_init() hands out the real                          \
      * ones, and nothing may write a slot it does not own before then. */                          \
     static struct raw_touch_pad_data rt_data_##n = {.feature_slot = -1};                           \

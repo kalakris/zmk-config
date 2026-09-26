@@ -35,22 +35,23 @@ properties:
     type: int
     default: 2047
     description: |
-      Maximum absolute X coordinate the pad reports. The default is the
-      Cirque Pinnacle full-scale value.
+      Maximum absolute X coordinate the pad reports, 1 to 32767. The
+      default is the Cirque Pinnacle full-scale value.
 
   y-max:
     type: int
     default: 1535
     description: |
-      Maximum absolute Y coordinate the pad reports. The default is the
-      Cirque Pinnacle full-scale value.
+      Maximum absolute Y coordinate the pad reports, 1 to 32767. The
+      default is the Cirque Pinnacle full-scale value.
 
   resolution:
     type: int
     default: 38
     description: |
-      Pad resolution in counts per millimetre, 0 if unknown. The default is
-      the Cirque Pinnacle value.
+      Pad resolution in counts per millimetre, 0 if unknown; at most 255,
+      since the feature report stores it in one byte. The default is the
+      Cirque Pinnacle value.
 
   rotate-90:
     type: boolean

@@ -30,7 +30,7 @@
 &remote_trackpad_listener {
     status = "okay";
     device = <&trackpad_split>;
-    input-processors = <&zip_xy_scaler 1 1>,
+    input-processors = <&zip_xy_scaler 1 3>,
                        <&zip_raw_touch_idle_filter_remote>;
 
     scroll {

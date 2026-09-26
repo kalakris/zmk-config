@@ -281,9 +281,12 @@ static int get_report_cb(const struct device *dev, struct usb_setup_packet *setu
  *
  * Per HID 1.11 a control-pipe report on a device using report IDs is
  * ID-prefixed, matching what get_report_cb returns; but host stacks are
- * not uniform about the prefix on Set_Report, so a bare 4-byte body is
+ * not uniform about the prefix on Set_Report, so a leading report-ID byte
+ * is stripped when present, whatever the length, and a bare body is
  * accepted too. The two forms cannot collide: the command bytes (0x01,
- * 0x02) are distinct from the report ID 0x04.
+ * 0x02) are distinct from the report ID 0x04. Zero padding to the feature
+ * report's declared length (Windows always sends it) is accepted by the
+ * command handler.
  *
  * CONFIG_ENABLE_HID_INT_OUT_EP stays untouched -- it is a global symbol
  * that would add an interrupt OUT endpoint to ZMK's keyboard interface as
@@ -304,7 +307,7 @@ static int set_report_cb(const struct device *dev, struct usb_setup_packet *setu
     const uint8_t *body = *data;
     size_t body_len = *len;
 
-    if (body_len == ZMK_RAW_TOUCH_CMD_LEN + 1 && body[0] == ZMK_RAW_TOUCH_REPORT_ID) {
+    if (body_len > 0 && body[0] == ZMK_RAW_TOUCH_REPORT_ID) {
         body++;
         body_len--;
     }

@@ -34,8 +34,10 @@
 #include <zmk/endpoints_types.h>
 
 /* Host command length, for the lease and tap confirm alike: the 4-byte
- * SET-feature-report body (over USB the control payload may additionally
- * carry the leading report-ID byte). */
+ * SET-feature-report body. A longer write is accepted when every byte
+ * past these four is zero (hosts that pad to the feature report's declared
+ * length), and over USB the control payload may additionally carry the
+ * leading report-ID byte. */
 #define ZMK_RAW_TOUCH_CMD_LEN 4
 
 /* body[0]: command. 0x01 = host lease; 0x02 = tap confirm (see
@@ -67,10 +69,11 @@
  *
  * @param source The endpoint instance the write arrived on.
  * @param body The command body (without any report-ID prefix).
- * @param len Length of @p body; must be ZMK_RAW_TOUCH_CMD_LEN.
+ * @param len Length of @p body; at least ZMK_RAW_TOUCH_CMD_LEN, with every
+ *            byte past the command zero.
  *
  * @retval 0 on success.
- * @retval -EMSGSIZE on a wrong length.
+ * @retval -EMSGSIZE on a short body or nonzero padding.
  * @retval -ENOTSUP on an unknown command byte.
  * @retval -EINVAL on a bad operation, timeout or reserved byte.
  */

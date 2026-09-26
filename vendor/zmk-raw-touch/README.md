@@ -43,11 +43,11 @@ scroll events. If it is disabled or lacks Accessibility permission, the
 keyboard stays in Standard mode. Quitting normally returns to Standard
 mode promptly; after a crash or force-quit, this can take up to 30 seconds.
 
-The module currently handles one contact per pad because I only have
-Cirque Pinnacle pads to develop and test with. Multi-touch is within the
-project's scope: contributions for TPS43 and other multi-touch pads are
-welcome. These would need additional firmware and host support, and may
-need protocol extensions.
+The module currently handles one contact per pad: it was developed and
+tested with Cirque Pinnacle pads, which report a single contact.
+Multi-touch is within the project's scope: contributions for TPS43 and
+other multi-touch pads are welcome. These would need additional firmware
+and host support, and may need protocol extensions.
 
 ## Compatibility
 
@@ -73,25 +73,6 @@ Test reports from other keyboards, trackpads, and host setups are welcome
 and will help expand this list. Please include your hardware, firmware
 and OS versions, connection type, and what worked or failed in an
 [issue](https://github.com/kalakris/zmk-raw-touch/issues).
-
-### Versioning
-
-Releases are tagged `v0.y.z`, starting at `v0.1.0`. The module is pre-1.0,
-so a minor release may change interfaces. The moving tag `stable` always
-points at the newest stable release.
-[`include/zmk/raw_touch/version.h`](include/zmk/raw_touch/version.h) holds
-the number: the firmware reports it to the host, and CI rejects a `v*` tag
-that disagrees with it.
-
-The protocol version is the only compatibility contract with a host; the
-module version is diagnostic. RawTouch's
-[compatibility table](https://github.com/kalakris/rawtouch#firmware-compatibility)
-lists which app versions speak which protocol.
-
-Changes to the HID report map, including adding or removing a pad,
-require a fresh Bluetooth pairing on hosts that cache the map, including
-macOS (see [Troubleshooting](#troubleshooting)). Release notes say when
-an update does this.
 
 ### Driver requirements
 
@@ -122,10 +103,15 @@ to an existing Go60 configuration.
 
 For manual integration, you need an existing ZMK configuration that
 builds for your board, a compatible absolute-mode driver, and
-`CONFIG_ZMK_POINTING=y`. Decide how each pad should scroll: on a layer
-(the walkthrough below), or always, as a
-[dedicated scrolling pad](#dedicated-scrolling-pad) (a small change at
-the end of step 3).
+`CONFIG_ZMK_POINTING=y`. The module targets ZMK 0.3 on Zephyr 3.5:
+MoErgo's tree is tested, upstream ZMK `v0.3` is expected to work but is
+untested, and ZMK `main` on Zephyr 4.1 is not supported yet. The
+devicetree snippets below go in your board's `.keymap` or `.overlay`
+file under `config/`.
+
+Decide how each pad should scroll: on a layer (the walkthrough below),
+or always, as a [dedicated scrolling pad](#dedicated-scrolling-pad) (a
+small change at the end of step 2).
 
 ### 1. Add the module to your manifest
 
@@ -160,7 +146,11 @@ chosen module release's notes:
       revision: <driver-release-tag>
 ```
 
-### 2. Start from a trackpad configuration
+The driver publishes a moving `stable` tag too, with the same trade-off:
+it follows new driver releases without edits, and a local workspace
+needs `west update --fetch=always` to see them.
+
+### 2. Configure the trackpad
 
 Here is an illustrative configuration written for this guide: a Pinnacle
 pad points normally, supports taps, and scrolls while layer 2 is active.
@@ -169,13 +159,121 @@ The board already defines a physical device named `trackpad`, including
 its SPI or I²C bus and data-ready GPIO. Those hardware definitions are
 omitted here.
 
-The example pad is mounted with its axes swapped and Y inverted, so both
-listener chains apply that transform. Use the orientation and layer
-number that match your keyboard. Bind a key to activate `SCROLL_LAYER`.
-The `tap_to_click` mapper converts the driver's `INPUT_BTN_TOUCH` tap
-report to ZMK's left mouse button, `INPUT_BTN_0`.
+The example pad is mounted with its axes swapped and Y inverted. Use the
+orientation and layer number that match your keyboard, and bind a key to
+activate `SCROLL_LAYER`. Edit your existing pad and listener rather than
+adding a second active listener for the same pad.
 
-**Before — relative-mode pointing and wheel scrolling:**
+<!-- example: examples/trackpad/raw-touch.overlay -->
+```dts
+#include <input/processors.dtsi>
+#include <raw_touch/processors.dtsi>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <dt-bindings/zmk/input_transform.h>
+
+#define SCROLL_LAYER 2
+
+&trackpad {
+    data-mode = "absolute";
+    idle-packets-count = <3>;
+    /delete-property/ primary-tap-enable;
+};
+
+/ {
+    raw_touch_pad: raw_touch_pad {
+        compatible = "zmk,raw-touch-pad";
+        device = <&trackpad>;
+        pad-id = <0>;
+        rotate-90;
+        y-invert;
+        tap-click;
+    };
+
+    trackpad_listener: trackpad_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackpad>;
+        input-processors = <&zip_xy_scaler 1 3>,
+                           <&zip_raw_touch_idle_filter>;
+
+        scroll {
+            layers = <SCROLL_LAYER>;
+            input-processors = <&zip_raw_touch_scroll>,
+                               <&zip_xy_to_scroll_mapper>,
+                               <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
+                               <&zip_scroll_scaler 1 24>,
+                               <&zip_raw_touch_idle_filter>;
+        };
+    };
+};
+```
+
+The configuration has five jobs:
+
+1. **Report finger positions and releases.** Absolute mode provides the
+   coordinates; `idle-packets-count = <3>` supplies lift-off samples.
+   `/delete-property/` removes a relative-mode setting the board may
+   already set on the node; delete any other inherited property the
+   driver does not recognize the same way.
+2. **Register the pad.** `zmk,raw-touch-pad` streams its touch data when
+   requested by the host and derives ordinary pointer motion for the
+   listener. Give each pad its own ID.
+3. **Describe the mounting and taps on the pad node.** `rotate-90` and
+   `y-invert` orient both pointer motion and host scrolling. Do not apply
+   orientation twice: leave out driver-level `invert-x`, `invert-y`, or
+   `swap-xy`, and listener `zip_xy_transform` processors. `tap-click`
+   supplies tap-to-click, which absolute mode turns off in the Pinnacle
+   hardware (see *Why the module handles taps* below).
+4. **Mark the scrolling chain and scale it.** `zip_raw_touch_scroll`
+   tells the host when to scroll. Keep the wheel processors for Standard
+   mode. Deltas derived from absolute positions run about three times
+   larger than Pinnacle relative-mode output, so this example divides
+   the pointer by 3 and the wheel by 24; treat both as starting points.
+5. **Filter unchanged reports.** Put the idle filter last in each chain.
+
+The files in this section live under [`examples/trackpad/`](examples/trackpad/).
+CI compiles the raw-touch configurations on a Go60 against the pinned
+trees in [`ci/`](ci/), so the configuration shown here is known to build.
+
+`zip_xy_to_scroll_mapper` is provided by ZMK's `input/processors.dtsi`
+in the tested tree: it maps `INPUT_REL_X` to `INPUT_REL_HWHEEL` and
+`INPUT_REL_Y` to `INPUT_REL_WHEEL`. The scroll scaler handles both wheel
+axes.
+
+The scroll transform chooses the Standard-mode vertical direction, and
+either choice is valid. The oriented pad deltas increase to the right
+and downward, while positive wheel values mean right and up. This
+example inverts Y, so moving a finger down sends the same wheel motion
+as rolling a mouse wheel toward you. MoErgo's stock Go60 chain has no Y
+invert and scrolls the opposite way: drop the transform for that
+direction. The host's Natural scrolling setting then decides which way
+content moves. In RawTouch mode these processors do not apply: RawTouch
+derives direction from the reported pad orientation and its own
+settings.
+
+Two processor rules matter:
+
+- **Scroll marker first:** `&zip_raw_touch_scroll` marks samples handled
+  by this chain as scrolling. In RawTouch mode, firmware suppresses the
+  derived relative motion before it can become wheel events. The marker
+  follows the listener's actual layer/processor selection.
+- **Idle filter last:** `&zip_raw_touch_idle_filter` drops syncs with no
+  mouse-report change, reducing redundant HID traffic. Each listener
+  needs its own filter instance. A listener may reuse its instance in
+  its base and layer chains; different listeners must not share it.
+
+If a hold-tap key activates the scroll layer, trackpad input does not
+resolve its hold-tap decision, so a quick flick can start before the
+layer activates. Add `hold-while-undecided;` to that hold-tap so a flick
+that starts inside its tapping term still scrolls.
+
+<details>
+<summary>Converting from a relative-mode configuration</summary>
+
+If your pad already points and scrolls in relative mode, this is the
+same pad before the change: the driver recognizes taps in hardware, a
+`tap_to_click` mapper converts its `INPUT_BTN_TOUCH` report to ZMK's
+left mouse button, `INPUT_BTN_0`, and both listener chains apply the
+mounting transform.
 
 <!-- example: examples/trackpad/before.overlay -->
 ```dts
@@ -219,19 +317,8 @@ report to ZMK's left mouse button, `INPUT_BTN_0`.
 };
 ```
 
-If your keyboard uses a different Cirque driver, first adapt it to a
-[compatible absolute-mode driver](#driver-requirements). Property names
-vary between drivers: this is not a drop-in patch for every trackpad.
-When replacing a driver, remove inherited properties that its replacement
-does not recognize. Use `/delete-property/ property-name;` inside the
-driver node's overlay, then set the properties required by the new driver.
-Keep the bus and GPIO assignments specific to your board.
-
-### 3. Add raw touch to that configuration
-
-The diff below shows the changes to the example above. Lines starting
-with `-` are removed; lines starting with `+` are added. Edit the existing
-pad and listener rather than adding a second active listener.
+The diff below shows the changes. Lines starting with `-` are removed;
+lines starting with `+` are added.
 
 <!-- example-diff: trackpad.overlay examples/trackpad/before.overlay examples/trackpad/raw-touch.overlay -->
 ```diff
@@ -276,7 +363,7 @@ pad and listener rather than adding a second active listener.
 -        input-processors = <&tap_to_click>,
 -                           <&zip_xy_transform (INPUT_TRANSFORM_XY_SWAP | INPUT_TRANSFORM_Y_INVERT)>,
 -                           <&zip_xy_scaler 1 1>;
-+        input-processors = <&zip_xy_scaler 1 1>,
++        input-processors = <&zip_xy_scaler 1 3>,
 +                           <&zip_raw_touch_idle_filter>;
  
          scroll {
@@ -294,106 +381,52 @@ pad and listener rather than adding a second active listener.
  };
 ```
 
-The changes have five jobs:
+- The listener transforms move to the pad node as `rotate-90` and
+  `y-invert`, and `tap-click` replaces `primary-tap-enable` and the
+  `tap_to_click` mapper.
+- Deltas derived from absolute positions run about three times larger
+  than relative-mode output, so expect a faster pointer and a busier
+  wheel until you divide your existing scalers by about 3. Here the
+  pointer went from `1 1` to `1 3` and the wheel from `1 8` to `1 24`.
 
-1. **Report finger positions and releases.** Absolute mode provides the
-   coordinates; `idle-packets-count = <3>` supplies lift-off samples.
-2. **Register the pad.** `zmk,raw-touch-pad` streams its touch data when
-   requested by the host and derives ordinary pointer motion for the
-   listener. Give each pad its own ID.
-3. **Move orientation and tap handling to the module.** `rotate-90` and
-   `y-invert` replace this example's listener transforms so both pointer
-   motion and host scrolling use the same mounting. `tap-click` replaces
-   the driver's relative-mode tap setting and button mapper (see *Why
-   the module handles taps* below). Do not apply orientation twice;
-   remove driver-level `invert-x`, `invert-y`, or `swap-xy` if present and
-   describe the mounting on the raw-touch pad node instead.
-4. **Mark the scrolling chain.** `zip_raw_touch_scroll` tells the host
-   when to scroll. Keep the wheel processors for Standard mode. Absolute
-   counts can need a different wheel divisor: `1 24` is a starting point
-   replacing this example's `1 8`, not a required conversion ratio.
-5. **Filter unchanged reports.** Put the idle filter last in each chain.
-
-<details>
-<summary>Complete configuration after the changes</summary>
-
-<!-- example: examples/trackpad/raw-touch.overlay -->
-```dts
-#include <input/processors.dtsi>
-#include <raw_touch/processors.dtsi>
-#include <zephyr/dt-bindings/input/input-event-codes.h>
-#include <dt-bindings/zmk/input_transform.h>
-
-#define SCROLL_LAYER 2
-
-&trackpad {
-    data-mode = "absolute";
-    idle-packets-count = <3>;
-    /delete-property/ primary-tap-enable;
-};
-
-/ {
-    raw_touch_pad: raw_touch_pad {
-        compatible = "zmk,raw-touch-pad";
-        device = <&trackpad>;
-        pad-id = <0>;
-        rotate-90;
-        y-invert;
-        tap-click;
-    };
-
-    trackpad_listener: trackpad_listener {
-        compatible = "zmk,input-listener";
-        device = <&trackpad>;
-        input-processors = <&zip_xy_scaler 1 1>,
-                           <&zip_raw_touch_idle_filter>;
-
-        scroll {
-            layers = <SCROLL_LAYER>;
-            input-processors = <&zip_raw_touch_scroll>,
-                               <&zip_xy_to_scroll_mapper>,
-                               <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                               <&zip_scroll_scaler 1 24>,
-                               <&zip_raw_touch_idle_filter>;
-        };
-    };
-};
-```
+If your keyboard uses a different Cirque driver, first adapt it to a
+[compatible absolute-mode driver](#driver-requirements). Property names
+vary between drivers: this is not a drop-in patch for every trackpad.
+When replacing a driver, remove inherited properties that its replacement
+does not recognize. Use `/delete-property/ property-name;` inside the
+driver node's overlay, then set the properties required by the new driver.
+Keep the bus and GPIO assignments specific to your board.
 
 </details>
 
-The files in this section live under [`examples/trackpad/`](examples/trackpad/).
-CI compiles the "after" files on a Go60 against the pinned trees in
-[`ci/`](ci/), so the configuration shown here is known to build.
+<details>
+<summary>Why the module handles taps</summary>
 
-`zip_xy_to_scroll_mapper` is provided by ZMK's `input/processors.dtsi`
-in the tested tree: it maps `INPUT_REL_X` to `INPUT_REL_HWHEEL` and
-`INPUT_REL_Y` to `INPUT_REL_WHEEL`. The scroll scaler handles both wheel
-axes.
+In relative mode, the Pinnacle hardware recognizes taps and reports them
+as button presses. The driver forwards those reports; it does not detect
+taps itself. The driver's `primary-tap-enable` option applies only in
+relative mode.
 
-Only Y is inverted here: the oriented pad deltas increase to the right
-and downward, while positive horizontal wheel means right and positive
-vertical wheel means up. This mapping was verified on the Go60; the host's
-Natural scrolling setting then determines content direction. These wheel
-processors affect Standard mode. RawTouch separately derives direction
-from the reported pad orientation and its host settings.
+Raw touch needs absolute mode to get finger positions and lift-off samples.
+In that mode, the Pinnacle driver explicitly disables hardware tap
+recognition and reports X, Y, and touch strength instead. It has no
+software tap detector for those samples, so leaving `primary-tap-enable`
+set does not preserve tap-to-click. This is how the supported Pinnacle
+driver works, not a general rule that absolute-mode drivers cannot detect
+taps.
 
-Two processor rules matter:
+With `tap-click`, the module supplies that detector: a touch must lift
+within `tap-max-ms` without exceeding `tap-max-movement`. The module also
+knows whether the touch was used for scrolling and suppresses clicks for
+those touches unless the pad sets `tap-click-while-scrolling`. This keeps
+tap behavior consistent in Standard and RawTouch modes, including when
+the host app is not running.
 
-- **Scroll marker first:** `&zip_raw_touch_scroll` marks samples handled
-  by this chain as scrolling. In RawTouch mode, firmware suppresses the
-  derived relative motion before it can become wheel events. The marker
-  follows the listener's actual layer/processor selection.
-- **Idle filter last:** `&zip_raw_touch_idle_filter` drops syncs with no
-  mouse-report change, reducing redundant HID traffic. Each listener
-  needs its own filter instance. A listener may reuse its instance in
-  its base and layer chains; different listeners must not share it.
+The module emits `INPUT_BTN_0` directly, so a `tap_to_click` mapper is
+not needed. Remove processors that discard that button, such as a
+`zip_button_behaviors` instance mapping it to `&none`.
 
-If a hold-tap key activates the scroll layer, check its undecided window:
-trackpad input does not resolve the key's hold-tap decision, so a quick
-flick can start before the layer activates. `hold-while-undecided` makes
-the layer active while the decision is pending; choose it deliberately
-for your keymap.
+</details>
 
 #### Dedicated scrolling pad
 
@@ -446,43 +479,12 @@ In Standard mode such a tap is emitted at lift-off like any other. In
 RawTouch mode the firmware cannot tell a tap from a short touch that only
 stopped the host's momentum, so it holds the tap for up to 250 ms and
 emits it when the host confirms it. RawTouch confirms taps that did not
-stop momentum and stayed within its own limits: 300 ms and 60 counts of
-movement from touch-down on either raw axis. These host limits are fixed,
-with no app setting; the firmware's `tap-max-ms` and `tap-max-movement`
-still apply, so raising them beyond the host limits allows taps in
-Standard mode that RawTouch mode rejects. See
-[Tap confirm](docs/protocol.md#tap-confirm) for the protocol details.
+stop momentum and stay within its own fixed duration and movement
+limits, listed under [Tap confirm](docs/protocol.md#tap-confirm); raising
+`tap-max-ms` or `tap-max-movement` beyond them allows taps in Standard
+mode that RawTouch mode rejects.
 
-<details>
-<summary>Why the module handles taps</summary>
-
-In relative mode, the Pinnacle hardware recognizes taps and reports them
-as button presses. The driver forwards those reports; it does not detect
-taps itself. The driver's `primary-tap-enable` option applies only in
-relative mode.
-
-Raw touch needs absolute mode to get finger positions and lift-off samples.
-In that mode, the Pinnacle driver explicitly disables hardware tap
-recognition and reports X, Y, and touch strength instead. It has no
-software tap detector for those samples, so leaving `primary-tap-enable`
-set does not preserve tap-to-click. This is how the supported Pinnacle
-driver works, not a general rule that absolute-mode drivers cannot detect
-taps.
-
-With `tap-click`, the module supplies that detector: a touch must lift
-within `tap-max-ms` without exceeding `tap-max-movement`. The module also
-knows whether the touch was used for scrolling and suppresses clicks for
-those touches unless the pad sets `tap-click-while-scrolling`. This keeps
-tap behavior consistent in Standard and RawTouch modes, including when
-the host app is not running.
-
-The module emits `INPUT_BTN_0` directly, so the old `tap_to_click` mapper
-is no longer needed. Remove processors that discard that button, such as
-a `zip_button_behaviors` instance mapping it to `&none`.
-
-</details>
-
-### 4. Build and flash
+### 3. Build and flash
 
 Set `CONFIG_ZMK_POINTING=y` in your configuration. An enabled
 `zmk,raw-touch-pad` node then enables the module automatically. Available
@@ -507,7 +509,7 @@ Build with your usual ZMK workflow and flash the resulting firmware.
 For a split keyboard, see [Split keyboards](#split-keyboards) first and
 flash both halves from the same build.
 
-### 5. Check both modes
+### 4. Check both modes
 
 1. With no host app running, check wheel scrolling on the dedicated pad
    or while your scroll layer is active, and pointer movement and taps
@@ -515,8 +517,8 @@ flash both halves from the same build.
    separately: after the first install, Bluetooth hosts need a
    [fresh pairing](#troubleshooting) because the HID services changed.
 2. Install RawTouch and follow its
-   [Get started](https://github.com/kalakris/rawtouch#get-started) steps,
-   which end with a first RawTouch-mode scroll.
+   [Get started](https://github.com/kalakris/rawtouch#get-started) steps
+   from step 2, which end with a first RawTouch-mode scroll.
 3. Quit RawTouch normally and check that Standard-mode scrolling resumes.
 
 The firmware also works in Standard mode on hosts without RawTouch.
@@ -529,17 +531,17 @@ The central half sends reports to the host. A pad on the peripheral half
 sends its input through `zmk,input-split`; the central processes that input
 and sends mouse or raw-touch reports to the computer.
 
-This example starts with a split keyboard that already relays relative
-motion and taps to the central. The changes make it relay absolute touch
-samples instead. The physical pad is `remote_trackpad`; the relay is
+This example relays a pad's absolute touch samples from the peripheral
+to the central. The physical pad is `remote_trackpad`; the relay is
 `trackpad_split`. Reuse your board's existing nodes and labels where
-present. The central and peripheral roles stay the same.
+present. The central and peripheral roles stay as your board defines
+them.
 
-### Shared definitions — unchanged
+### Shared definitions
 
 Both halves use the same relay ID (`reg = <0>` here). This identifies the
-split input channel; it is independent of the raw-touch `pad-id` added
-later. The listener is enabled only on the central.
+split input channel; it is independent of the raw-touch `pad-id`. The
+listener is enabled only on the central.
 
 <!-- example: examples/split/shared.dtsi -->
 ```dts
@@ -570,7 +572,137 @@ and `SCROLL_LAYER` definition, and give the two pads different IDs.
 
 ### Peripheral: send absolute samples
 
-**Before — send relative motion and hardware taps through the split:**
+<!-- example: examples/split/peripheral.overlay -->
+```dts
+&remote_trackpad {
+    data-mode = "absolute";
+    idle-packets-count = <3>;
+    /delete-property/ primary-tap-enable;
+};
+
+/ {
+    input_processors {
+        zip_raw_touch_split_stamp: zip_raw_touch_split_stamp {
+            compatible = "zmk,input-processor-raw-touch-split-stamp";
+            #input-processor-cells = <1>;
+        };
+    };
+};
+
+&trackpad_split {
+    device = <&remote_trackpad>;
+    /* The cell is the relay's own reg (trackpad_split@0 -> 0). */
+    input-processors = <&zip_raw_touch_split_stamp 0>;
+};
+
+&remote_trackpad_listener {
+    status = "disabled";
+};
+```
+
+The peripheral sends unprocessed X/Y/Z samples, including lift-off, and
+its listener stays disabled. Do not add a `zmk,raw-touch-pad` node or
+derive pointer motion on this half: the central does that. If your
+existing driver or split relay transforms or filters the input, remove
+those transformations here and apply the mounting on the central's
+raw-touch node instead.
+
+**The stamp processor sends each frame with the peripheral's own sample
+time.** Without it, a relayed pad's frames are timestamped on the central
+after the split hop, and the link's delivery jitter lands in the
+timestamps the host derives velocity from. Chain it on the relay, on the
+peripheral only; its cell is the relay's own `reg`. It sends one extra
+input event per frame through the relay, and the central's frame handler
+uses it in place of its own clock with no configuration. Nothing changes
+on the wire to the host.
+
+The same processor also announces the peripheral's module version before
+its first frame after boot, and again after any pause of at least 500 ms,
+so a host can show which build each half runs. Until an announcement
+arrives, that pad's version reads as unknown. Each stamp node tracks
+those pauses for one relay, so a peripheral with two relayed pads needs
+two stamp nodes.
+
+### Central: process the relayed touch samples
+
+<!-- example: examples/split/central.overlay -->
+```dts
+#include <input/processors.dtsi>
+#include <raw_touch/processors.dtsi>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <dt-bindings/zmk/input_transform.h>
+
+#define SCROLL_LAYER 2
+
+&trackpad_split {
+    /delete-property/ device;
+};
+
+/ {
+    raw_touch_remote: raw_touch_remote {
+        compatible = "zmk,raw-touch-pad";
+        device = <&trackpad_split>;
+        pad-id = <1>; /* Local pad uses 0. */
+        rotate-90;
+        y-invert;
+        tap-click;
+    };
+
+    input_processors {
+        zip_raw_touch_idle_filter_remote: zip_raw_touch_idle_filter_remote {
+            compatible = "zmk,input-processor-raw-touch-idle-filter";
+            #input-processor-cells = <0>;
+        };
+    };
+};
+
+&remote_trackpad_listener {
+    status = "okay";
+    device = <&trackpad_split>;
+    input-processors = <&zip_xy_scaler 1 3>,
+                       <&zip_raw_touch_idle_filter_remote>;
+
+    scroll {
+        layers = <SCROLL_LAYER>;
+        input-processors = <&zip_raw_touch_scroll>,
+                           <&zip_xy_to_scroll_mapper>,
+                           <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
+                           <&zip_scroll_scaler 1 24>,
+                           <&zip_raw_touch_idle_filter_remote>;
+    };
+};
+```
+
+The receiver has no `device` property on `trackpad_split`; the split link
+supplies its events, and the listener uses that relay as its input
+device. The raw-touch node points to **the relay**, not to the physical
+pad on the other half. It handles tap detection and orientation, while
+the listener's scroll marker selects when the host should scroll. The
+wheel chain still provides Standard-mode scrolling, and the pointer and
+wheel scalers follow the same starting points as the local-pad example.
+
+The remote listener gets its own idle-filter instance. It can share the
+scroll marker with the local listener, but not that listener's idle filter.
+
+Build and flash both halves: the peripheral decides what it sends and
+the central decides how it handles that input. These files live under
+[`examples/split/`](examples/split/); CI compiles the peripheral one on
+the Go60's left half and the central one on its right.
+
+For a dedicated remote scrolling pad, move its scroll processors into its
+base chain as in the [dedicated scrolling example](#dedicated-scrolling-pad),
+keeping `zip_raw_touch_idle_filter_remote` as its filter, and add
+`tap-click-while-scrolling` to `raw_touch_remote` if it should keep taps.
+
+<details>
+<summary>Converting from a relative-mode split</summary>
+
+If your split keyboard already relays relative motion and hardware taps
+to the central, these are the changes on each half. Lines starting with
+`-` are removed; lines starting with `+` are added.
+
+**Peripheral before — send relative motion and hardware taps through the
+split:**
 
 <!-- example: examples/split/peripheral-before.overlay -->
 ```dts
@@ -621,33 +753,8 @@ and `SCROLL_LAYER` definition, and give the two pads different IDs.
  &remote_trackpad_listener {
 ```
 
-The relay keeps its device and the disabled listener stays as it was. The
-peripheral now sends unprocessed X/Y/Z samples, including lift-off.
-Do not add a `zmk,raw-touch-pad` node or derive pointer motion on this
-half: the central does that. If your existing driver or split relay
-transforms or filters the input, remove those transformations here and
-apply the mounting on the central's raw-touch node instead.
-
-**The stamp processor sends each frame with the peripheral's own sample
-time.** Without it, a relayed pad's frames are timestamped on the central
-after the split hop, and the link's delivery jitter lands in the
-timestamps the host derives velocity from. Chain it on the relay, on the
-peripheral only; its cell is the relay's own `reg`. It sends one extra
-input event per frame through the relay, and the central's frame handler
-uses it in place of its own clock with no configuration. Nothing changes
-on the wire to the host.
-
-The same processor also announces the peripheral's module version before
-its first frame after boot, and again after any pause of at least 500 ms,
-so a host can show which build each half runs. Until an announcement
-arrives, that pad's version reads as unknown. Each stamp node tracks
-those pauses for one relay, so a peripheral with two relayed pads needs
-two stamp nodes.
-
-### Central: process the relayed touch samples
-
-**Before — turn relayed motion and taps into pointer, click, and wheel
-reports:**
+**Central before — turn relayed motion and taps into pointer, click, and
+wheel reports:**
 
 <!-- example: examples/split/central-before.overlay -->
 ```dts
@@ -689,10 +796,6 @@ reports:**
     };
 };
 ```
-
-The receiver has no `device` property on `trackpad_split`; the split link
-supplies its events. The listener uses that relay as its input device.
-The button mapper and orientation work as in the local-pad example.
 
 **Changes on the central:**
 
@@ -737,7 +840,7 @@ The button mapper and orientation work as in the local-pad example.
 -    input-processors = <&remote_tap_to_click>,
 -                       <&zip_xy_transform (INPUT_TRANSFORM_XY_SWAP | INPUT_TRANSFORM_Y_INVERT)>,
 -                       <&zip_xy_scaler 1 1>;
-+    input-processors = <&zip_xy_scaler 1 1>,
++    input-processors = <&zip_xy_scaler 1 3>,
 +                       <&zip_raw_touch_idle_filter_remote>;
  
      scroll {
@@ -754,108 +857,11 @@ The button mapper and orientation work as in the local-pad example.
  };
 ```
 
-The new raw-touch node points to **the relay**, not to the physical pad on
-the other half. It takes over tap detection and orientation, while the
-listener's scroll marker selects when the host should scroll. The wheel
-chain still provides Standard-mode scrolling.
-
-The remote listener gets its own idle-filter instance. It can share the
-scroll marker with the local listener, but not that listener's idle filter.
-
-<details>
-<summary>Complete peripheral and central configurations after the changes</summary>
-
-**Peripheral overlay:**
-
-<!-- example: examples/split/peripheral.overlay -->
-```dts
-&remote_trackpad {
-    data-mode = "absolute";
-    idle-packets-count = <3>;
-    /delete-property/ primary-tap-enable;
-};
-
-/ {
-    input_processors {
-        zip_raw_touch_split_stamp: zip_raw_touch_split_stamp {
-            compatible = "zmk,input-processor-raw-touch-split-stamp";
-            #input-processor-cells = <1>;
-        };
-    };
-};
-
-&trackpad_split {
-    device = <&remote_trackpad>;
-    /* The cell is the relay's own reg (trackpad_split@0 -> 0). */
-    input-processors = <&zip_raw_touch_split_stamp 0>;
-};
-
-&remote_trackpad_listener {
-    status = "disabled";
-};
-```
-
-**Central overlay:**
-
-<!-- example: examples/split/central.overlay -->
-```dts
-#include <input/processors.dtsi>
-#include <raw_touch/processors.dtsi>
-#include <zephyr/dt-bindings/input/input-event-codes.h>
-#include <dt-bindings/zmk/input_transform.h>
-
-#define SCROLL_LAYER 2
-
-&trackpad_split {
-    /delete-property/ device;
-};
-
-/ {
-    raw_touch_remote: raw_touch_remote {
-        compatible = "zmk,raw-touch-pad";
-        device = <&trackpad_split>;
-        pad-id = <1>; /* Local pad uses 0. */
-        rotate-90;
-        y-invert;
-        tap-click;
-    };
-
-    input_processors {
-        zip_raw_touch_idle_filter_remote: zip_raw_touch_idle_filter_remote {
-            compatible = "zmk,input-processor-raw-touch-idle-filter";
-            #input-processor-cells = <0>;
-        };
-    };
-};
-
-&remote_trackpad_listener {
-    status = "okay";
-    device = <&trackpad_split>;
-    input-processors = <&zip_xy_scaler 1 1>,
-                       <&zip_raw_touch_idle_filter_remote>;
-
-    scroll {
-        layers = <SCROLL_LAYER>;
-        input-processors = <&zip_raw_touch_scroll>,
-                           <&zip_xy_to_scroll_mapper>,
-                           <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                           <&zip_scroll_scaler 1 24>,
-                           <&zip_raw_touch_idle_filter_remote>;
-    };
-};
-```
+As with a local pad, the listener transforms and the tap mapper move to
+the raw-touch node, and the scalers are divided by about 3 for the
+larger deltas that absolute positions produce.
 
 </details>
-
-Build and flash both halves for this conversion: the peripheral changes
-what it sends and the central changes how it handles that input. These
-files live under [`examples/split/`](examples/split/); CI compiles the
-peripheral one on the Go60's left half and the central one on its right.
-
-For a dedicated remote scrolling pad, move its scroll processors into its
-base chain as in the [dedicated scrolling example](#dedicated-scrolling-pad),
-keeping `zip_raw_touch_idle_filter_remote` as its filter, and add
-`tap-click-while-scrolling` to `raw_touch_remote` if it should keep taps.
 
 ### Wireless splits
 
@@ -903,9 +909,9 @@ Each `zmk,raw-touch-pad` node describes one input device. See the
 |---|---|---|
 | `device` | required | Physical absolute-input device, or a split relay on the central. |
 | `pad-id` | required | Unique ID from 0 to 7. Give every pad a different ID. |
-| `x-max` / `y-max` | `2047` / `1535` | Maximum raw coordinates; set these for your sensor. |
-| `resolution` | `38` | Sensor counts/mm; `0` means unknown. |
-| `rotate-90` | absent | Swap axes when deriving pointer motion; advertise the mounting to the host. |
+| `x-max` / `y-max` | `2047` / `1535` | Maximum raw coordinates, 1 to 32767; set these for your sensor. |
+| `resolution` | `38` | Sensor counts/mm, 0 to 255; `0` means unknown. |
+| `rotate-90` | absent | Swap the X and Y axes when deriving pointer motion; advertise the swap to the host. |
 | `x-invert` / `y-invert` | absent | Invert the corresponding pointer axis after the swap; advertise the flags to the host. |
 | `tap-click` | absent | Enable firmware tap-to-click. |
 | `tap-click-while-scrolling` | absent | Also report taps for scroll-context touches (dedicated scrolling pads); held for host confirmation in RawTouch mode. Requires `tap-click`. |
@@ -913,8 +919,17 @@ Each `zmk,raw-touch-pad` node describes one input device. See the
 | `tap-max-movement` | `30` | Maximum displacement from touch-down on either raw axis, in counts. |
 
 Geometry defaults describe a Cirque Pinnacle. Override them for other
-hardware. Frames carry raw coordinates; orientation flags describe how
-to interpret them.
+hardware. Values outside the ranges above fail the build. Frames carry
+raw coordinates; orientation flags describe how to interpret them.
+
+`rotate-90` only swaps the axes, which on its own mirrors the pad. A true
+90° rotation is the swap plus one invert, as in the example's
+`rotate-90` with `y-invert`; invert the other axis to rotate the other
+way.
+
+The HID report map declares the coordinate ranges of one pad, so
+changing `x-max` or `y-max` can change the report map. Bluetooth hosts
+that cache the map need a [fresh pairing](#troubleshooting) afterwards.
 
 Pad IDs need only be unique within one keyboard. RawTouch keeps different
 keyboards separate and can apply
@@ -940,21 +955,41 @@ pad. Larger queues can absorb bursts but also retain older input longer.
 Disabling only `ZMK_RAW_TOUCH_BLE` leaves Standard-mode pointing and wheel
 scrolling available over Bluetooth while retaining raw reports over USB.
 
+## Versioning
+
+Releases are tagged `v0.y.z`, starting at `v0.1.0`. The module is pre-1.0,
+so a minor release may change interfaces. The moving tag `stable` always
+points at the newest stable release.
+[`include/zmk/raw_touch/version.h`](include/zmk/raw_touch/version.h) holds
+the number: the firmware reports it to the host, and CI rejects a `v*` tag
+that disagrees with it.
+
+The protocol version is the only compatibility contract with a host; the
+module version is diagnostic. RawTouch's
+[compatibility table](https://github.com/kalakris/rawtouch#firmware-compatibility)
+lists which app versions speak which protocol.
+
+Changes to the HID report map, including adding or removing a pad,
+require a fresh Bluetooth pairing on hosts that cache the map, including
+macOS (see [Troubleshooting](#troubleshooting)). Release notes say when
+an update does this.
+
 ## Troubleshooting
 
 **USB works; Bluetooth raw scrolling does not.** Forget the keyboard on
 the host, clear the corresponding keyboard bond with `&bt BT_CLR`, then
 pair again. Do this after adding the second HID service or changing the
-HID report layout, including adding or removing a streaming pad and
-upgrading across a protocol version that changes a report body.
-macOS can retain a stale report map even when typing and feature-report
-reads still work. If a fresh pairing still fails, disconnect and
-reconnect once before investigating further.
+HID report layout, including adding or removing a streaming pad,
+changing a pad's `x-max` or `y-max`, and upgrading across a protocol
+version that changes a report body. macOS can retain a stale report map
+even when typing and feature-report reads still work. If a fresh pairing
+still fails, disconnect and reconnect once before investigating further.
 
-**Pointer works; RawTouch scrolling does not.** Check the host's
-Accessibility permission and master switch, then confirm that the active
-listener chain contains the scroll marker. Confirm that the physical
-driver emits absolute events and release samples.
+**Pointer works; RawTouch scrolling does not.** Check RawTouch's
+Accessibility permission and that **Use RawTouch Scrolling** is on in its
+menu, then confirm that the active listener chain contains the scroll
+marker. Confirm that the physical driver emits absolute events and
+release samples.
 
 **Tap-to-click does nothing.** Enable `tap-click`, check release samples,
 and make sure the listener does not consume the injected `INPUT_BTN_0`.
@@ -963,10 +998,9 @@ unless the pad sets `tap-click-while-scrolling`; with it, a tap in
 RawTouch mode needs the host's confirmation, which RawTouch sends for
 taps that did not catch a coast.
 
-**A pad is dead even in Standard mode, while keys work.** Check the
-driver, GPIOs, and split relay before the host app. Try power-cycling the
-affected half. If it recurs, report the driver revision, how long the half
-had been running, and whether a power cycle restored it.
+**A pad is dead even in Standard mode, while keys work.** The cause is in
+the firmware or hardware, not the host app: check the driver, its GPIOs,
+and the split relay, and try power-cycling the affected half.
 
 **A relayed pad stutters over a wireless split.** Add the peripheral's
 [transmit buffer settings](#wireless-splits).
@@ -989,10 +1023,14 @@ Look for a collection with `PrimaryUsagePage` 65280 (`0xFF00`) and
 visible, not that touch samples are being delivered. Other devices may
 use the same usage values.
 
-To check mode switching, enable `CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL_INF=y`
-and run RawTouch with Accessibility permission. A successfully acquired
-USB lease logs `Raw touch lease acquired by USB (timeout 30s)`. The log
-also records lease releases, disconnects, endpoint switches, and expiry.
+To check mode switching, build the central half with ZMK's
+[USB logging](https://zmk.dev/docs/development/usb-logging) and
+`CONFIG_ZMK_RAW_TOUCH_LOG_LEVEL_INF=y`, connect it over USB, and open a
+serial console on its USB serial port as that page describes. The log
+level alone prints nothing without USB logging. Then run RawTouch with
+Accessibility permission. A successfully acquired USB lease logs
+`Raw touch lease acquired by USB (timeout 30s)`. The log also records
+lease releases, disconnects, endpoint switches, and expiry.
 
 When reporting a problem, include the board, ZMK/Zephyr, module and
 driver revisions, the transport, and whether Standard mode works. Battery

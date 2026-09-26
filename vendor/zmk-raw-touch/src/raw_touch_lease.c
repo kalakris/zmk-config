@@ -141,10 +141,28 @@ static void lease_expiry_cb(struct k_work *work) {
     }
 }
 
+/* A command is its ZMK_RAW_TOUCH_CMD_LEN-byte body, optionally followed by
+ * zero padding: Windows' HidD_SetFeature, and hidapi on Windows, always
+ * write the feature report's full declared length. Anything shorter, or
+ * a nonzero byte in the padding, is malformed. */
+static bool command_length_valid(const uint8_t *body, size_t len) {
+    if (len < ZMK_RAW_TOUCH_CMD_LEN) {
+        return false;
+    }
+
+    for (size_t i = ZMK_RAW_TOUCH_CMD_LEN; i < len; i++) {
+        if (body[i] != 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 int zmk_raw_touch_lease_handle_command(struct zmk_endpoint_instance source, const uint8_t *body,
                                       size_t len) {
-    if (len != ZMK_RAW_TOUCH_CMD_LEN) {
-        LOG_WRN("Rejected lease command with length %d", (int)len);
+    if (!command_length_valid(body, len)) {
+        LOG_WRN("Rejected host command with length %d or nonzero padding", (int)len);
         return -EMSGSIZE;
     }
 

@@ -130,7 +130,10 @@ static void input_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value) {
  * path (HOGP report characteristics of type Feature are read/write per
  * HIDS 1.0 §2.5.2). The GATT write carries the 4-byte body alone - the
  * report ID lives in the report reference descriptor, as on the input
- * report's notify path.
+ * report's notify path - optionally zero-padded to the feature report's
+ * declared length, as Windows writes it. The whole command must arrive in
+ * one write: a nonzero offset (a long write) is refused below, so a
+ * padded body has to fit the link's ATT MTU.
  *
  * The connection identifies the sender: its peer address maps to the ZMK
  * BLE profile, and the command is scoped to that profile's endpoint

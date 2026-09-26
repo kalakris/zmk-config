@@ -24,7 +24,7 @@
     trackpad_listener: trackpad_listener {
         compatible = "zmk,input-listener";
         device = <&trackpad>;
-        input-processors = <&zip_xy_scaler 1 1>,
+        input-processors = <&zip_xy_scaler 1 3>,
                            <&zip_raw_touch_idle_filter>;
 
         scroll {

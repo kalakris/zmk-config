@@ -60,9 +60,11 @@ config ZMK_RAW_TOUCH_USB_QUEUE_SIZE
 
       When the queue is full the oldest MOTION frame is evicted; release
       frames (touched = 0) are never evicted, because losing one leaves the
-      host holding a phantom finger-down. Raise this only if the log warns
-      that the queue is full of undelivered release frames - that means
-      more pads than it can hold.
+      host holding a finger-down until its silence watchdog fires. If no
+      entry can be evicted, the incoming frame is dropped - even a release
+      - and the log warns that the queue is full of undelivered release
+      frames. Raise this if you see that warning: it means more pads than
+      the queue can hold.
 
 config ZMK_RAW_TOUCH_BLE
     bool "Send raw touch frames over BLE"
@@ -95,9 +97,12 @@ config ZMK_RAW_TOUCH_BLE_QUEUE_SIZE
 
       When the queue is full the oldest MOTION frame is evicted; release
       frames (touched = 0) are never evicted and are retried on a transient
-      notify error, so shrinking this does not risk a phantom finger-down
-      on the host. Raise it only if the log warns that the queue is full of
-      undelivered release frames - that means more pads than it can hold.
+      notify error. If no entry can be evicted, the incoming frame is
+      dropped - even a release, which leaves the host holding a
+      finger-down until its silence watchdog fires - and the log warns
+      that the queue is full of undelivered release frames. A smaller
+      queue makes that more likely. Raise this if you see that warning: it
+      means more pads than the queue can hold.
 
 config ZMK_RAW_TOUCH_BLE_THREAD_STACK_SIZE
     int "Stack size of the BLE send work queue"
